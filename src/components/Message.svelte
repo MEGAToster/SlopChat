@@ -33,3 +33,47 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .message {
+    font-size: var(--fs-md);
+  }
+
+  .message.user {
+    align-self: flex-end;
+    max-width: 80%;
+    padding: 8px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .message.assistant {
+    align-self: stretch;
+    min-width: 0;
+  }
+
+  .thinking {
+    color: var(--text-tertiary);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .caret {
+    display: inline-block;
+    color: var(--accent);
+    animation: blink 1s steps(1) infinite;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes pulse {
+    50% {
+      opacity: 0.4;
+    }
+  }
+</style>

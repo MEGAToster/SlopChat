@@ -69,9 +69,19 @@ export type SendRequest = {
   messages: ChatMessage[];
 };
 
+export type Theme = {
+  scheme?: "dark" | "light";
+  extends?: string;
+  vibrancy?: "hud" | "popover" | "sidebar" | "none";
+  opacity?: number;
+  colors?: Record<string, string>;
+  syntax?: Record<string, string>;
+  font?: { ui?: string; mono?: string; size?: number };
+};
+
 export type ThemeInfo = {
   name: string;
-  tokens: Record<string, string>;
+  theme: Theme;
 };
 
 export type Chat = {

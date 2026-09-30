@@ -6,14 +6,14 @@
   import Sidebar from "./components/Sidebar.svelte";
   import Thread from "./components/Thread.svelte";
   import Toast from "./components/Toast.svelte";
+  import { handleWindowClick } from "./lib/clicks";
   import { focusComposer } from "./lib/dom";
-  import { hasApiKey, isSticky, onPanelShown, onStickyChanged, openUrl, resizePanel } from "./lib/ipc";
+  import { hasApiKey, isSticky, onPanelShown, onStickyChanged, resizePanel } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
   import { createActions } from "./lib/state/actions.svelte";
   import { chatError, init as initChat, isStreaming, messages } from "./lib/state/chat.svelte";
   import {
     back as paletteBack,
-    close as paletteClose,
     isOpen as paletteIsOpen,
     mode as paletteMode,
     move as paletteMove,
@@ -142,6 +142,7 @@
     paletteOpen: paletteIsOpen,
     paletteMode,
     settingsOpen: settingsPanelIsOpen,
+    blocked: () => !ready || needsKey,
     filterActive: filtering,
     confirmActive: () => pendingDelete() !== null,
     actions: {
@@ -155,7 +156,7 @@
           .catch(actions.closePalette);
       },
       paletteBack,
-      paletteClose,
+      paletteClose: actions.closePalette,
       closeSettings: actions.closeSettings,
       closeFilter: actions.closeFilter,
       openSelected: actions.openSelected,
@@ -165,20 +166,11 @@
     },
   });
 
-  function onLinkClick(event: MouseEvent) {
-    const anchor = (event.target as HTMLElement | null)?.closest("a[href]");
-    if (!(anchor instanceof HTMLAnchorElement)) return;
-    const href = anchor.getAttribute("href") ?? "";
-    event.preventDefault();
-    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:")) {
-      void openUrl(href);
-    }
-  }
 </script>
 
-<svelte:window onkeydown={onKeydown} onclick={onLinkClick} />
+<svelte:window onkeydown={onKeydown} onclick={handleWindowClick} />
 
-<main class="panel" class:expanded={isExpanded()}>
+<main class="panel" class:expanded={isExpanded()} class:overlay={paletteIsOpen() || settingsPanelIsOpen()}>
   <div class="layout">
     {#if ready && !needsKey && isExpanded()}
       <Sidebar />
@@ -201,11 +193,16 @@
           }}
         />
       {:else}
-        <Thread bind:text {sticky} onfocus={() => setContext("composer")} />
+        <Thread
+          bind:text
+          {sticky}
+          expanded={isExpanded()}
+          onfocus={() => setContext("composer")}
+        />
       {/if}
 
       {#if persistentError}
-        <Toast message={persistentError} />
+        <Toast message={persistentError} kind="warning" />
       {:else if notice}
         <Toast message={notice} />
       {/if}

@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use serde::Serialize;
 
 use crate::paths;
@@ -8,7 +6,7 @@ use crate::paths;
 #[serde(rename_all = "camelCase")]
 pub struct UserTheme {
     pub name: String,
-    pub tokens: BTreeMap<String, String>,
+    pub theme: serde_json::Value,
 }
 
 pub fn load_user() -> Vec<UserTheme> {
@@ -28,12 +26,12 @@ pub fn load_user() -> Vec<UserTheme> {
         let Ok(contents) = std::fs::read_to_string(&path) else {
             continue;
         };
-        let Ok(tokens) = serde_json::from_str::<BTreeMap<String, String>>(&contents) else {
+        let Ok(theme) = serde_json::from_str::<serde_json::Value>(&contents) else {
             continue;
         };
         themes.push(UserTheme {
             name: name.to_string(),
-            tokens,
+            theme,
         });
     }
 

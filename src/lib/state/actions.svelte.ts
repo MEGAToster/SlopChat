@@ -1,45 +1,31 @@
 import { tick } from "svelte";
 
-import { messagesViewport, focusComposer } from "../dom";
-import { hidePanel, resizePanel, toggleSticky } from "../ipc";
+import { focusComposer, messagesViewport } from "../dom";
+import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import {
-  isStreaming,
   lastUserMessage,
   nextChat,
   pinChat,
   prevChat,
   regenerate,
-  removeChat,
   reportError,
   stop,
   submit,
 } from "./chat.svelte";
-import {
-  activate as paletteActivate,
-  close as paletteClose,
-  open as paletteOpen,
-} from "./palette.svelte";
-import {
-  closePanel as settingsPanelClose,
-  isOpen as settingsPanelIsOpen,
-} from "./settingsPanel.svelte";
+import { createOverlays } from "./overlays.svelte";
+import { activate as paletteActivate } from "./palette.svelte";
 import {
   activeProfile,
   beginEdit,
-  clampSelection,
   cycleProfile,
   editingId,
   endEdit,
   isExpanded,
-  keyContext,
-  measurePanel,
   modelOverride,
   moveSelection,
   openChatWithProfile,
-  pendingDelete,
   schedulePreview,
-  selectActive,
   selectedChatId,
   setContext,
   setFiltering,
@@ -54,6 +40,8 @@ export type TextRef = {
 };
 
 export function createActions(text: TextRef) {
+  const overlays = createOverlays();
+
   async function handleSend(): Promise<void> {
     const profile = activeProfile();
     if (!profile) {
@@ -98,14 +86,9 @@ export function createActions(text: TextRef) {
       setContext("composer");
       await setMode("compact");
       await tick();
-      measurePanel();
       focusComposer();
     } else {
-      (document.activeElement as HTMLElement | null)?.blur();
-      await setMode("expanded");
-      selectActive();
-      setFiltering(false);
-      setContext("sidebar");
+      overlays.openSidebar();
     }
   }
 
@@ -123,64 +106,10 @@ export function createActions(text: TextRef) {
     focusComposer();
   }
 
-  async function openPalette(): Promise<void> {
-    if (!isExpanded()) void resizePanel(480);
-    setContext("palette");
-    await paletteOpen();
-    await tick();
-  }
-
-  function closePalette(): void {
-    paletteClose();
-    setContext("composer");
-    if (settingsPanelIsOpen()) return;
-    if (!isExpanded()) void tick().then(measurePanel);
-    focusComposer();
-  }
-
-  function closeSettings(): void {
-    settingsPanelClose();
-    if (!isExpanded()) void tick().then(measurePanel);
-    focusComposer();
-  }
-
-  function closeFilter(): void {
-    setFiltering(false);
-    setContext("composer");
-    focusComposer();
-  }
-
-  function confirmDelete(): void {
-    const id = pendingDelete();
-    setPendingDelete(null);
-    if (id) void removeChat(id).then(clampSelection);
-  }
-
-  function cancelDelete(): void {
-    setPendingDelete(null);
-  }
-
-  function escChain(): void {
-    if (isStreaming()) {
-      void stop();
-      return;
-    }
-    if (keyContext() === "sidebar") {
-      setContext("composer");
-      focusComposer();
-      return;
-    }
-    if (isExpanded()) {
-      void setMode("compact").then(() => tick()).then(measurePanel);
-      return;
-    }
-    void hidePanel();
-  }
-
   function perform(action: Action): void {
     switch (action) {
       case "palette":
-        void openPalette();
+        void overlays.openPalette();
         break;
       case "stop":
         void stop();
@@ -247,9 +176,9 @@ export function createActions(text: TextRef) {
   function paletteActivateAndClose(): void {
     void paletteActivate()
       .then((shouldClose) => {
-        if (shouldClose) closePalette();
+        if (shouldClose) overlays.closePalette();
       })
-      .catch(closePalette);
+      .catch(overlays.closePalette);
   }
 
   return {
@@ -258,14 +187,8 @@ export function createActions(text: TextRef) {
     cancelEdit,
     toggleSidebar,
     openSelected,
-    openPalette,
-    closePalette,
-    closeSettings,
-    closeFilter,
-    confirmDelete,
-    cancelDelete,
-    escChain,
     perform,
     paletteActivateAndClose,
+    ...overlays,
   };
 }

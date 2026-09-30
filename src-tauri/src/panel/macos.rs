@@ -124,6 +124,38 @@ pub fn is_visible(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+pub fn set_window_style(app: &AppHandle, scheme: &str, vibrancy: &str, _opacity: f64) {
+    use tauri::window::{Effect, EffectState, EffectsBuilder};
+
+    let Some(window) = app.get_webview_window(LABEL) else {
+        return;
+    };
+
+    let effect = match vibrancy {
+        "hud" => Some(Effect::HudWindow),
+        "popover" => Some(Effect::Popover),
+        "sidebar" => Some(Effect::Sidebar),
+        _ => None,
+    };
+
+    let config = match effect {
+        Some(effect) => EffectsBuilder::new()
+            .effect(effect)
+            .state(EffectState::Active)
+            .radius(12.0)
+            .build(),
+        None => EffectsBuilder::new().build(),
+    };
+    let _ = window.set_effects(config);
+
+    let theme = if scheme == "light" {
+        tauri::Theme::Light
+    } else {
+        tauri::Theme::Dark
+    };
+    let _ = window.set_theme(Some(theme));
+}
+
 pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
     if let Ok(panel) = app.get_webview_panel(LABEL) {
         if let Some(window) = app.get_webview_window(LABEL) {

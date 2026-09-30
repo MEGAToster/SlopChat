@@ -49,6 +49,7 @@ fn main() {
             commands::set_panel_expanded,
             commands::toggle_panel_expanded,
             commands::is_panel_expanded,
+            commands::set_window_style,
             commands::has_api_key,
             commands::store_api_key,
             commands::delete_api_key,

@@ -17,11 +17,20 @@ const marked = new Marked({
   renderer: {
     code({ text, lang }) {
       const language = (lang ?? "").split(/\s+/)[0];
-      if (language && hljs.getLanguage(language)) {
-        const highlighted = hljs.highlight(text, { language }).value;
-        return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
-      }
-      return `<pre><code class="hljs">${escapeHtml(text)}</code></pre>`;
+      const highlighted =
+        language && hljs.getLanguage(language)
+          ? hljs.highlight(text, { language }).value
+          : escapeHtml(text);
+
+      const className = language ? `hljs language-${language}` : "hljs";
+      const label = escapeHtml(language || "text");
+      return [
+        '<div class="code-block">',
+        `<div class="code-head"><span class="code-lang">${label}</span>`,
+        '<button class="code-copy" type="button" aria-label="Copy">⧉</button></div>',
+        `<pre><code class="${className}">${highlighted}</code></pre>`,
+        "</div>",
+      ].join("");
     },
   },
 });

@@ -22,6 +22,7 @@ export type KeyHandlerDeps = {
   paletteOpen: () => boolean;
   paletteMode: () => string;
   settingsOpen: () => boolean;
+  blocked: () => boolean;
   filterActive: () => boolean;
   confirmActive: () => boolean;
   actions: KeyHandlerActions;
@@ -35,6 +36,14 @@ export function createKeyHandler(deps: KeyHandlerDeps): (event: KeyboardEvent) =
       if (event.key === "Escape") {
         event.preventDefault();
         actions.closeSettings();
+      }
+      return;
+    }
+
+    if (deps.blocked()) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        actions.escChain();
       }
       return;
     }

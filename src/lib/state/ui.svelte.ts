@@ -1,8 +1,11 @@
+import { groupChats, type ChatGroup } from "../chatGroups";
 import { resizePanel, setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, Profile } from "../types";
 import { activeChatId, chats, isBlank, newChat, openChat } from "./chat.svelte";
 import { settings } from "./settings.svelte";
+
+export type { ChatGroup };
 
 type PanelMode = "compact" | "expanded";
 
@@ -107,23 +110,31 @@ export function visibleChats(): Chat[] {
   return all.filter((chat) => chat.title.toLowerCase().includes(query));
 }
 
+export function chatGroups(): ChatGroup[] {
+  return groupChats(visibleChats());
+}
+
+export function orderedChats(): Chat[] {
+  return chatGroups().flatMap((group) => group.chats);
+}
+
 export function moveSelection(delta: number): void {
-  const count = visibleChats().length;
+  const count = orderedChats().length;
   if (count === 0) return;
   store.selectedIndex = Math.min(Math.max(store.selectedIndex + delta, 0), count - 1);
 }
 
 export function selectedChatId(): string | null {
-  return visibleChats()[store.selectedIndex]?.id ?? null;
+  return orderedChats()[store.selectedIndex]?.id ?? null;
 }
 
 export function selectActive(): void {
-  const index = visibleChats().findIndex((chat) => chat.id === activeChatId());
+  const index = orderedChats().findIndex((chat) => chat.id === activeChatId());
   store.selectedIndex = index === -1 ? 0 : index;
 }
 
 export function clampSelection(): void {
-  const count = visibleChats().length;
+  const count = orderedChats().length;
   store.selectedIndex = count === 0 ? 0 : Math.min(store.selectedIndex, count - 1);
 }
 

@@ -1,4 +1,3 @@
-import { fuzzyMatch } from "../fuzzy";
 import {
   listChats,
   listModels,
@@ -9,6 +8,8 @@ import {
 } from "../ipc";
 import type { Chat, ProviderModel } from "../types";
 import { activeChatId, pinChat } from "./chat.svelte";
+import { addGroups, rootGroups } from "./paletteItems";
+import type { PaletteGroup, PaletteItem } from "./paletteTypes";
 import { settings } from "./settings.svelte";
 import { openFromProvider, openPanel } from "./settingsPanel.svelte";
 import { setTheme, themes } from "./theme.svelte";
@@ -21,26 +22,9 @@ import {
   setProfile,
 } from "./ui.svelte";
 
-export type PaletteItem =
-  | { kind: "action"; id: string; label: string }
-  | { kind: "chat"; id: string; label: string }
-  | { kind: "model"; id: string; label: string }
-  | { kind: "provider"; id: string; label: string; provider: string }
-  | { kind: "profile"; id: string; label: string }
-  | { kind: "theme"; id: string; label: string };
+export type { PaletteGroup, PaletteItem } from "./paletteTypes";
 
 type Mode = "root" | "add";
-
-const ACTIONS: { id: string; label: string }[] = [
-  { id: "new-chat", label: "New chat" },
-  { id: "toggle-expanded", label: "Toggle expanded" },
-  { id: "toggle-sticky", label: "Toggle sticky" },
-  { id: "pin-chat", label: "Pin / unpin chat" },
-  { id: "add-models", label: "Add models…" },
-  { id: "settings-panel", label: "Settings" },
-  { id: "config-file", label: "Edit config file" },
-  { id: "reload", label: "Reload config" },
-];
 
 const state = $state({
   open: false,
@@ -74,64 +58,22 @@ export function loading(): boolean {
   return state.loading;
 }
 
+export function breadcrumb(): string {
+  return state.mode === "add" ? "Add model" : "Commands";
+}
+
+export function groups(): PaletteGroup[] {
+  if (state.mode === "add") return addGroups(state.providerModels, state.query);
+  return rootGroups({
+    settings: settings(),
+    chats: state.chats,
+    themes: themes(),
+    query: state.query,
+  });
+}
+
 export function items(): PaletteItem[] {
-  const query = state.query.trim();
-  const candidates = state.mode === "add" ? providerItems() : rootItems();
-
-  if (!query) return candidates;
-
-  return candidates
-    .map((item) => ({ item, match: fuzzyMatch(query, item.label) }))
-    .filter((entry) => entry.match !== null)
-    .sort((a, b) => b.match!.score - a.match!.score)
-    .map((entry) => entry.item);
-}
-
-function rootItems(): PaletteItem[] {
-  const seen = new Set<string>();
-  const models: PaletteItem[] = [];
-  for (const model of settings().models) {
-    if (seen.has(model)) continue;
-    seen.add(model);
-    models.push({ kind: "model", id: model, label: model });
-  }
-  for (const profile of settings().profiles) {
-    if (seen.has(profile.model)) continue;
-    seen.add(profile.model);
-    models.push({ kind: "model", id: profile.model, label: profile.model });
-  }
-
-  return [
-    ...ACTIONS.map((action) => ({ kind: "action" as const, ...action })),
-    ...state.chats.map((chat) => ({
-      kind: "chat" as const,
-      id: chat.id,
-      label: chat.title || "New chat",
-    })),
-    ...models,
-    ...settings().profiles.map((profile) => ({
-      kind: "profile" as const,
-      id: profile.name,
-      label: profile.name,
-    })),
-    ...themes().map((theme) => ({
-      kind: "theme" as const,
-      id: theme.name,
-      label: theme.name,
-    })),
-  ];
-}
-
-function providerItems(): PaletteItem[] {
-  return state.providerModels
-    .slice()
-    .sort((a, b) => a.provider.localeCompare(b.provider) || a.id.localeCompare(b.id))
-    .map((model) => ({
-      kind: "provider" as const,
-      id: `${model.provider}/${model.id}`,
-      label: model.name || model.id,
-      provider: model.provider,
-    }));
+  return groups().flatMap((group) => group.items);
 }
 
 export async function open(): Promise<void> {
@@ -226,7 +168,7 @@ async function run(item: PaletteItem): Promise<void> {
       setModelOverride(item.id);
       break;
     case "provider":
-      openFromProvider(item.provider, item.id);
+      openFromProvider(item.provider ?? "", item.id);
       break;
     case "theme":
       await setTheme(item.id);

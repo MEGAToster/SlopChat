@@ -144,6 +144,14 @@ export function openUrl(url: string): Promise<void> {
   return invoke("open_url", { url });
 }
 
+export function setWindowStyle(
+  scheme: string,
+  vibrancy: string,
+  opacity: number,
+): Promise<void> {
+  return invoke("set_window_style", { scheme, vibrancy, opacity });
+}
+
 export function onPanelShown(handler: () => void): Promise<UnlistenFn> {
   return listen("panel://shown", handler);
 }

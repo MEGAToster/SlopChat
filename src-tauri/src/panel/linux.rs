@@ -52,6 +52,17 @@ pub fn is_visible(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+pub fn set_window_style(app: &AppHandle, scheme: &str, _vibrancy: &str, _opacity: f64) {
+    if let Some(window) = app.get_webview_window(LABEL) {
+        let theme = if scheme == "light" {
+            tauri::Theme::Light
+        } else {
+            tauri::Theme::Dark
+        };
+        let _ = window.set_theme(Some(theme));
+    }
+}
+
 pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
     if let Some(window) = app.get_webview_window(LABEL) {
         let _ = window.set_position(position);

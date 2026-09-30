@@ -32,3 +32,16 @@
     />
   {/each}
 </div>
+
+<style>
+  .messages {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    width: 100%;
+    max-width: 760px;
+    max-height: 320px;
+    margin: 0 auto;
+    overflow-y: auto;
+  }
+</style>

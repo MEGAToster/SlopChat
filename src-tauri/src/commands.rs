@@ -46,6 +46,11 @@ pub fn is_panel_expanded(app: AppHandle) -> bool {
 }
 
 #[tauri::command]
+pub fn set_window_style(app: AppHandle, scheme: String, vibrancy: String, opacity: f64) {
+    panel::set_window_style(&app, &scheme, &vibrancy, opacity);
+}
+
+#[tauri::command]
 pub fn toggle_sticky(app: AppHandle) -> bool {
     panel::toggle_sticky(&app)
 }
