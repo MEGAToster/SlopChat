@@ -46,7 +46,12 @@ export async function run(
         callbacks.onReasoning();
         break;
       case "usage":
-        usage = { tokensIn: event.tokensIn, tokensOut: event.tokensOut, cost: event.cost };
+        usage = {
+          tokensIn: event.tokensIn,
+          tokensOut: event.tokensOut,
+          cost: event.cost,
+          provider: event.provider,
+        };
         callbacks.onUsage(usage);
         break;
       case "error":

@@ -49,12 +49,13 @@ export type Usage = {
   tokensIn: number;
   tokensOut: number;
   cost: number | null;
+  provider?: string | null;
 };
 
 export type StreamEvent =
   | { type: "delta"; content: string }
   | { type: "reasoning" }
-  | { type: "usage"; tokensIn: number; tokensOut: number; cost: number | null }
+  | { type: "usage"; tokensIn: number; tokensOut: number; cost: number | null; provider: string | null }
   | { type: "done" }
   | { type: "error"; message: string };
 

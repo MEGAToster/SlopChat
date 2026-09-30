@@ -91,7 +91,12 @@ impl ChatRequest {
 pub enum StreamEvent {
     Delta { content: String },
     Reasoning,
-    Usage { tokens_in: u32, tokens_out: u32, cost: Option<f64> },
+    Usage {
+        tokens_in: u32,
+        tokens_out: u32,
+        cost: Option<f64>,
+        provider: Option<String>,
+    },
     Done,
     Error { message: String },
 }
@@ -146,9 +151,13 @@ mod tests {
             tokens_in: 1,
             tokens_out: 2,
             cost: Some(0.5),
+            provider: Some("OpenAI".to_string()),
         };
         let json = serde_json::to_string(&event).unwrap();
-        assert_eq!(json, r#"{"type":"usage","tokensIn":1,"tokensOut":2,"cost":0.5}"#);
+        assert_eq!(
+            json,
+            r#"{"type":"usage","tokensIn":1,"tokensOut":2,"cost":0.5,"provider":"OpenAI"}"#
+        );
 
         let delta = serde_json::to_string(&StreamEvent::Delta {
             content: "hi".to_string(),

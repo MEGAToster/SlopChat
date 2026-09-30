@@ -17,8 +17,10 @@
 
   const profile = $derived(activeProfile());
   const color = $derived(profileColor(profile, activeProfileIndex()));
-  const model = $derived((modelOverride() ?? profile?.model ?? "").split("/").pop() ?? "");
+  const fullModel = $derived(modelOverride() ?? profile?.model ?? "");
+  const model = $derived(fullModel.split("/").pop() ?? "");
   const usage = $derived(lastUsage());
+  const provider = $derived(usage?.provider ?? fullModel.split("/")[0] ?? "");
   const keybinds = $derived(settings().keybinds);
   const sidebar = $derived(keyContext() === "sidebar");
   const editing = $derived(editingId() !== null);
@@ -73,7 +75,7 @@
 
     <div class="usage number" title={totalText}>
       {#if usage}
-        ↑{compact(usage.tokensIn)} ↓{compact(usage.tokensOut)}{#if usage.cost !== null}{` · ${money(usage.cost)}`}{/if}
+        ↑{compact(usage.tokensIn)} ↓{compact(usage.tokensOut)}{#if usage.cost !== null}{` · ${money(usage.cost)}`}{/if}{#if provider}{` · ${provider}`}{/if}
       {/if}
     </div>
 

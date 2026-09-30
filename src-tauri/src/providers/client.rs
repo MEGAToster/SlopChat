@@ -64,6 +64,7 @@ struct ProviderRequest {
     body: serde_json::Value,
     key: Option<String>,
     zero_cost: bool,
+    provider: String,
 }
 
 pub async fn stream(
@@ -99,6 +100,7 @@ pub async fn stream(
         body: kind.body(&request, &model.model),
         key,
         zero_cost: kind.zero_cost(),
+        provider: kind.name().to_string(),
     };
 
     let streams = app.state::<Streams>();
@@ -151,6 +153,7 @@ async fn send(
 
     let mut parser = SseParser::default();
     let mut usage = None;
+    let mut provider = None;
     let mut reasoned = false;
 
     loop {
@@ -189,6 +192,9 @@ async fn send(
             if parsed.usage.is_some() {
                 usage = parsed.usage;
             }
+            if parsed.provider.is_some() {
+                provider = parsed.provider;
+            }
         }
 
         if done {
@@ -202,6 +208,7 @@ async fn send(
             tokens_in: usage.prompt_tokens,
             tokens_out: usage.completion_tokens,
             cost,
+            provider: provider.or_else(|| Some(plan.provider.clone())),
         });
     }
 
@@ -219,6 +226,8 @@ struct Chunk {
     choices: Vec<Choice>,
     #[serde(default)]
     usage: Option<Usage>,
+    #[serde(default)]
+    provider: Option<String>,
     #[serde(default)]
     error: Option<ProviderError>,
 }
@@ -257,6 +266,7 @@ struct Parsed {
     content: Option<String>,
     reasoning: bool,
     usage: Option<Usage>,
+    provider: Option<String>,
     error: Option<String>,
 }
 
@@ -287,6 +297,7 @@ fn parse_chunk(data: &str) -> Option<Parsed> {
         content,
         reasoning,
         usage: chunk.usage,
+        provider: chunk.provider,
         error,
     })
 }
