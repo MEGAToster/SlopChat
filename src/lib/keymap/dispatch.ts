@@ -7,6 +7,7 @@ export type Action =
   | "hide"
   | "palette"
   | "sticky"
+  | "stop"
   | "focusSidebar"
   | "editLast"
   | "prevChat"
@@ -40,6 +41,7 @@ export function resolve(
   if (context === "editing" && key === "Esc") return "cancelEdit";
   if (matchesAny(keybinds.palette, event)) return "palette";
   if (matchesAny(keybinds.sticky, event)) return "sticky";
+  if (matchesAny(keybinds.stop, event)) return "stop";
   if (key === "Esc") return "hide";
 
   switch (context) {

@@ -6,6 +6,7 @@ export type Keybinds = {
   nextChat: string[];
   cycleProfile: string[];
   sticky: string[];
+  stop: string[];
 };
 
 export type Provider = {
@@ -36,4 +37,29 @@ export type Settings = {
   resumeWithinMinutes: number;
   theme: string;
   window: WindowConfig;
+};
+
+export type Usage = {
+  tokensIn: number;
+  tokensOut: number;
+  cost: number | null;
+};
+
+export type StreamEvent =
+  | { type: "delta"; content: string }
+  | { type: "usage"; tokensIn: number; tokensOut: number; cost: number | null }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+export type ChatMessage = {
+  role: string;
+  content: string;
+};
+
+export type SendRequest = {
+  chatId: string;
+  model: string;
+  system?: string;
+  temperature?: number;
+  messages: ChatMessage[];
 };

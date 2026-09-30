@@ -4,6 +4,10 @@ mod commands;
 mod config;
 mod panel;
 mod paths;
+mod providers;
+mod secrets;
+
+use crate::providers::client::Streams;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -14,7 +18,8 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             panel::show(app);
         }))
-        .manage(panel::Sticky::default());
+        .manage(panel::Sticky::default())
+        .manage(Streams::default());
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_nspanel::init());
@@ -37,6 +42,12 @@ fn main() {
             commands::is_sticky,
             commands::get_settings,
             commands::config_error,
+            commands::resize_panel,
+            commands::has_api_key,
+            commands::store_api_key,
+            commands::delete_api_key,
+            commands::send,
+            commands::stop,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

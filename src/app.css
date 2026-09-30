@@ -1,6 +1,7 @@
 :root {
   --bg: #1b1b1f;
   --surface: #24242b;
+  --surface-2: #0f0f13;
   --text: #e8e8ec;
   --muted: #9a9aa5;
   --border: #33333d;
@@ -27,41 +28,127 @@ body {
 
 .panel {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   height: 100%;
-  padding: 14px;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
-.composer {
-  flex: 1;
-  resize: none;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.composer::placeholder {
-  color: var(--muted);
-}
-
-.hint {
+.content {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.message {
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.message.user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 8px 12px;
+  background: var(--surface);
+  white-space: pre-wrap;
+}
+
+.message.assistant {
+  align-self: stretch;
+}
+
+.markdown p {
+  margin: 0 0 8px;
+}
+
+.markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown pre {
+  margin: 8px 0;
+  padding: 10px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.markdown :not(pre) > code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.markdown a {
+  color: var(--accent);
+}
+
+.markdown th,
+.markdown td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+}
+
+.markdown table {
+  border-collapse: collapse;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footer-row {
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0;
+}
+
+.status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 14px;
   color: var(--muted);
   font-size: 11px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.badge:hover {
+  border-color: var(--accent);
 }
 
 .pin {
@@ -69,5 +156,81 @@ body {
   border-radius: 999px;
   background: var(--accent);
   color: var(--bg);
+  font-size: 11px;
   font-weight: 600;
+}
+
+.stop {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.composer {
+  width: 100%;
+  max-height: 160px;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.composer::placeholder {
+  color: var(--muted);
+}
+
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.onboarding input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.onboarding button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.error {
+  margin: 0;
+  color: #ff9d9d;
+  font-size: 12px;
 }

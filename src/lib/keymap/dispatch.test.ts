@@ -74,6 +74,7 @@ describe("configured bindings", () => {
     expect(
       resolve("composer", key({ key: "p", ctrlKey: true, shiftKey: true }), bindings, state()),
     ).toBe("sticky");
+    expect(resolve("composer", key({ key: "d", ctrlKey: true }), bindings, state())).toBe("stop");
   });
 
   it("follows a rebound keybind", () => {

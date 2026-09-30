@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, type Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { Settings } from "./types";
+import type { SendRequest, Settings, StreamEvent } from "./types";
 
 export function showPanel(): Promise<void> {
   return invoke("show_panel");
@@ -28,6 +28,30 @@ export function getSettings(): Promise<Settings> {
 
 export function getConfigError(): Promise<string | null> {
   return invoke("config_error");
+}
+
+export function resizePanel(height: number): Promise<void> {
+  return invoke("resize_panel", { height });
+}
+
+export function hasApiKey(provider: string): Promise<boolean> {
+  return invoke("has_api_key", { provider });
+}
+
+export function storeApiKey(provider: string, key: string): Promise<void> {
+  return invoke("store_api_key", { provider, key });
+}
+
+export function deleteApiKey(provider: string): Promise<void> {
+  return invoke("delete_api_key", { provider });
+}
+
+export function send(request: SendRequest, channel: Channel<StreamEvent>): Promise<void> {
+  return invoke("send", { request, channel });
+}
+
+export function stop(chatId: string): Promise<void> {
+  return invoke("stop", { chatId });
 }
 
 export function onPanelShown(handler: () => void): Promise<UnlistenFn> {

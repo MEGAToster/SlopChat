@@ -8,6 +8,7 @@ use tauri_nspanel::{
 const LABEL: &str = "main-panel";
 const COMPACT_WIDTH: f64 = 680.0;
 const COMPACT_HEIGHT: f64 = 160.0;
+const MAX_HEIGHT: f64 = 480.0;
 
 tauri_panel! {
     panel!(SlopPanel {
@@ -98,6 +99,12 @@ pub fn is_visible(app: &AppHandle) -> bool {
     app.get_webview_panel(LABEL)
         .map(|panel| panel.is_visible())
         .unwrap_or(false)
+}
+
+pub fn resize(app: &AppHandle, height: f64) {
+    if let Ok(panel) = app.get_webview_panel(LABEL) {
+        panel.set_content_size(COMPACT_WIDTH, height.clamp(COMPACT_HEIGHT, MAX_HEIGHT));
+    }
 }
 
 fn compact_position(app: &AppHandle, monitor: Option<&Monitor>) -> Position {
