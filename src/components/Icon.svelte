@@ -29,6 +29,9 @@
   {:else if name === "provider"}
     <path d="M12 3 3 8v8l9 5 9-5V8z" />
     <path d="M3 8l9 5 9-5M12 13v8" />
+  {:else if name === "theme"}
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
   {:else if name === "enter"}
     <path d="M9 10 4 15l5 5" />
     <path d="M20 4v7a4 4 0 0 1-4 4H4" />

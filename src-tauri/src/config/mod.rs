@@ -1,15 +1,16 @@
+mod defaults;
 mod keybinds;
+mod themes;
 mod watch;
+mod write;
+
+pub use themes::UserTheme;
 
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::Path;
 use std::sync::{Mutex, RwLock};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-
-use crate::paths;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -56,7 +57,7 @@ pub struct Profile {
     pub system: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
-    #[serde(default = "default_true")]
+    #[serde(default = "defaults::default_true")]
     pub use_context: bool,
 }
 
@@ -89,7 +90,10 @@ impl ConfigState {
     }
 
     pub fn get(&self) -> Settings {
-        self.settings.read().expect("config lock poisoned").clone()
+        self.settings
+            .read()
+            .expect("config lock poisoned")
+            .clone()
     }
 
     pub fn error(&self) -> Option<String> {
@@ -106,7 +110,7 @@ impl ConfigState {
 }
 
 pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let (settings, load_error) = match load() {
+    let (settings, load_error) = match write::load() {
         Ok(settings) => (settings, None),
         Err(error) => (Settings::default(), Some(error)),
     };
@@ -115,16 +119,15 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(error) = load_error {
         report_error(app, error);
-    } else {
-        apply_toggle(app, &settings.keybinds.toggle);
     }
 
+    apply_toggle(app, &settings.keybinds.toggle);
     watch::start(app.clone())?;
     Ok(())
 }
 
 pub(crate) fn reload(app: &AppHandle) {
-    let settings = match load() {
+    let settings = match write::load() {
         Ok(settings) => settings,
         Err(error) => {
             report_error(app, error);
@@ -155,6 +158,26 @@ pub(crate) fn reload(app: &AppHandle) {
     let _ = app.emit("config://changed", &settings);
 }
 
+pub fn ensure_file() -> Result<(), String> {
+    write::ensure_file()
+}
+
+pub fn add_model(app: &AppHandle, model: &str) -> Result<(), String> {
+    write::add_model(app, model)
+}
+
+pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
+    write::remove_model(app, model)
+}
+
+pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
+    write::set_theme(app, theme)
+}
+
+pub fn load_user_themes() -> Vec<UserTheme> {
+    themes::load_user()
+}
+
 fn apply_toggle(app: &AppHandle, keys: &[String]) {
     let result = keybinds::parse(keys).and_then(|shortcuts| keybinds::apply(app, &shortcuts));
     if let Err(error) = result {
@@ -168,165 +191,6 @@ fn report_error(app: &AppHandle, error: String) {
     let _ = app.emit("config://error", &message);
 }
 
-pub fn ensure_file() -> Result<(), String> {
-    load().map(|_| ())
-}
-
-pub fn add_model(app: &AppHandle, model: &str) -> Result<(), String> {
-    let mut settings = app.state::<ConfigState>().get();
-    if settings.models.iter().any(|existing| existing == model) {
-        return Ok(());
-    }
-    settings.models.push(model.to_string());
-    write(&paths::settings_path(), &settings)?;
-    let _ = app.emit("config://changed", &settings);
-    app.state::<ConfigState>().set(settings);
-    Ok(())
-}
-
-pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
-    let mut settings = app.state::<ConfigState>().get();
-    let before = settings.models.len();
-    settings.models.retain(|existing| existing != model);
-    if settings.models.len() == before {
-        return Ok(());
-    }
-    write(&paths::settings_path(), &settings)?;
-    let _ = app.emit("config://changed", &settings);
-    app.state::<ConfigState>().set(settings);
-    Ok(())
-}
-
-fn load() -> Result<Settings, String> {
-    let path = paths::settings_path();
-
-    if !path.exists() {
-        let settings = Settings::default();
-        write(&path, &settings)?;
-        return Ok(settings);
-    }
-
-    let text =
-        fs::read_to_string(&path).map_err(|error| format!("reading {}: {error}", path.display()))?;
-    serde_json::from_str(&text).map_err(|error| format!("settings.json: {error}"))
-}
-
-fn write(path: &Path, settings: &Settings) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("creating {}: {error}", parent.display()))?;
-    }
-    let json = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
-    fs::write(path, json).map_err(|error| format!("writing {}: {error}", path.display()))
-}
-
-fn default_true() -> bool {
-    true
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            keybinds: Keybinds::default(),
-            providers: default_providers(),
-            profiles: default_profiles(),
-            models: Vec::new(),
-            startup: Startup::default(),
-            resume_within_minutes: 10,
-            theme: "default-dark".to_string(),
-            window: WindowConfig::default(),
-        }
-    }
-}
-
-impl Default for Keybinds {
-    fn default() -> Self {
-        Self {
-            toggle: vec!["Alt+Space".to_string()],
-            palette: vec!["Ctrl+P".to_string()],
-            sidebar: vec!["Ctrl+H".to_string()],
-            prev_chat: vec!["Ctrl+K".to_string()],
-            next_chat: vec!["Ctrl+J".to_string()],
-            cycle_profile: vec!["Shift+Tab".to_string()],
-            sticky: vec!["Ctrl+Shift+P".to_string()],
-            stop: vec!["Ctrl+D".to_string()],
-            scroll_up: vec!["Ctrl+U".to_string()],
-            scroll_down: vec!["Ctrl+D".to_string()],
-        }
-    }
-}
-
-impl Default for WindowConfig {
-    fn default() -> Self {
-        Self {
-            compact_width: 680.0,
-            expanded_screen_ratio: 0.7,
-        }
-    }
-}
-
-fn default_providers() -> BTreeMap<String, Provider> {
-    let mut providers = BTreeMap::new();
-    providers.insert(
-        "openrouter".to_string(),
-        Provider {
-            base_url: "https://openrouter.ai/api/v1".to_string(),
-            api_key: None,
-        },
-    );
-    providers.insert(
-        "ollama".to_string(),
-        Provider {
-            base_url: "http://localhost:11434/v1".to_string(),
-            api_key: None,
-        },
-    );
-    providers.insert(
-        "gemini".to_string(),
-        Provider {
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".to_string(),
-            api_key: None,
-        },
-    );
-    providers
-}
-
-fn default_profiles() -> Vec<Profile> {
-    vec![
-        Profile {
-            name: "default".to_string(),
-            model: "openrouter/anthropic/claude-sonnet-5".to_string(),
-            system: None,
-            temperature: None,
-            use_context: true,
-        },
-        Profile {
-            name: "cheap".to_string(),
-            model: "openrouter/deepseek/deepseek-chat:floor".to_string(),
-            system: None,
-            temperature: None,
-            use_context: true,
-        },
-        Profile {
-            name: "complex".to_string(),
-            model: "openrouter/anthropic/claude-opus-5-5".to_string(),
-            system: None,
-            temperature: None,
-            use_context: true,
-        },
-        Profile {
-            name: "translate".to_string(),
-            model: "openrouter/google/gemini-2.5-flash".to_string(),
-            system: Some(
-                "Translate the user's text. Detect the source language; translate to English unless another target is given."
-                    .to_string(),
-            ),
-            temperature: None,
-            use_context: false,
-        },
-    ]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,7 +199,7 @@ mod tests {
     fn empty_object_yields_documented_defaults() {
         let settings: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(settings.keybinds.toggle, vec!["Alt+Space".to_string()]);
-        assert_eq!(settings.keybinds.stop, vec!["Ctrl+D".to_string()]);
+        assert_eq!(settings.keybinds.stop, vec!["Ctrl+C".to_string()]);
         assert_eq!(settings.keybinds.scroll_up, vec!["Ctrl+U".to_string()]);
         assert!(settings.providers.contains_key("openrouter"));
         assert_eq!(settings.profiles.len(), 4);
@@ -358,5 +222,13 @@ mod tests {
         let settings: Settings =
             serde_json::from_str(r#"{"profiles":[{"name":"x","model":"y"}]}"#).unwrap();
         assert!(settings.profiles[0].use_context);
+    }
+
+    #[test]
+    fn raw_api_keys_are_rejected() {
+        let settings: Settings =
+            serde_json::from_str(r#"{"providers":{"openrouter":{"baseUrl":"x","apiKey":"sk-123"}}}"#)
+                .unwrap();
+        assert!(crate::providers::api_key(&settings, "openrouter").is_err());
     }
 }

@@ -5,7 +5,8 @@ use crate::config::{self, ConfigState, Settings, Startup};
 use crate::panel;
 use crate::paths;
 use crate::providers::client::Streams;
-use crate::providers::{self, openrouter, ChatRequest, StreamEvent};
+use crate::providers::kinds::Kind;
+use crate::providers::{self, ChatRequest, StreamEvent};
 use crate::secrets;
 use crate::store::{chats, messages, search, Chat, ChatView, Message, NewMessage, Store};
 
@@ -16,7 +17,7 @@ pub fn show_panel(app: AppHandle) {
 
 #[tauri::command]
 pub fn hide_panel(app: AppHandle) {
-    panel::hide(&app);
+    panel::hide(&app, true);
 }
 
 #[tauri::command]
@@ -64,18 +65,18 @@ pub fn config_error(config: State<ConfigState>) -> Option<String> {
     config.error()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn has_api_key(app: AppHandle, provider: String) -> Result<bool, String> {
     let settings = app.state::<ConfigState>().get();
     providers::api_key(&settings, &provider).map(|key| key.is_some())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn store_api_key(provider: String, key: String) -> Result<(), String> {
     secrets::set(&provider, &key)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_api_key(provider: String) -> Result<(), String> {
     secrets::delete(&provider)
 }
@@ -95,24 +96,24 @@ pub fn stop(app: AppHandle, chat_id: String) {
     app.state::<Streams>().stop(&chat_id);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn initial_chat(app: AppHandle, store: State<Store>) -> Result<Option<ChatView>, String> {
     let settings = app.state::<ConfigState>().get();
     let resume_last = matches!(settings.startup, Startup::Last);
     chats::initial(&store.conn(), resume_last, settings.resume_within_minutes)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_chats(store: State<Store>) -> Result<Vec<Chat>, String> {
     chats::list(&store.conn())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_chat(store: State<Store>, profile: String) -> Result<Chat, String> {
     chats::create(&store.conn(), &profile)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_chat(store: State<Store>, chat_id: String) -> Result<Option<ChatView>, String> {
     let conn = store.conn();
     match chats::get(&conn, &chat_id)? {
@@ -121,17 +122,17 @@ pub fn get_chat(store: State<Store>, chat_id: String) -> Result<Option<ChatView>
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_chat(store: State<Store>, chat_id: String) -> Result<(), String> {
     chats::delete(&store.conn(), &chat_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn toggle_chat_pin(store: State<Store>, chat_id: String) -> Result<Chat, String> {
     chats::toggle_pin(&store.conn(), &chat_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_chat_profile(
     store: State<Store>,
     chat_id: String,
@@ -140,12 +141,12 @@ pub fn set_chat_profile(
     chats::set_profile(&store.conn(), &chat_id, &profile)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn append_message(store: State<Store>, message: NewMessage) -> Result<Message, String> {
     messages::append(&store.conn(), &message)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn rewind_to(
     store: State<Store>,
     chat_id: String,
@@ -155,7 +156,7 @@ pub fn rewind_to(
     messages::rewind(&store.conn(), &chat_id, &message_id, &content)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn search_chats(store: State<Store>, query: String) -> Result<Vec<Chat>, String> {
     search::chats(&store.conn(), &query, 20)
 }
@@ -163,22 +164,42 @@ pub fn search_chats(store: State<Store>, query: String) -> Result<Vec<Chat>, Str
 #[tauri::command]
 pub async fn list_models(app: AppHandle) -> Result<Vec<providers::ProviderModel>, String> {
     let settings = app.state::<ConfigState>().get();
-    let Some(key) = providers::api_key(&settings, openrouter::PROVIDER)? else {
-        return Ok(Vec::new());
+    let openrouter_key = providers::api_key(&settings, Kind::OpenRouter.name())?;
+    let gemini_key = providers::api_key(&settings, Kind::Gemini.name())?;
+
+    let openrouter = async {
+        match openrouter_key.as_deref() {
+            Some(key) => Kind::OpenRouter
+                .fetch_models(&settings, Some(key))
+                .await
+                .unwrap_or_default(),
+            None => Vec::new(),
+        }
+    };
+    let ollama = async {
+        Kind::Ollama
+            .fetch_models(&settings, None)
+            .await
+            .unwrap_or_default()
+    };
+    let gemini = async {
+        match gemini_key.as_deref() {
+            Some(key) => Kind::Gemini
+                .fetch_models(&settings, Some(key))
+                .await
+                .unwrap_or_default(),
+            None => Vec::new(),
+        }
     };
 
-    let models = openrouter::models(&settings, &key).await?;
-    Ok(models
-        .into_iter()
-        .map(|model| providers::ProviderModel {
-            provider: openrouter::PROVIDER.to_string(),
-            id: model.id,
-            name: model.name,
-        })
-        .collect())
+    let (openrouter, ollama, gemini) = tokio::join!(openrouter, ollama, gemini);
+    let mut models = openrouter;
+    models.extend(ollama);
+    models.extend(gemini);
+    Ok(models)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_settings_file() -> Result<(), String> {
     config::ensure_file()?;
     let path = paths::settings_path();
@@ -198,29 +219,51 @@ pub fn open_settings_file() -> Result<(), String> {
             .map_err(|error| error.to_string());
     }
 
+    open_path(&path)
+}
+
+#[tauri::command(async)]
+pub fn open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("http://") || url.starts_with("https://") || url.starts_with("mailto:")) {
+        return Err(format!("refusing to open unsupported URL: {url}"));
+    }
+    open_path(std::path::Path::new(&url))
+}
+
+#[tauri::command(async)]
+pub fn reload_config(app: AppHandle) {
+    config::reload(&app);
+}
+
+#[tauri::command(async)]
+pub fn add_model(app: AppHandle, model: String) -> Result<(), String> {
+    config::add_model(&app, &model)
+}
+
+#[tauri::command(async)]
+pub fn remove_model(app: AppHandle, model: String) -> Result<(), String> {
+    config::remove_model(&app, &model)
+}
+
+#[tauri::command(async)]
+pub fn set_theme(app: AppHandle, theme: String) -> Result<(), String> {
+    config::set_theme(&app, &theme)
+}
+
+#[tauri::command(async)]
+pub fn load_user_themes() -> Vec<config::UserTheme> {
+    config::load_user_themes()
+}
+
+fn open_path(target: &std::path::Path) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let opener = "open";
     #[cfg(not(target_os = "macos"))]
     let opener = "xdg-open";
 
     std::process::Command::new(opener)
-        .arg(&path)
+        .arg(target)
         .spawn()
         .map(|_| ())
         .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn reload_config(app: AppHandle) {
-    config::reload(&app);
-}
-
-#[tauri::command]
-pub fn add_model(app: AppHandle, model: String) -> Result<(), String> {
-    config::add_model(&app, &model)
-}
-
-#[tauri::command]
-pub fn remove_model(app: AppHandle, model: String) -> Result<(), String> {
-    config::remove_model(&app, &model)
 }

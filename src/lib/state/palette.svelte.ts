@@ -11,6 +11,7 @@ import type { Chat, ProviderModel } from "../types";
 import { activeChatId, pinChat } from "./chat.svelte";
 import { settings } from "./settings.svelte";
 import { openFromProvider, openPanel } from "./settingsPanel.svelte";
+import { setTheme, themes } from "./theme.svelte";
 import {
   isExpanded,
   newChatWithProfile,
@@ -25,7 +26,8 @@ export type PaletteItem =
   | { kind: "chat"; id: string; label: string }
   | { kind: "model"; id: string; label: string }
   | { kind: "provider"; id: string; label: string; provider: string }
-  | { kind: "profile"; id: string; label: string };
+  | { kind: "profile"; id: string; label: string }
+  | { kind: "theme"; id: string; label: string };
 
 type Mode = "root" | "add";
 
@@ -111,6 +113,11 @@ function rootItems(): PaletteItem[] {
       kind: "profile" as const,
       id: profile.name,
       label: profile.name,
+    })),
+    ...themes().map((theme) => ({
+      kind: "theme" as const,
+      id: theme.name,
+      label: theme.name,
     })),
   ];
 }
@@ -220,6 +227,9 @@ async function run(item: PaletteItem): Promise<void> {
       break;
     case "provider":
       openFromProvider(item.provider, item.id);
+      break;
+    case "theme":
+      await setTheme(item.id);
       break;
   }
 }

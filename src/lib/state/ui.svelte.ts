@@ -1,14 +1,7 @@
-import { setChatProfile, setPanelExpanded } from "../ipc";
+import { resizePanel, setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, Profile } from "../types";
-import {
-  activeChatId,
-  activeChatIsEmpty,
-  chats,
-  newChat,
-  openChat,
-  setCurrentProfile,
-} from "./chat.svelte";
+import { activeChatId, chats, isBlank, newChat, openChat } from "./chat.svelte";
 import { settings } from "./settings.svelte";
 
 type PanelMode = "compact" | "expanded";
@@ -101,6 +94,12 @@ export async function setMode(mode: PanelMode): Promise<void> {
   await setPanelExpanded(mode === "expanded");
 }
 
+export function measurePanel(): void {
+  if (store.mode === "expanded") return;
+  const content = document.querySelector<HTMLElement>(".content");
+  if (content) void resizePanel(Math.ceil(content.getBoundingClientRect().height));
+}
+
 export function visibleChats(): Chat[] {
   const query = store.filterQuery.trim().toLowerCase();
   const all = chats();
@@ -135,7 +134,6 @@ export function activeProfile(): Profile | undefined {
 }
 
 export function setProfile(name: string): void {
-  if (name) setCurrentProfile(name);
   const index = settings().profiles.findIndex((profile) => profile.name === name);
   if (index !== -1) store.profileIndex = index;
   store.modelOverride = null;
@@ -148,7 +146,6 @@ export function cycleProfile(): void {
   store.modelOverride = null;
 
   const name = profiles[store.profileIndex].name;
-  setCurrentProfile(name);
 
   const chatId = activeChatId();
   if (chatId) void setChatProfile(chatId, name);
@@ -161,13 +158,25 @@ export async function openChatWithProfile(chatId: string): Promise<void> {
   store.context = "composer";
 }
 
-export async function newChatWithProfile(): Promise<void> {
-  if (activeChatId() !== null && activeChatIsEmpty()) return;
+let previewTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const profile = activeProfile();
-  if (profile) setCurrentProfile(profile.name);
-  await newChat();
+export function schedulePreview(): void {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const id = selectedChatId();
+    if (id) void previewChatWithProfile(id);
+  }, 60);
+}
+
+export async function previewChatWithProfile(chatId: string): Promise<void> {
+  if (activeChatId() === chatId) return;
+  await openChat(chatId);
   syncProfileFromActive();
+}
+
+export async function newChatWithProfile(): Promise<void> {
+  if (isBlank()) return;
+  await newChat();
   store.modelOverride = null;
   store.context = "composer";
 }

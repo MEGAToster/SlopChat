@@ -50,6 +50,7 @@ export type Usage = {
 
 export type StreamEvent =
   | { type: "delta"; content: string }
+  | { type: "reasoning" }
   | { type: "usage"; tokensIn: number; tokensOut: number; cost: number | null }
   | { type: "done" }
   | { type: "error"; message: string };
@@ -64,7 +65,13 @@ export type SendRequest = {
   model: string;
   system?: string;
   temperature?: number;
+  useContext?: boolean;
   messages: ChatMessage[];
+};
+
+export type ThemeInfo = {
+  name: string;
+  tokens: Record<string, string>;
 };
 
 export type Chat = {

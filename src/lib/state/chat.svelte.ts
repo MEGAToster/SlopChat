@@ -1,5 +1,3 @@
-import { Channel } from "@tauri-apps/api/core";
-
 import {
   appendMessage,
   createChat,
@@ -8,11 +6,11 @@ import {
   initialChat,
   listChats,
   rewindTo,
-  send as sendRequest,
-  stop as stopStream,
   toggleChatPin,
 } from "../ipc";
-import type { Chat, StoredMessage, StreamEvent, Usage } from "../types";
+import type { Chat, Usage } from "../types";
+import { lastUsageOf, toChatMessage } from "./messages";
+import { run as runStream, stop as stopStream } from "./stream.svelte";
 
 export type ChatMessage = {
   id?: string;
@@ -26,16 +24,16 @@ export type SendOptions = {
   model: string;
   system?: string;
   temperature?: number;
+  useContext?: boolean;
 };
-
-const CHAT_ID = "current";
-let currentProfile = "default";
 
 const state = $state<{
   chats: Chat[];
   activeChatId: string | null;
   messages: ChatMessage[];
   streaming: boolean;
+  streamingChatId: string | null;
+  thinking: boolean;
   usage: Usage | null;
   error: string | null;
 }>({
@@ -43,6 +41,8 @@ const state = $state<{
   activeChatId: null,
   messages: [],
   streaming: false,
+  streamingChatId: null,
+  thinking: false,
   usage: null,
   error: null,
 });
@@ -63,8 +63,16 @@ export function isStreaming(): boolean {
   return state.streaming;
 }
 
-export function activeChatIsEmpty(): boolean {
-  return state.messages.length === 0;
+export function isStreamingHere(): boolean {
+  return state.streaming && state.streamingChatId === state.activeChatId;
+}
+
+export function isThinking(): boolean {
+  return state.thinking && isStreamingHere();
+}
+
+export function isBlank(): boolean {
+  return state.activeChatId === null && state.messages.length === 0;
 }
 
 export function lastUsage(): Usage | null {
@@ -86,10 +94,6 @@ export function lastUserMessage(): ChatMessage | undefined {
   return undefined;
 }
 
-export function setCurrentProfile(name: string): void {
-  if (name) currentProfile = name;
-}
-
 export async function init(): Promise<void> {
   const view = await initialChat();
   if (view) {
@@ -98,7 +102,6 @@ export async function init(): Promise<void> {
     state.usage = lastUsageOf(view.messages);
   }
   await refreshChats();
-  if (state.chats.length === 0) await newChat();
 }
 
 export async function refreshChats(): Promise<void> {
@@ -116,12 +119,11 @@ export async function openChat(chatId: string): Promise<void> {
 }
 
 export async function newChat(): Promise<void> {
-  const chat = await createChat(currentProfile);
-  state.activeChatId = chat.id;
+  if (state.activeChatId === null && state.messages.length === 0) return;
+  state.activeChatId = null;
   state.messages = [];
   state.usage = null;
   state.error = null;
-  await refreshChats();
 }
 
 export async function prevChat(): Promise<void> {
@@ -145,10 +147,7 @@ export async function removeChat(chatId: string): Promise<void> {
   if (!wasActive) return;
 
   if (state.chats.length === 0) {
-    state.activeChatId = null;
-    state.messages = [];
-    state.usage = null;
-    state.error = null;
+    await newChat();
     return;
   }
 
@@ -159,14 +158,12 @@ export async function submit(text: string, options: SendOptions): Promise<void> 
   const content = text.trim();
   if (state.streaming || !content) return;
 
-  await ensureChat(options.profileName);
-  if (!state.activeChatId) return;
-
-  const stored = await appendMessage({ chatId: state.activeChatId, role: "user", content });
+  const chatId = await ensureChat(options.profileName);
+  const stored = await appendMessage({ chatId, role: "user", content });
   state.messages.push(toChatMessage(stored));
   await refreshChats();
 
-  await streamReply(options);
+  await streamReply(chatId, options);
 }
 
 export async function regenerate(
@@ -177,23 +174,25 @@ export async function regenerate(
   const content = text.trim();
   if (state.streaming || !state.activeChatId || !content) return;
 
-  await rewindTo(state.activeChatId, messageId, content);
-  const view = await getChat(state.activeChatId);
+  const chatId = state.activeChatId;
+  await rewindTo(chatId, messageId, content);
+  const view = await getChat(chatId);
   state.messages = view ? view.messages.map(toChatMessage) : [];
   await refreshChats();
 
-  await streamReply(options);
+  await streamReply(chatId, options);
 }
 
 export async function stop(): Promise<void> {
-  await stopStream(CHAT_ID);
+  if (state.streamingChatId) await stopStream(state.streamingChatId);
 }
 
-async function ensureChat(profileName: string): Promise<void> {
-  if (state.activeChatId) return;
+async function ensureChat(profileName: string): Promise<string> {
+  if (state.activeChatId) return state.activeChatId;
   const chat = await createChat(profileName);
   state.activeChatId = chat.id;
   await refreshChats();
+  return chat.id;
 }
 
 async function step(direction: number): Promise<void> {
@@ -206,108 +205,78 @@ async function step(direction: number): Promise<void> {
   const nextIndex = current === -1 ? list.length - 1 : current + direction;
   if (nextIndex < 0) return;
   if (nextIndex >= list.length) {
-    if (state.messages.length > 0) await newChat();
+    await newChat();
     return;
   }
   await openChat(list[nextIndex].id);
 }
 
-async function streamReply(options: SendOptions): Promise<void> {
+async function streamReply(chatId: string, options: SendOptions): Promise<void> {
   state.error = null;
-  state.messages.push({ role: "assistant", content: "" });
+
+  const tempId = `pending-${Date.now()}`;
+  state.messages.push({ id: tempId, role: "assistant", content: "" });
   const index = state.messages.length - 1;
   state.streaming = true;
+  state.streamingChatId = chatId;
+  state.thinking = false;
 
   const history = state.messages
     .slice(0, index)
     .map((message) => ({ role: message.role, content: message.content }));
 
-  let usage: Usage | undefined;
-  const channel = new Channel<StreamEvent>();
-  channel.onmessage = (event) => {
-    switch (event.type) {
-      case "delta":
-        state.messages[index].content += event.content;
-        break;
-      case "usage":
-        usage = { tokensIn: event.tokensIn, tokensOut: event.tokensOut, cost: event.cost };
-        state.messages[index].usage = usage;
-        state.usage = usage;
-        break;
-      case "done":
-        state.streaming = false;
-        void finalize(index, usage, options.model);
-        break;
-      case "error":
-        state.error = event.message;
-        state.streaming = false;
-        void finalize(index, usage, options.model);
-        break;
-    }
-  };
+  const find = () => state.messages.find((message) => message.id === tempId);
 
-  try {
-    await sendRequest(
-      {
-        chatId: CHAT_ID,
-        model: options.model,
-        system: options.system,
-        temperature: options.temperature,
-        messages: history,
+  const outcome = await runStream(
+    chatId,
+    {
+      model: options.model,
+      system: options.system,
+      temperature: options.temperature,
+      useContext: options.useContext,
+      messages: history,
+    },
+    {
+      onUpdate: (content) => {
+        if (state.activeChatId !== chatId) return;
+        const message = find();
+        if (message) message.content = content;
       },
-      channel,
-    );
-  } catch (error) {
-    state.error = String(error);
-    state.streaming = false;
-    if (!state.messages[index].content) state.messages.splice(index, 1);
+      onReasoning: () => {
+        state.thinking = true;
+      },
+      onUsage: (usage) => {
+        if (state.activeChatId !== chatId) return;
+        const message = find();
+        if (message) message.usage = usage;
+      },
+    },
+  );
+
+  state.streaming = false;
+  state.streamingChatId = null;
+  state.thinking = false;
+
+  if (outcome.error) state.error = outcome.error;
+
+  if (outcome.content) {
+    const stored = await appendMessage({
+      chatId,
+      role: "assistant",
+      content: outcome.content,
+      model: options.model,
+      tokensIn: outcome.usage?.tokensIn,
+      tokensOut: outcome.usage?.tokensOut,
+      cost: outcome.usage?.cost ?? undefined,
+    });
+    const message = find();
+    if (message) message.id = stored.id;
+    if (state.activeChatId === chatId && outcome.usage) state.usage = outcome.usage;
+    await refreshChats();
+  } else {
+    const emptyIndex = state.messages.findIndex((message) => message.id === tempId);
+    if (emptyIndex !== -1) state.messages.splice(emptyIndex, 1);
   }
 }
 
-async function finalize(index: number, usage: Usage | undefined, model: string): Promise<void> {
-  const message = state.messages[index];
-  if (!message || !message.content || !state.activeChatId) return;
 
-  const stored = await appendMessage({
-    chatId: state.activeChatId,
-    role: "assistant",
-    content: message.content,
-    model,
-    tokensIn: usage?.tokensIn,
-    tokensOut: usage?.tokensOut,
-    cost: usage?.cost ?? undefined,
-  });
-  message.id = stored.id;
-  await refreshChats();
-}
-
-function toChatMessage(stored: StoredMessage): ChatMessage {
-  const hasUsage =
-    stored.tokensIn !== null || stored.tokensOut !== null || stored.cost !== null;
-  return {
-    id: stored.id,
-    role: stored.role === "user" ? "user" : "assistant",
-    content: stored.content,
-    usage: hasUsage
-      ? {
-          tokensIn: stored.tokensIn ?? 0,
-          tokensOut: stored.tokensOut ?? 0,
-          cost: stored.cost,
-        }
-      : undefined,
-  };
-}
-
-function lastUsageOf(messages: StoredMessage[]): Usage | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.tokensIn !== null || message.tokensOut !== null || message.cost !== null) {
-      return {
-        tokensIn: message.tokensIn ?? 0,
-        tokensOut: message.tokensOut ?? 0,
-        cost: message.cost,
-      };
-    }
-  }
-  return null;
-}

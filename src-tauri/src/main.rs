@@ -69,6 +69,9 @@ fn main() {
             commands::reload_config,
             commands::add_model,
             commands::remove_model,
+            commands::set_theme,
+            commands::load_user_themes,
+            commands::open_url,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

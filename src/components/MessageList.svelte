@@ -1,18 +1,25 @@
 <script lang="ts">
-  import { isStreaming, messages } from "../lib/state/chat.svelte";
+  import { isStreamingHere, isThinking, messages } from "../lib/state/chat.svelte";
   import Message from "./Message.svelte";
 
   let viewport = $state<HTMLDivElement | null>(null);
   const all = $derived(messages());
-  const streaming = $derived(isStreaming());
+  const streamingHere = $derived(isStreamingHere());
+  const thinking = $derived(isThinking());
 
-  $effect(() => {
+  let pinned = true;
+
+  $effect.pre(() => {
     const last = all.at(-1);
     void last?.content;
     void all.length;
-    if (!viewport) return;
-    const distance = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    if (distance < 80) viewport.scrollTop = viewport.scrollHeight;
+    if (viewport) {
+      pinned = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80;
+    }
+  });
+
+  $effect(() => {
+    if (pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
   });
 </script>
 
@@ -20,7 +27,8 @@
   {#each all as message, index (index)}
     <Message
       {message}
-      streaming={streaming && index === all.length - 1 && message.role === "assistant"}
+      streaming={streamingHere && index === all.length - 1 && message.role === "assistant"}
+      thinking={thinking && index === all.length - 1}
     />
   {/each}
 </div>

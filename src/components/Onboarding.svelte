@@ -3,7 +3,7 @@
 
   import { storeApiKey } from "../lib/ipc";
 
-  let { onSaved }: { onSaved: () => void } = $props();
+  let { onSaved, onSkip }: { onSaved: () => void; onSkip: () => void } = $props();
 
   let key = $state("");
   let input = $state<HTMLInputElement | null>(null);
@@ -38,8 +38,11 @@
     autocomplete="off"
     onkeydown={(event) => event.key === "Enter" && save()}
   />
-  <button type="button" onclick={save} disabled={saving || !key.trim()}>
-    {saving ? "Saving…" : "Save key"}
-  </button>
+  <div class="onboarding-actions">
+    <button type="button" onclick={save} disabled={saving || !key.trim()}>
+      {saving ? "Saving…" : "Save key"}
+    </button>
+    <button type="button" class="ghost" onclick={onSkip}>Use Ollama instead</button>
+  </div>
   {#if error}<p class="error">{error}</p>{/if}
 </div>

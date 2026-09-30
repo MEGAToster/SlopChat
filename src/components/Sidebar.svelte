@@ -1,12 +1,13 @@
 <script lang="ts">
   import { focusComposer } from "../lib/dom";
-  import { activeChatId, activeChatIsEmpty } from "../lib/state/chat.svelte";
+  import { activeChatId, isBlank } from "../lib/state/chat.svelte";
   import {
     filterQuery,
     filtering,
     newChatWithProfile,
     openChatWithProfile,
     pendingDelete,
+    schedulePreview,
     selectedIndex,
     setFilterQuery,
     setSelectedIndex,
@@ -49,6 +50,10 @@
         class="chat-item"
         class:selected={index === selectedIndex()}
         class:active={chat.id === activeChatId()}
+        onmouseenter={() => {
+          setSelectedIndex(index);
+          schedulePreview();
+        }}
         onclick={() => void open(index, chat.id)}
       >
         <span class="chat-title">{chat.title || "New chat"}</span>
@@ -61,7 +66,7 @@
   <button
     type="button"
     class="new-tab"
-    disabled={activeChatIsEmpty()}
+    disabled={isBlank()}
     onclick={() => void create()}
   >
     + New chat

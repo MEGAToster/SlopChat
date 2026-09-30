@@ -67,7 +67,10 @@ describe("context handling", () => {
       resolve("composer", key({ key: "Escape" }), bindings, state({ editing: true })),
     ).toBe("cancelEdit");
     expect(resolve("composer", key({ key: "Escape" }), bindings, state())).toBe("hide");
-    expect(resolve("palette", key({ key: "Escape" }), bindings, state())).toBe("hide");
+    expect(resolve("palette", key({ key: "Escape" }), bindings, state())).toBe("paletteClose");
+    expect(resolve("filter", key({ key: "Escape" }), bindings, state())).toBe("filterClose");
+    expect(resolve("confirm", key({ key: "y" }), bindings, state())).toBe("confirmDelete");
+    expect(resolve("confirm", key({ key: "n" }), bindings, state())).toBe("cancelDelete");
   });
 });
 
@@ -84,7 +87,7 @@ describe("configured bindings", () => {
     ).toBe("sticky");
   });
 
-  it("scrolls with Ctrl+U/D, and Ctrl+D stops while streaming", () => {
+  it("scrolls with Ctrl+U/D, and Ctrl+C stops while streaming", () => {
     expect(resolve("composer", key({ key: "u", ctrlKey: true }), bindings, state())).toBe(
       "scrollUp",
     );
@@ -92,7 +95,7 @@ describe("configured bindings", () => {
       "scrollDown",
     );
     expect(
-      resolve("composer", key({ key: "d", ctrlKey: true }), bindings, state({ streaming: true })),
+      resolve("composer", key({ key: "c", ctrlKey: true }), bindings, state({ streaming: true })),
     ).toBe("stop");
   });
 

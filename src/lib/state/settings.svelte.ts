@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
     nextChat: ["Ctrl+J"],
     cycleProfile: ["Shift+Tab"],
     sticky: ["Ctrl+Shift+P"],
-    stop: ["Ctrl+D"],
+    stop: ["Ctrl+C"],
     scrollUp: ["Ctrl+U"],
     scrollDown: ["Ctrl+D"],
   },

@@ -7,7 +7,7 @@ use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelBuilder, PanelLevel, StyleMask,
 };
 
-use super::{COMPACT_WIDTH, MIN_HEIGHT};
+use super::{DEFAULT_COMPACT_WIDTH, MIN_HEIGHT};
 
 const LABEL: &str = "main-panel";
 
@@ -55,8 +55,11 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     let panel = PanelBuilder::<_, SlopPanel>::new(app, LABEL)
         .url(WebviewUrl::App("index.html".into()))
         .title("SlopChat")
-        .position(compact_position(None))
-        .size(Size::Logical(LogicalSize::new(COMPACT_WIDTH, MIN_HEIGHT)))
+        .position(compact_position(app))
+        .size(Size::Logical(LogicalSize::new(
+            DEFAULT_COMPACT_WIDTH,
+            MIN_HEIGHT,
+        )))
         .resizable(true)
         .level(PanelLevel::Floating)
         .has_shadow(true)
@@ -76,11 +79,7 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
 
     let handler = SlopPanelEvents::new();
     let handle = app.clone();
-    handler.window_did_resign_key(move |_| {
-        if !super::is_sticky(&handle) {
-            hide(&handle);
-        }
-    });
+    handler.window_did_resign_key(move |_| hide(&handle, false));
     panel.set_event_handler(Some(handler.as_ref()));
 
     Ok(())
@@ -93,7 +92,7 @@ pub fn show(app: &AppHandle) {
 
     if !super::is_expanded(app) {
         if let Some(window) = app.get_webview_window(LABEL) {
-            let _ = window.set_position(compact_position(active_monitor(app).as_ref()));
+            let _ = window.set_position(compact_position(app));
         }
     }
 
@@ -102,16 +101,18 @@ pub fn show(app: &AppHandle) {
     let _ = app.emit("panel://shown", ());
 }
 
-pub fn hide(app: &AppHandle) {
+pub fn hide(app: &AppHandle, restore: bool) {
     if let Ok(panel) = app.get_webview_panel(LABEL) {
         panel.hide();
     }
-    restore_frontmost();
+    if restore {
+        restore_frontmost();
+    }
 }
 
 pub fn toggle(app: &AppHandle) {
     if is_visible(app) {
-        hide(app);
+        hide(app, true);
     } else {
         show(app);
     }
@@ -123,14 +124,7 @@ pub fn is_visible(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-pub fn apply_layout(app: &AppHandle, width: f64, height: f64, centered: bool) {
-    let monitor = active_monitor(app);
-    let position = if centered {
-        centered_position(monitor.as_ref(), width, height)
-    } else {
-        compact_position(monitor.as_ref())
-    };
-
+pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
     if let Ok(panel) = app.get_webview_panel(LABEL) {
         if let Some(window) = app.get_webview_window(LABEL) {
             let _ = window.set_position(position);
@@ -139,13 +133,16 @@ pub fn apply_layout(app: &AppHandle, width: f64, height: f64, centered: bool) {
     }
 }
 
-pub fn screen_size(app: &AppHandle) -> (f64, f64) {
+pub fn work_area(app: &AppHandle) -> (f64, f64, f64, f64) {
     match active_monitor(app) {
         Some(monitor) => {
-            let size = monitor.size().to_logical::<f64>(monitor.scale_factor());
-            (size.width, size.height)
+            let scale = monitor.scale_factor();
+            let area = monitor.work_area();
+            let position = area.position.to_logical::<f64>(scale);
+            let size = area.size.to_logical::<f64>(scale);
+            (position.x, position.y, size.width, size.height)
         }
-        None => (1440.0, 900.0),
+        None => (0.0, 0.0, 1440.0, 900.0),
     }
 }
 
@@ -156,8 +153,8 @@ fn active_monitor(app: &AppHandle) -> Option<Monitor> {
         .or_else(|| app.primary_monitor().ok().flatten())
 }
 
-fn compact_position(monitor: Option<&Monitor>) -> Position {
-    let Some(monitor) = monitor else {
+pub fn compact_position(app: &AppHandle) -> Position {
+    let Some(monitor) = active_monitor(app) else {
         return Position::Logical(LogicalPosition::new(0.0, 0.0));
     };
 
@@ -166,22 +163,7 @@ fn compact_position(monitor: Option<&Monitor>) -> Position {
     let size = monitor.size().to_logical::<f64>(scale);
 
     Position::Logical(LogicalPosition::new(
-        origin.x + (size.width - COMPACT_WIDTH) / 2.0,
+        origin.x + (size.width - DEFAULT_COMPACT_WIDTH) / 2.0,
         origin.y + size.height * 0.18,
-    ))
-}
-
-fn centered_position(monitor: Option<&Monitor>, width: f64, height: f64) -> Position {
-    let Some(monitor) = monitor else {
-        return Position::Logical(LogicalPosition::new(0.0, 0.0));
-    };
-
-    let scale = monitor.scale_factor();
-    let origin = monitor.position().to_logical::<f64>(scale);
-    let size = monitor.size().to_logical::<f64>(scale);
-
-    Position::Logical(LogicalPosition::new(
-        origin.x + (size.width - width) / 2.0,
-        origin.y + (size.height - height) / 2.0,
     ))
 }

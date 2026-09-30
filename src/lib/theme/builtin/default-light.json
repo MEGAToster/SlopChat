@@ -1,0 +1,21 @@
+{
+  "scheme": "light",
+  "bg": "#ffffff",
+  "surface": "#f2f3f5",
+  "surface-2": "#f6f8fa",
+  "bubble": "#eceef2",
+  "text": "#1b1b1f",
+  "muted": "#6b6b75",
+  "border": "#e2e3e8",
+  "accent": "#3b7ddd",
+  "hl-bg": "#f6f8fa",
+  "hl-fg": "#1b1b1f",
+  "hl-comment": "#6a737d",
+  "hl-keyword": "#d73a49",
+  "hl-string": "#032f62",
+  "hl-number": "#005cc5",
+  "hl-title": "#6f42c1",
+  "hl-built_in": "#005cc5",
+  "hl-variable": "#e36209",
+  "hl-meta": "#6a737d"
+}

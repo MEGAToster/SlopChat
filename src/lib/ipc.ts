@@ -9,6 +9,7 @@ import type {
   Settings,
   StoredMessage,
   StreamEvent,
+  ThemeInfo,
 } from "./types";
 
 export function showPanel(): Promise<void> {
@@ -129,6 +130,18 @@ export function addModel(model: string): Promise<void> {
 
 export function removeModel(model: string): Promise<void> {
   return invoke("remove_model", { model });
+}
+
+export function setTheme(theme: string): Promise<void> {
+  return invoke("set_theme", { theme });
+}
+
+export function loadUserThemes(): Promise<ThemeInfo[]> {
+  return invoke("load_user_themes");
+}
+
+export function openUrl(url: string): Promise<void> {
+  return invoke("open_url", { url });
 }
 
 export function onPanelShown(handler: () => void): Promise<UnlistenFn> {

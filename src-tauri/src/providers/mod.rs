@@ -1,14 +1,26 @@
 pub mod client;
-pub mod gemini;
-pub mod ollama;
-pub mod openrouter;
+pub mod kinds;
 pub mod sse;
+
+use std::sync::OnceLock;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::config::Settings;
 use crate::secrets;
+
+pub fn client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .read_timeout(Duration::from_secs(300))
+            .build()
+            .expect("http client")
+    })
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelRef {
@@ -75,20 +87,21 @@ impl ChatRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum StreamEvent {
+    Delta { content: String },
+    Reasoning,
+    Usage { tokens_in: u32, tokens_out: u32, cost: Option<f64> },
+    Done,
+    Error { message: String },
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderModel {
     pub provider: String,
     pub id: String,
     pub name: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
-pub enum StreamEvent {
-    Delta { content: String },
-    Usage { tokens_in: u32, tokens_out: u32, cost: Option<f64> },
-    Done,
-    Error { message: String },
 }
 
 pub fn api_key(settings: &Settings, provider: &str) -> Result<Option<String>, String> {
@@ -97,10 +110,12 @@ pub fn api_key(settings: &Settings, provider: &str) -> Result<Option<String>, St
         .get(provider)
         .and_then(|provider| provider.api_key.as_deref())
     {
-        if let Some(variable) = configured.strip_prefix("env:") {
-            return Ok(std::env::var(variable).ok());
-        }
-        return Ok(Some(configured.to_string()));
+        return match configured.strip_prefix("env:") {
+            Some(variable) => Ok(std::env::var(variable).ok()),
+            None => Err(format!(
+                "providers.{provider}.apiKey must use an env:VAR reference; raw keys can't live in settings.json"
+            )),
+        };
     }
 
     secrets::get(provider)

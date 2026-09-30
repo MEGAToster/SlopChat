@@ -3,12 +3,14 @@ use tauri::{
     WebviewWindowBuilder,
 };
 
+use super::{DEFAULT_COMPACT_WIDTH, MIN_HEIGHT};
+
 const LABEL: &str = "main-panel";
 
 pub fn init(app: &AppHandle) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title("SlopChat")
-        .inner_size(super::COMPACT_WIDTH, super::MIN_HEIGHT)
+        .inner_size(DEFAULT_COMPACT_WIDTH, MIN_HEIGHT)
         .decorations(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -22,7 +24,7 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
 pub fn show(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(LABEL) {
         if !super::is_expanded(app) {
-            let _ = window.set_position(compact_position(active_monitor(app).as_ref()));
+            let _ = window.set_position(compact_position(app));
         }
         let _ = window.show();
         let _ = window.set_focus();
@@ -30,7 +32,7 @@ pub fn show(app: &AppHandle) {
     }
 }
 
-pub fn hide(app: &AppHandle) {
+pub fn hide(app: &AppHandle, _restore: bool) {
     if let Some(window) = app.get_webview_window(LABEL) {
         let _ = window.hide();
     }
@@ -38,7 +40,7 @@ pub fn hide(app: &AppHandle) {
 
 pub fn toggle(app: &AppHandle) {
     if is_visible(app) {
-        hide(app);
+        hide(app, true);
     } else {
         show(app);
     }
@@ -50,26 +52,23 @@ pub fn is_visible(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-pub fn apply_layout(app: &AppHandle, width: f64, height: f64, centered: bool) {
+pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
     if let Some(window) = app.get_webview_window(LABEL) {
-        let monitor = active_monitor(app);
-        let position = if centered {
-            centered_position(monitor.as_ref(), width, height)
-        } else {
-            compact_position(monitor.as_ref())
-        };
         let _ = window.set_position(position);
         let _ = window.set_size(Size::Logical(LogicalSize::new(width, height)));
     }
 }
 
-pub fn screen_size(app: &AppHandle) -> (f64, f64) {
+pub fn work_area(app: &AppHandle) -> (f64, f64, f64, f64) {
     match active_monitor(app) {
         Some(monitor) => {
-            let size = monitor.size().to_logical::<f64>(monitor.scale_factor());
-            (size.width, size.height)
+            let scale = monitor.scale_factor();
+            let area = monitor.work_area();
+            let position = area.position.to_logical::<f64>(scale);
+            let size = area.size.to_logical::<f64>(scale);
+            (position.x, position.y, size.width, size.height)
         }
-        None => (1440.0, 900.0),
+        None => (0.0, 0.0, 1440.0, 900.0),
     }
 }
 
@@ -80,8 +79,8 @@ fn active_monitor(app: &AppHandle) -> Option<Monitor> {
         .or_else(|| app.primary_monitor().ok().flatten())
 }
 
-fn compact_position(monitor: Option<&Monitor>) -> Position {
-    let Some(monitor) = monitor else {
+pub fn compact_position(app: &AppHandle) -> Position {
+    let Some(monitor) = active_monitor(app) else {
         return Position::Logical(LogicalPosition::new(0.0, 0.0));
     };
 
@@ -90,22 +89,7 @@ fn compact_position(monitor: Option<&Monitor>) -> Position {
     let size = monitor.size().to_logical::<f64>(scale);
 
     Position::Logical(LogicalPosition::new(
-        origin.x + (size.width - super::COMPACT_WIDTH) / 2.0,
+        origin.x + (size.width - DEFAULT_COMPACT_WIDTH) / 2.0,
         origin.y + size.height * 0.18,
-    ))
-}
-
-fn centered_position(monitor: Option<&Monitor>, width: f64, height: f64) -> Position {
-    let Some(monitor) = monitor else {
-        return Position::Logical(LogicalPosition::new(0.0, 0.0));
-    };
-
-    let scale = monitor.scale_factor();
-    let origin = monitor.position().to_logical::<f64>(scale);
-    let size = monitor.size().to_logical::<f64>(scale);
-
-    Position::Logical(LogicalPosition::new(
-        origin.x + (size.width - width) / 2.0,
-        origin.y + (size.height - height) / 2.0,
     ))
 }

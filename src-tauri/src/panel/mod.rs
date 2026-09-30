@@ -12,11 +12,11 @@ pub use linux::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, LogicalPosition, Manager, Position};
 
-pub const COMPACT_WIDTH: f64 = 680.0;
 pub const MIN_HEIGHT: f64 = 160.0;
 pub const MAX_HEIGHT: f64 = 480.0;
+pub const DEFAULT_COMPACT_WIDTH: f64 = 680.0;
 
 pub struct PanelState {
     expanded: AtomicBool,
@@ -43,7 +43,7 @@ pub fn resize_compact(app: &AppHandle, height: f64) {
     }
     let height = height.clamp(MIN_HEIGHT, MAX_HEIGHT);
     *state.compact_height.lock().expect("panel lock poisoned") = height;
-    apply_layout(app, COMPACT_WIDTH, height, false);
+    resize(app, compact_position(app), compact_width(app), height);
 }
 
 pub fn set_expanded(app: &AppHandle, expanded: bool) {
@@ -56,16 +56,34 @@ pub fn set_expanded(app: &AppHandle, expanded: bool) {
             .get()
             .window
             .expanded_screen_ratio;
-        let (screen_width, screen_height) = screen_size(app);
-        apply_layout(app, screen_width * ratio, screen_height * ratio, true);
+        let (area_x, area_y, area_w, area_h) = work_area(app);
+        let width = area_w * ratio;
+        let height = area_h * ratio;
+        let position = Position::Logical(LogicalPosition::new(
+            area_x + (area_w - width) / 2.0,
+            area_y + (area_h - height) / 2.0,
+        ));
+        resize(app, position, width, height);
     } else {
         let height = *state.compact_height.lock().expect("panel lock poisoned");
-        apply_layout(app, COMPACT_WIDTH, height.clamp(MIN_HEIGHT, MAX_HEIGHT), false);
+        resize(
+            app,
+            compact_position(app),
+            compact_width(app),
+            height.clamp(MIN_HEIGHT, MAX_HEIGHT),
+        );
     }
 }
 
 pub fn toggle_expanded(app: &AppHandle) {
     set_expanded(app, !is_expanded(app));
+}
+
+fn compact_width(app: &AppHandle) -> f64 {
+    app.state::<crate::config::ConfigState>()
+        .get()
+        .window
+        .compact_width
 }
 
 #[derive(Default)]

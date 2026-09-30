@@ -1,11 +1,18 @@
 import type { Keybinds } from "../types";
 import { eventToBinding, matchesAny } from "./parse";
 
-export type Context = "composer" | "sidebar" | "palette";
+export type Context = "composer" | "sidebar" | "palette" | "filter" | "confirm";
 
 export type Action =
   | "hide"
   | "palette"
+  | "paletteClose"
+  | "paletteUp"
+  | "paletteDown"
+  | "paletteRun"
+  | "filterClose"
+  | "confirmDelete"
+  | "cancelDelete"
   | "sticky"
   | "stop"
   | "scrollUp"
@@ -22,10 +29,7 @@ export type Action =
   | "openChat"
   | "pinChat"
   | "deleteChat"
-  | "filterChats"
-  | "paletteUp"
-  | "paletteDown"
-  | "paletteRun";
+  | "filterChats";
 
 export type KeymapState = {
   composerEmpty: boolean;
@@ -40,23 +44,27 @@ export function resolve(
   keybinds: Keybinds,
   state: KeymapState,
 ): Action | null {
-  const key = eventToBinding(event);
-
   if (matchesAny(keybinds.palette, event)) return "palette";
   if (matchesAny(keybinds.sticky, event)) return "sticky";
   if (matchesAny(keybinds.sidebar, event)) return "toggleSidebar";
   if (state.streaming && matchesAny(keybinds.stop, event)) return "stop";
-  if (matchesAny(keybinds.scrollUp, event)) return "scrollUp";
-  if (matchesAny(keybinds.scrollDown, event)) return "scrollDown";
-  if (key === "Esc") return state.editing && context === "composer" ? "cancelEdit" : "hide";
+
+  if (context === "composer" || context === "sidebar") {
+    if (matchesAny(keybinds.scrollUp, event)) return "scrollUp";
+    if (matchesAny(keybinds.scrollDown, event)) return "scrollDown";
+  }
 
   switch (context) {
     case "composer":
-      return resolveComposer(key, event, keybinds, state);
+      return resolveComposer(eventToBinding(event), event, keybinds, state);
     case "sidebar":
-      return resolveSidebar(key, event, keybinds);
+      return resolveSidebar(eventToBinding(event), event, keybinds);
     case "palette":
-      return resolvePalette(key, event, keybinds);
+      return resolvePalette(eventToBinding(event), event, keybinds);
+    case "filter":
+      return resolveFilter(eventToBinding(event), event, keybinds);
+    case "confirm":
+      return resolveConfirm(eventToBinding(event));
     default:
       return null;
   }
@@ -68,6 +76,7 @@ function resolveComposer(
   keybinds: Keybinds,
   state: KeymapState,
 ): Action | null {
+  if (key === "Esc") return state.editing ? "cancelEdit" : "hide";
   if (state.composerEmpty && key === "Left") return "toggleSidebar";
 
   if (state.composerEmpty && state.chatHasMessages && key === "Up") return "editLast";
@@ -84,6 +93,7 @@ function resolveComposer(
 }
 
 function resolveSidebar(key: string, event: KeyboardEvent, keybinds: Keybinds): Action | null {
+  if (key === "Esc") return "hide";
   if (key === "Left") return "toggleSidebar";
   if (key === "J" || key === "Down" || matchesAny(keybinds.nextChat, event)) return "sidebarDown";
   if (key === "K" || key === "Up" || matchesAny(keybinds.prevChat, event)) return "sidebarUp";
@@ -95,8 +105,23 @@ function resolveSidebar(key: string, event: KeyboardEvent, keybinds: Keybinds): 
 }
 
 function resolvePalette(key: string, event: KeyboardEvent, keybinds: Keybinds): Action | null {
+  if (key === "Esc") return "paletteClose";
   if (key === "Down" || matchesAny(keybinds.nextChat, event)) return "paletteDown";
   if (key === "Up" || matchesAny(keybinds.prevChat, event)) return "paletteUp";
   if (key === "Enter") return "paletteRun";
+  return null;
+}
+
+function resolveFilter(key: string, event: KeyboardEvent, keybinds: Keybinds): Action | null {
+  if (key === "Esc") return "filterClose";
+  if (key === "Enter") return "openChat";
+  if (key === "Down" || matchesAny(keybinds.nextChat, event)) return "sidebarDown";
+  if (key === "Up" || matchesAny(keybinds.prevChat, event)) return "sidebarUp";
+  return null;
+}
+
+function resolveConfirm(key: string): Action | null {
+  if (key === "Y" || key === "Enter") return "confirmDelete";
+  if (key === "N" || key === "Esc") return "cancelDelete";
   return null;
 }

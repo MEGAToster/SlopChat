@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use serde::Deserialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Notify;
 
+use super::kinds::Kind;
 use super::sse::SseParser;
-use super::{api_key, openrouter, ChatRequest, ModelRef, StreamEvent};
-use crate::config::{ConfigState, Settings};
+use super::{api_key, ChatRequest, ModelRef, StreamEvent};
+use crate::config::ConfigState;
+use crate::paths;
 
 #[derive(Default)]
 pub struct Streams {
@@ -47,33 +49,62 @@ impl Streams {
         }
     }
 
-    fn finish(&self, chat_id: &str) {
-        self.active
-            .lock()
-            .expect("streams lock poisoned")
-            .remove(chat_id);
+    fn finish(&self, chat_id: &str, cancel: &Cancel) {
+        let mut active = self.active.lock().expect("streams lock poisoned");
+        if let Some(existing) = active.get(chat_id) {
+            if Arc::ptr_eq(&existing.cancelled, &cancel.cancelled) {
+                active.remove(chat_id);
+            }
+        }
     }
+}
+
+struct ProviderRequest {
+    endpoint: String,
+    body: serde_json::Value,
+    key: Option<String>,
+    zero_cost: bool,
 }
 
 pub async fn stream(
     app: &AppHandle,
-    request: ChatRequest,
+    mut request: ChatRequest,
     channel: Channel<StreamEvent>,
 ) -> Result<(), String> {
     let model = ModelRef::parse(&request.model)?;
-    if model.provider != openrouter::PROVIDER {
-        return Err(format!("provider {:?} is not supported yet", model.provider));
+    let kind = Kind::from_name(&model.provider)
+        .ok_or_else(|| format!("provider {:?} is not supported", model.provider))?;
+    let settings = app.state::<ConfigState>().get();
+
+    if request.use_context {
+        if let Some(context) = read_context() {
+            request.system = Some(match request.system.take() {
+                Some(system) if !system.is_empty() => format!("{context}\n\n{system}"),
+                _ => context,
+            });
+        }
     }
 
-    let settings = app.state::<ConfigState>().get();
-    let key = api_key(&settings, &model.provider)?
-        .ok_or_else(|| format!("no API key stored for {}", model.provider))?;
+    let key = if kind.needs_auth() {
+        Some(
+            api_key(&settings, kind.name())?
+                .ok_or_else(|| format!("no API key stored for {}", kind.name()))?,
+        )
+    } else {
+        None
+    };
+
+    let plan = ProviderRequest {
+        endpoint: kind.endpoint(&settings),
+        body: kind.body(&request, &model.model),
+        key,
+        zero_cost: kind.zero_cost(),
+    };
 
     let streams = app.state::<Streams>();
     let cancel = streams.start(&request.chat_id);
-
-    let result = send(&request, &model.model, &key, &settings, &channel, &cancel).await;
-    streams.finish(&request.chat_id);
+    let result = send(&plan, &channel, &cancel).await;
+    streams.finish(&request.chat_id, &cancel);
 
     match result {
         Ok(()) | Err(StreamError::Cancelled) => {
@@ -87,18 +118,27 @@ pub async fn stream(
     Ok(())
 }
 
+fn read_context() -> Option<String> {
+    let text = std::fs::read_to_string(paths::context_path()).ok()?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 async fn send(
-    request: &ChatRequest,
-    model: &str,
-    key: &str,
-    settings: &Settings,
+    plan: &ProviderRequest,
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
 ) -> Result<(), StreamError> {
-    let mut response = client()
-        .post(openrouter::endpoint(settings))
-        .bearer_auth(key)
-        .json(&openrouter::body(request, model))
+    let mut builder = super::client().post(&plan.endpoint).json(&plan.body);
+    if let Some(key) = plan.key.as_deref() {
+        builder = builder.bearer_auth(key);
+    }
+
+    let mut response = builder
         .send()
         .await
         .map_err(|error| StreamError::Failed(error.to_string()))?;
@@ -111,6 +151,7 @@ async fn send(
 
     let mut parser = SseParser::default();
     let mut usage = None;
+    let mut reasoned = false;
 
     loop {
         let chunk = tokio::select! {
@@ -130,13 +171,23 @@ async fn send(
                 done = true;
                 break;
             }
-            if let Some(parsed) = parse_chunk(&data) {
-                if let Some(content) = parsed.content {
-                    let _ = channel.send(StreamEvent::Delta { content });
-                }
-                if parsed.usage.is_some() {
-                    usage = parsed.usage;
-                }
+
+            let Some(parsed) = parse_chunk(&data) else {
+                continue;
+            };
+
+            if let Some(message) = parsed.error {
+                return Err(StreamError::Failed(message));
+            }
+            if let Some(content) = parsed.content {
+                let _ = channel.send(StreamEvent::Delta { content });
+            }
+            if parsed.reasoning && !reasoned {
+                reasoned = true;
+                let _ = channel.send(StreamEvent::Reasoning);
+            }
+            if parsed.usage.is_some() {
+                usage = parsed.usage;
             }
         }
 
@@ -146,19 +197,15 @@ async fn send(
     }
 
     if let Some(usage) = usage {
+        let cost = if plan.zero_cost { Some(0.0) } else { usage.cost };
         let _ = channel.send(StreamEvent::Usage {
             tokens_in: usage.prompt_tokens,
             tokens_out: usage.completion_tokens,
-            cost: usage.cost,
+            cost,
         });
     }
 
     Ok(())
-}
-
-fn client() -> &'static reqwest::Client {
-    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(reqwest::Client::new)
 }
 
 enum StreamError {
@@ -172,6 +219,8 @@ struct Chunk {
     choices: Vec<Choice>,
     #[serde(default)]
     usage: Option<Usage>,
+    #[serde(default)]
+    error: Option<ProviderError>,
 }
 
 #[derive(Deserialize)]
@@ -184,6 +233,14 @@ struct Choice {
 struct Delta {
     #[serde(default)]
     content: Option<String>,
+    #[serde(default)]
+    reasoning: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ProviderError {
+    #[serde(default)]
+    message: Option<String>,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -198,21 +255,38 @@ struct Usage {
 
 struct Parsed {
     content: Option<String>,
+    reasoning: bool,
     usage: Option<Usage>,
+    error: Option<String>,
 }
 
 fn parse_chunk(data: &str) -> Option<Parsed> {
     let chunk: Chunk = serde_json::from_str(data).ok()?;
-    let content = chunk
+
+    let error = chunk.error.map(|error| {
+        error
+            .message
+            .unwrap_or_else(|| "provider error".to_string())
+    });
+
+    let delta = chunk
         .choices
         .into_iter()
         .next()
-        .and_then(|choice| choice.delta)
-        .and_then(|delta| delta.content)
+        .and_then(|choice| choice.delta);
+
+    let content = delta
+        .as_ref()
+        .and_then(|delta| delta.content.clone())
         .filter(|content| !content.is_empty());
+    let reasoning = delta
+        .and_then(|delta| delta.reasoning)
+        .is_some_and(|reasoning| !reasoning.is_empty());
 
     Some(Parsed {
         content,
+        reasoning,
         usage: chunk.usage,
+        error,
     })
 }
