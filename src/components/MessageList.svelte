@@ -23,7 +23,7 @@
   });
 </script>
 
-<div class="messages column" class:fading={!pinned} bind:this={viewport}>
+<div class="messages column" bind:this={viewport}>
   {#each all as message, index (index)}
     <Message
       {message}
@@ -39,10 +39,7 @@
     flex-direction: column;
     gap: var(--sp-4);
     max-height: 320px;
+    padding-bottom: var(--sp-2);
     overflow-y: auto;
-  }
-
-  .messages.fading {
-    mask-image: var(--fade-bottom);
   }
 </style>

@@ -3,41 +3,66 @@ type MermaidApi = {
   render(id: string, source: string): Promise<{ svg: string }>;
 };
 
-let mermaid: MermaidApi | null = null;
-let loading: Promise<void> | null = null;
+let loading: Promise<MermaidApi> | null = null;
 
-export async function renderMermaid(container: HTMLElement): Promise<void> {
-  const nodes = container.querySelectorAll<HTMLElement>("pre.mermaid:not([data-done])");
-  if (nodes.length === 0) return;
-
-  if (!mermaid) {
-    if (!loading) {
-      loading = import("mermaid").then((module) => {
+function load(): Promise<MermaidApi> {
+  if (!loading) {
+    loading = import("mermaid")
+      .then((module) => {
         const api = (module as unknown as { default: MermaidApi }).default;
         api.initialize({
           startOnLoad: false,
           securityLevel: "strict",
           theme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
         });
-        mermaid = api;
+        return api;
+      })
+      .catch((error) => {
+        loading = null;
+        throw error;
       });
-    }
-    await loading;
+  }
+  return loading;
+}
+
+export async function renderMermaid(container: HTMLElement): Promise<void> {
+  if (!container.querySelector("pre.mermaid:not([data-done])")) return;
+
+  let api: MermaidApi;
+  try {
+    api = await load();
+  } catch (error) {
+    fail(container, error);
+    return;
   }
 
+  // The node list must be read after the async load: a Svelte re-render may
+  // have replaced the previous nodes while mermaid was loading.
+  const nodes = container.querySelectorAll<HTMLElement>("pre.mermaid:not([data-done])");
   for (const node of nodes) {
     node.setAttribute("data-done", "1");
     const source = node.textContent ?? "";
     try {
-      const { svg } = await mermaid!.render(`mermaid-${Math.random().toString(36).slice(2)}`, source);
+      const { svg } = await api.render(`mermaid-${Math.random().toString(36).slice(2)}`, source);
       const wrapper = document.createElement("div");
       wrapper.innerHTML = svg;
       node.replaceWith(wrapper.firstElementChild ?? wrapper);
     } catch (error) {
-      const failure = document.createElement("div");
-      failure.className = "mermaid-error";
-      failure.textContent = String(error);
-      node.replaceWith(failure);
+      node.replaceWith(message(String(error)));
     }
   }
+}
+
+function fail(container: HTMLElement, error: unknown): void {
+  for (const node of container.querySelectorAll<HTMLElement>("pre.mermaid:not([data-done])")) {
+    node.setAttribute("data-done", "1");
+    node.replaceWith(message(String(error)));
+  }
+}
+
+function message(text: string): HTMLElement {
+  const failure = document.createElement("div");
+  failure.className = "mermaid-error";
+  failure.textContent = text;
+  return failure;
 }

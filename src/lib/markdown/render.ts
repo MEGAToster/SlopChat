@@ -17,14 +17,21 @@ function mathHtml(source: string, display: boolean): string {
   return html ?? `<span class="math-pending">${escapeHtml(source)}</span>`;
 }
 
-function mathExtension(name: string, display: boolean, pattern: RegExp): MarkedExtension {
+function mathExtension(
+  name: string,
+  display: boolean,
+  pattern: RegExp,
+  marker: string,
+): MarkedExtension {
   return {
     extensions: [
       {
+        // Inline so display math mid-sentence still matches; `display` only
+        // controls KaTeX's display mode.
         name,
-        level: display ? "block" : "inline",
+        level: "inline",
         start(source: string) {
-          const index = source.indexOf(display ? "$$" : "$");
+          const index = source.indexOf(marker);
           return index < 0 ? undefined : index;
         },
         tokenizer(source: string) {
@@ -40,17 +47,50 @@ function mathExtension(name: string, display: boolean, pattern: RegExp): MarkedE
   };
 }
 
+function isDocument(text: string): boolean {
+  return /\\(documentclass|usepackage|begin\{document\}|end\{document\})/.test(text);
+}
+
+// A fence that mixes prose with \(...\)/\[...\]/$...$ math isn't one expression.
+function hasMathDelimiters(text: string): boolean {
+  return /\\[(\[]|\${1,2}/.test(text);
+}
+
+// KaTeX can't render a full document, so unwrap the scaffold and let the
+// markdown/math pipeline render the body instead of showing a wall of TeX.
+function latexBody(text: string): string {
+  const body = /\\begin\{document\}([\s\S]*?)\\end\{document\}/.exec(text);
+  return (body ? body[1] : text)
+    .replace(/\\(documentclass|usepackage)(\[[^\]]*\])?\{[^}]*\}/g, "")
+    .replace(/\\subsection\*?\{([^}]*)\}/g, "### $1")
+    .replace(/\\section\*?\{([^}]*)\}/g, "## $1")
+    .replace(/\\(title|author|date)\*?\{[^}]*\}/g, "")
+    .replace(/\\(maketitle|newpage|clearpage|tableofcontents)/g, "")
+    .trim();
+}
+
+function stripMathDelimiters(text: string): string {
+  return text
+    .trim()
+    .replace(/^\$\$?|^\s*\\?[\[(]/, "")
+    .replace(/\$\$?$|\\?[\])]\s*$/, "")
+    .trim();
+}
+
 const marked = new Marked(
-  mathExtension("blockMath", true, /^\$\$([\s\S]+?)\$\$/),
-  mathExtension("inlineMath", false, /^\$(?!\s)((?:\\.|[^$\\])+?)(?<!\s)\$/),
+  mathExtension("blockMath", true, /^\$\$([\s\S]+?)\$\$/, "$$"),
+  mathExtension("inlineMath", false, /^\$(?!\s)((?:\\.|[^$\\])+?)(?<!\s)\$/, "$"),
+  mathExtension("blockBracket", true, /^\\\[([\s\S]+?)\\\]/, "\\["),
+  mathExtension("inlineParen", false, /^\\\(([\s\S]+?)\\\)/, "\\("),
   {
     gfm: true,
     breaks: true,
     renderer: {
-      code({ text, lang }) {
+      code({ text, lang }): string {
         const language = (lang ?? "").split(/\s+/)[0];
+        const lower = language.toLowerCase();
 
-        if (language === "mermaid") {
+        if (lower === "mermaid") {
           return [
             '<div class="code-block mermaid-block">',
             '<div class="code-head"><span class="code-lang">mermaid</span>',
@@ -58,6 +98,14 @@ const marked = new Marked(
             `<pre class="mermaid">${escapeHtml(text)}</pre>`,
             "</div>",
           ].join("");
+        }
+
+        if (["math", "latex", "tex"].includes(lower)) {
+          const document = isDocument(text);
+          if (document || hasMathDelimiters(text)) {
+            return marked.parse(document ? latexBody(text) : text, { async: false }) as string;
+          }
+          return mathHtml(stripMathDelimiters(text), true);
         }
 
         const highlighted =

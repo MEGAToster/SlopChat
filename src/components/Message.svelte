@@ -27,6 +27,7 @@
 
   $effect(() => {
     void rendered;
+    void mathState.ready;
     if (!streaming && markdown) void renderMermaid(markdown);
   });
 
