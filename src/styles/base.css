@@ -100,10 +100,6 @@ body {
   padding-block: var(--sp-2);
 }
 
-.panel:not(.expanded) .content {
-  justify-content: flex-end;
-}
-
 .panel.expanded .content {
   height: 100%;
   min-height: 0;

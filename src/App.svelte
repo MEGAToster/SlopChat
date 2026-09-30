@@ -69,6 +69,17 @@
   });
 
   $effect(() => {
+    void messages().length;
+    requestAnimationFrame(measure);
+  });
+
+  function measure() {
+    if (content && !isExpanded()) {
+      void resizePanel(Math.ceil(content.getBoundingClientRect().height));
+    }
+  }
+
+  $effect(() => {
     const streaming = isStreaming();
     if (wasStreaming && !streaming && keyContext() === "composer") {
       void tick().then(focusComposer);
@@ -110,11 +121,7 @@
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (content && !isExpanded()) {
-          void resizePanel(Math.ceil(content.getBoundingClientRect().height));
-        }
-      });
+      frame = requestAnimationFrame(measure);
     });
     if (content) observer.observe(content);
 

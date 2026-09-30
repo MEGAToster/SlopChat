@@ -27,6 +27,11 @@
   padding: 0;
 }
 
+[data-style="tui"] .panel.expanded .content > .frame:first-child {
+  flex: 1;
+  min-height: 0;
+}
+
 [data-style="tui"] .divider {
   display: none;
 }
