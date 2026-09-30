@@ -35,6 +35,7 @@ export type Settings = {
   keybinds: Keybinds;
   providers: Record<string, Provider>;
   profiles: Profile[];
+  models: string[];
   startup: Startup;
   resumeWithinMinutes: number;
   theme: string;
@@ -100,4 +101,10 @@ export type NewMessage = {
   tokensIn?: number;
   tokensOut?: number;
   cost?: number;
+};
+
+export type ProviderModel = {
+  provider: string;
+  id: string;
+  name?: string | null;
 };

@@ -63,6 +63,12 @@ fn main() {
             commands::set_chat_profile,
             commands::append_message,
             commands::rewind_to,
+            commands::search_chats,
+            commands::list_models,
+            commands::open_settings_file,
+            commands::reload_config,
+            commands::add_model,
+            commands::remove_model,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

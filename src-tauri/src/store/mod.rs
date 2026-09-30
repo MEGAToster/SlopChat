@@ -1,5 +1,6 @@
 pub mod chats;
 pub mod messages;
+pub mod search;
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};

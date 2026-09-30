@@ -3,6 +3,8 @@
   import Composer from "./components/Composer.svelte";
   import MessageList from "./components/MessageList.svelte";
   import Onboarding from "./components/Onboarding.svelte";
+  import Palette from "./components/Palette.svelte";
+  import Settings from "./components/Settings.svelte";
   import ProfileBadge from "./components/ProfileBadge.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import StatusLine from "./components/StatusLine.svelte";
@@ -18,6 +20,21 @@
     toggleSticky,
   } from "./lib/ipc";
   import { resolve, type Action } from "./lib/keymap/dispatch";
+  import { matchesAny } from "./lib/keymap/parse";
+  import {
+    activate as paletteActivate,
+    back as paletteBack,
+    close as paletteClose,
+    isOpen as paletteIsOpen,
+    mode as paletteMode,
+    move as paletteMove,
+    open as paletteOpen,
+    select as paletteSelect,
+  } from "./lib/state/palette.svelte";
+  import {
+    closePanel as settingsPanelClose,
+    isOpen as settingsPanelIsOpen,
+  } from "./lib/state/settingsPanel.svelte";
   import {
     chatError,
     init as initChat,
@@ -45,6 +62,7 @@
     filtering,
     isExpanded,
     keyContext,
+    modelOverride,
     moveSelection,
     openChatWithProfile,
     pendingDelete,
@@ -150,7 +168,7 @@
     }
     const options = {
       profileName: profile.name,
-      model: profile.model,
+      model: modelOverride() ?? profile.model,
       system: profile.system,
       temperature: profile.temperature,
     };
@@ -210,6 +228,27 @@
     focusComposer();
   }
 
+  async function openPalette() {
+    if (!isExpanded()) void resizePanel(480);
+    setContext("palette");
+    await paletteOpen();
+    await tick();
+  }
+
+  function closePalette() {
+    paletteClose();
+    setContext("composer");
+    if (settingsPanelIsOpen()) return;
+    if (!isExpanded()) void tick().then(measure);
+    focusComposer();
+  }
+
+  function closeSettings() {
+    settingsPanelClose();
+    if (!isExpanded()) void tick().then(measure);
+    focusComposer();
+  }
+
   function perform(action: Action) {
     switch (action) {
       case "hide":
@@ -235,6 +274,9 @@
         break;
       case "toggleSidebar":
         void toggleSidebar();
+        break;
+      case "palette":
+        void openPalette();
         break;
       case "editLast":
         startEdit();
@@ -298,10 +340,46 @@
       return;
     }
 
+    if (settingsPanelIsOpen()) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSettings();
+      }
+      return;
+    }
+
     if (!ready || needsKey) {
       if (event.key === "Escape") {
         event.preventDefault();
         void hidePanel();
+      }
+      return;
+    }
+
+    if (paletteIsOpen()) {
+      if (matchesAny(settings().keybinds.palette, event)) {
+        event.preventDefault();
+        closePalette();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        if (paletteMode() === "add") paletteBack();
+        else closePalette();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        void paletteActivate()
+          .then((shouldClose) => {
+            if (shouldClose) closePalette();
+          })
+          .catch(() => closePalette());
+      } else if (
+        event.key === "ArrowDown" ||
+        (event.ctrlKey && event.key.toLowerCase() === "j")
+      ) {
+        event.preventDefault();
+        paletteMove(1);
+      } else if (event.key === "ArrowUp" || (event.ctrlKey && event.key.toLowerCase() === "k")) {
+        event.preventDefault();
+        paletteMove(-1);
       }
       return;
     }
@@ -387,4 +465,21 @@
       {/if}
     </div>
   </div>
+
+  {#if paletteIsOpen()}
+    <Palette
+      onactivate={(selected) => {
+        paletteSelect(selected);
+        void paletteActivate()
+          .then((shouldClose) => {
+            if (shouldClose) closePalette();
+          })
+          .catch(() => closePalette());
+      }}
+    />
+  {/if}
+
+  {#if settingsPanelIsOpen()}
+    <Settings onclose={closeSettings} />
+  {/if}
 </main>

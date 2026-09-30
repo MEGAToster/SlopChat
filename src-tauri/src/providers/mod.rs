@@ -1,8 +1,11 @@
 pub mod client;
+pub mod gemini;
+pub mod ollama;
 pub mod openrouter;
 pub mod sse;
 
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use crate::config::Settings;
 use crate::secrets;
@@ -43,7 +46,22 @@ pub struct ChatRequest {
     pub system: Option<String>,
     #[serde(default)]
     pub temperature: Option<f32>,
+    #[serde(default)]
+    pub use_context: bool,
     pub messages: Vec<ChatMessage>,
+}
+
+pub(crate) fn messages(request: &ChatRequest) -> Vec<Value> {
+    let mut messages = Vec::new();
+    if let Some(system) = request.system.as_deref() {
+        if !system.is_empty() {
+            messages.push(json!({ "role": "system", "content": system }));
+        }
+    }
+    for message in &request.messages {
+        messages.push(json!({ "role": message.role, "content": message.content }));
+    }
+    messages
 }
 
 impl ChatRequest {
@@ -54,6 +72,14 @@ impl ChatRequest {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderModel {
+    pub provider: String,
+    pub id: String,
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

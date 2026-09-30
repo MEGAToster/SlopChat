@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   providers: {},
   profiles: [],
+  models: [],
   startup: "last",
   resumeWithinMinutes: 10,
   theme: "default-dark",

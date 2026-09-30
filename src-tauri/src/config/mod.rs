@@ -17,6 +17,7 @@ pub struct Settings {
     pub keybinds: Keybinds,
     pub providers: BTreeMap<String, Provider>,
     pub profiles: Vec<Profile>,
+    pub models: Vec<String>,
     pub startup: Startup,
     pub resume_within_minutes: u64,
     pub theme: String,
@@ -167,6 +168,35 @@ fn report_error(app: &AppHandle, error: String) {
     let _ = app.emit("config://error", &message);
 }
 
+pub fn ensure_file() -> Result<(), String> {
+    load().map(|_| ())
+}
+
+pub fn add_model(app: &AppHandle, model: &str) -> Result<(), String> {
+    let mut settings = app.state::<ConfigState>().get();
+    if settings.models.iter().any(|existing| existing == model) {
+        return Ok(());
+    }
+    settings.models.push(model.to_string());
+    write(&paths::settings_path(), &settings)?;
+    let _ = app.emit("config://changed", &settings);
+    app.state::<ConfigState>().set(settings);
+    Ok(())
+}
+
+pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
+    let mut settings = app.state::<ConfigState>().get();
+    let before = settings.models.len();
+    settings.models.retain(|existing| existing != model);
+    if settings.models.len() == before {
+        return Ok(());
+    }
+    write(&paths::settings_path(), &settings)?;
+    let _ = app.emit("config://changed", &settings);
+    app.state::<ConfigState>().set(settings);
+    Ok(())
+}
+
 fn load() -> Result<Settings, String> {
     let path = paths::settings_path();
 
@@ -200,6 +230,7 @@ impl Default for Settings {
             keybinds: Keybinds::default(),
             providers: default_providers(),
             profiles: default_profiles(),
+            models: Vec::new(),
             startup: Startup::default(),
             resume_within_minutes: 10,
             theme: "default-dark".to_string(),
@@ -308,6 +339,7 @@ mod tests {
         assert_eq!(settings.keybinds.scroll_up, vec!["Ctrl+U".to_string()]);
         assert!(settings.providers.contains_key("openrouter"));
         assert_eq!(settings.profiles.len(), 4);
+        assert!(settings.models.is_empty());
         assert_eq!(settings.theme, "default-dark");
         assert_eq!(settings.window.compact_width, 680.0);
     }

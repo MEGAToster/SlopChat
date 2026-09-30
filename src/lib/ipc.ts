@@ -4,6 +4,7 @@ import type {
   Chat,
   ChatView,
   NewMessage,
+  ProviderModel,
   SendRequest,
   Settings,
   StoredMessage,
@@ -104,6 +105,30 @@ export function appendMessage(message: NewMessage): Promise<StoredMessage> {
 
 export function rewindTo(chatId: string, messageId: string, content: string): Promise<void> {
   return invoke("rewind_to", { chatId, messageId, content });
+}
+
+export function searchChats(query: string): Promise<Chat[]> {
+  return invoke("search_chats", { query });
+}
+
+export function listModels(): Promise<ProviderModel[]> {
+  return invoke("list_models");
+}
+
+export function openSettingsFile(): Promise<void> {
+  return invoke("open_settings_file");
+}
+
+export function reloadConfig(): Promise<void> {
+  return invoke("reload_config");
+}
+
+export function addModel(model: string): Promise<void> {
+  return invoke("add_model", { model });
+}
+
+export function removeModel(model: string): Promise<void> {
+  return invoke("remove_model", { model });
 }
 
 export function onPanelShown(handler: () => void): Promise<UnlistenFn> {

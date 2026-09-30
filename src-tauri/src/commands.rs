@@ -1,12 +1,13 @@
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
-use crate::config::{ConfigState, Settings, Startup};
+use crate::config::{self, ConfigState, Settings, Startup};
 use crate::panel;
+use crate::paths;
 use crate::providers::client::Streams;
-use crate::providers::{self, ChatRequest, StreamEvent};
+use crate::providers::{self, openrouter, ChatRequest, StreamEvent};
 use crate::secrets;
-use crate::store::{chats, messages, Chat, ChatView, Message, NewMessage, Store};
+use crate::store::{chats, messages, search, Chat, ChatView, Message, NewMessage, Store};
 
 #[tauri::command]
 pub fn show_panel(app: AppHandle) {
@@ -152,4 +153,74 @@ pub fn rewind_to(
     content: String,
 ) -> Result<(), String> {
     messages::rewind(&store.conn(), &chat_id, &message_id, &content)
+}
+
+#[tauri::command]
+pub fn search_chats(store: State<Store>, query: String) -> Result<Vec<Chat>, String> {
+    search::chats(&store.conn(), &query, 20)
+}
+
+#[tauri::command]
+pub async fn list_models(app: AppHandle) -> Result<Vec<providers::ProviderModel>, String> {
+    let settings = app.state::<ConfigState>().get();
+    let Some(key) = providers::api_key(&settings, openrouter::PROVIDER)? else {
+        return Ok(Vec::new());
+    };
+
+    let models = openrouter::models(&settings, &key).await?;
+    Ok(models
+        .into_iter()
+        .map(|model| providers::ProviderModel {
+            provider: openrouter::PROVIDER.to_string(),
+            id: model.id,
+            name: model.name,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn open_settings_file() -> Result<(), String> {
+    config::ensure_file()?;
+    let path = paths::settings_path();
+
+    if let Some(editor) = std::env::var("EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .ok()
+        .filter(|editor| !editor.trim().is_empty())
+    {
+        return std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("exec {editor} \"$1\""))
+            .arg("sh")
+            .arg(&path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    let opener = "open";
+    #[cfg(not(target_os = "macos"))]
+    let opener = "xdg-open";
+
+    std::process::Command::new(opener)
+        .arg(&path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn reload_config(app: AppHandle) {
+    config::reload(&app);
+}
+
+#[tauri::command]
+pub fn add_model(app: AppHandle, model: String) -> Result<(), String> {
+    config::add_model(&app, &model)
+}
+
+#[tauri::command]
+pub fn remove_model(app: AppHandle, model: String) -> Result<(), String> {
+    config::remove_model(&app, &model)
 }

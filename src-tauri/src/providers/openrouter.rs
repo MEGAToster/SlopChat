@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::ChatRequest;
@@ -41,4 +42,33 @@ pub fn body(request: &ChatRequest, model: &str) -> Value {
     }
 
     body
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Model {
+    pub id: String,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+pub async fn models(settings: &Settings, key: &str) -> Result<Vec<Model>, String> {
+    #[derive(Deserialize)]
+    struct Response {
+        data: Vec<Model>,
+    }
+
+    let url = format!("{}/models", base_url(settings).trim_end_matches('/'));
+    let response = reqwest::Client::new()
+        .get(url)
+        .bearer_auth(key)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("models request failed: {}", response.status()));
+    }
+
+    let body: Response = response.json().await.map_err(|error| error.to_string())?;
+    Ok(body.data)
 }

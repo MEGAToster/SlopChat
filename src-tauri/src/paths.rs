@@ -19,6 +19,14 @@ pub fn settings_path() -> PathBuf {
     config_dir().join("settings.json")
 }
 
+pub fn context_path() -> PathBuf {
+    config_dir().join("context.md")
+}
+
+pub fn themes_dir() -> PathBuf {
+    config_dir().join("themes")
+}
+
 pub fn data_dir() -> PathBuf {
     xdg_dir("XDG_DATA_HOME", ".local/share").join("SlopChat")
 }

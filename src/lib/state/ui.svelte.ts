@@ -22,6 +22,7 @@ const store = $state({
   filterQuery: "",
   pendingDelete: null as string | null,
   editingId: null as string | null,
+  modelOverride: null as string | null,
 });
 
 export function mode(): PanelMode {
@@ -54,6 +55,14 @@ export function pendingDelete(): string | null {
 
 export function editingId(): string | null {
   return store.editingId;
+}
+
+export function modelOverride(): string | null {
+  return store.modelOverride;
+}
+
+export function setModelOverride(modelId: string | null): void {
+  store.modelOverride = modelId;
 }
 
 export function setContext(context: Context): void {
@@ -129,12 +138,14 @@ export function setProfile(name: string): void {
   if (name) setCurrentProfile(name);
   const index = settings().profiles.findIndex((profile) => profile.name === name);
   if (index !== -1) store.profileIndex = index;
+  store.modelOverride = null;
 }
 
 export function cycleProfile(): void {
   const profiles = settings().profiles;
   if (profiles.length === 0) return;
   store.profileIndex = (store.profileIndex + 1) % profiles.length;
+  store.modelOverride = null;
 
   const name = profiles[store.profileIndex].name;
   setCurrentProfile(name);
@@ -146,6 +157,7 @@ export function cycleProfile(): void {
 export async function openChatWithProfile(chatId: string): Promise<void> {
   await openChat(chatId);
   syncProfileFromActive();
+  store.modelOverride = null;
   store.context = "composer";
 }
 
@@ -156,6 +168,7 @@ export async function newChatWithProfile(): Promise<void> {
   if (profile) setCurrentProfile(profile.name);
   await newChat();
   syncProfileFromActive();
+  store.modelOverride = null;
   store.context = "composer";
 }
 

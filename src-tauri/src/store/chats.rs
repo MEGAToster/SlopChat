@@ -21,7 +21,7 @@ pub struct ChatView {
     pub messages: Vec<Message>,
 }
 
-fn row_to_chat(row: &Row<'_>) -> rusqlite::Result<Chat> {
+pub(crate) fn row_to_chat(row: &Row<'_>) -> rusqlite::Result<Chat> {
     Ok(Chat {
         id: row.get(0)?,
         title: row.get(1)?,
