@@ -2,7 +2,7 @@ import type { Chat } from "./types";
 
 export type ChatGroup = { title: string; chats: Chat[] };
 
-const ORDER = ["Pinned", "Today", "Yesterday", "Previous 7 days", "Older"];
+const ORDER = ["Older", "Previous 7 days", "Yesterday", "Today", "Pinned"];
 
 export function groupChats(chats: Chat[], now = Date.now()): ChatGroup[] {
   const day = 86_400_000;
@@ -25,8 +25,10 @@ export function groupChats(chats: Chat[], now = Date.now()): ChatGroup[] {
     else buckets.Older.push(chat);
   }
 
+  // Groups run oldest -> newest and each group is oldest -> newest, so new
+  // chats keep appearing at the bottom of the sidebar.
   return ORDER.map((title) => ({
     title,
-    chats: buckets[title].sort((a, b) => b.updatedAt - a.updatedAt),
+    chats: buckets[title].sort((a, b) => a.updatedAt - b.updatedAt),
   })).filter((group) => group.chats.length > 0);
 }

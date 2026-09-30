@@ -48,6 +48,8 @@
     <rect x="6" y="6" width="12" height="12" rx="2" />
   {:else if name === "spark"}
     <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18" />
+  {:else if name === "attach"}
+    <path d="M21 11.5 12.5 20a4.5 4.5 0 0 1-6.4-6.4l8.5-8.5a3 3 0 0 1 4.3 4.3l-8.5 8.5a1.5 1.5 0 0 1-2.2-2.2l7.8-7.8" />
   {:else if name === "enter"}
     <path d="M9 10 4 15l5 5" />
     <path d="M20 4v7a4 4 0 0 1-4 4H4" />

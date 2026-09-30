@@ -8,7 +8,7 @@ use crate::providers::client::Streams;
 use crate::providers::kinds::Kind;
 use crate::providers::{self, ChatRequest, StreamEvent};
 use crate::secrets;
-use crate::store::{chats, messages, search, Chat, ChatView, Message, NewMessage, Store};
+use crate::store::{chats, messages, search, Attachment, Chat, ChatView, Message, NewMessage, Store};
 
 #[tauri::command]
 pub fn show_panel(app: AppHandle) {
@@ -164,6 +164,53 @@ pub fn rewind_to(
 #[tauri::command(async)]
 pub fn search_chats(store: State<Store>, query: String) -> Result<Vec<Chat>, String> {
     search::chats(&store.conn(), &query, 20)
+}
+
+#[tauri::command]
+pub fn set_suppress_hide(app: AppHandle, value: bool) {
+    panel::set_suppressed(&app, value);
+}
+
+#[tauri::command(async)]
+pub fn save_attachment(name: String, mime: String, data: String) -> Result<Attachment, String> {
+    use base64::Engine;
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|error| format!("decoding attachment: {error}"))?;
+
+    let id = crate::store::new_id("a");
+    let extension = std::path::Path::new(&name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!(".{value}"))
+        .unwrap_or_default();
+
+    let dir = paths::attachments_dir();
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let path = dir.join(format!("{id}{extension}"));
+    std::fs::write(&path, bytes).map_err(|error| error.to_string())?;
+
+    Ok(Attachment {
+        id,
+        path: path.to_string_lossy().to_string(),
+        mime: Some(mime),
+    })
+}
+
+#[tauri::command(async)]
+pub fn read_attachment(path: String) -> Result<String, String> {
+    use base64::Engine;
+
+    let dir = paths::attachments_dir();
+    let canonical = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
+    let root = std::fs::canonicalize(&dir).unwrap_or(dir);
+    if !canonical.starts_with(&root) {
+        return Err("attachment path is outside the attachments directory".to_string());
+    }
+
+    let bytes = std::fs::read(&canonical).map_err(|error| error.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
 #[tauri::command]

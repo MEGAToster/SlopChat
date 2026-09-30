@@ -63,6 +63,7 @@ mod tests {
             tokens_in: None,
             tokens_out: None,
             cost: None,
+            attachments: Vec::new(),
         }
     }
 

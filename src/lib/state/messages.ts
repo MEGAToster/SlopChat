@@ -8,6 +8,7 @@ export function toChatMessage(stored: StoredMessage): ChatMessage {
     id: stored.id,
     role: stored.role === "user" ? "user" : "assistant",
     content: stored.content,
+    attachments: stored.attachments,
     usage: hasUsage
       ? {
           tokensIn: stored.tokensIn ?? 0,

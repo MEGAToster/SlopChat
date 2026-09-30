@@ -79,7 +79,11 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
 
     let handler = SlopPanelEvents::new();
     let handle = app.clone();
-    handler.window_did_resign_key(move |_| hide(&handle, false));
+    handler.window_did_resign_key(move |_| {
+        if !super::is_sticky(&handle) && !super::is_suppressed(&handle) {
+            hide(&handle, false);
+        }
+    });
     panel.set_event_handler(Some(handler.as_ref()));
 
     Ok(())

@@ -11,7 +11,6 @@ import {
 import {
   clampSelection,
   isExpanded,
-  keyContext,
   measurePanel,
   pendingDelete,
   selectActive,
@@ -62,15 +61,6 @@ export function createOverlays() {
   function escChain(): void {
     if (isStreaming()) {
       void stop();
-      return;
-    }
-    if (keyContext() === "sidebar") {
-      setContext("composer");
-      focusComposer();
-      return;
-    }
-    if (isExpanded()) {
-      void setMode("compact").then(() => tick()).then(measurePanel);
       return;
     }
     void hidePanel();

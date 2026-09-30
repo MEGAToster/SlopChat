@@ -1,3 +1,4 @@
+pub mod attachments;
 pub mod chats;
 pub mod messages;
 pub mod search;
@@ -9,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
 
+pub use attachments::Attachment;
 pub use chats::{Chat, ChatView};
 pub use messages::{Message, NewMessage};
 
@@ -128,6 +130,7 @@ mod tests {
             tokens_in: None,
             tokens_out: None,
             cost: None,
+            attachments: Vec::new(),
         }
     }
 

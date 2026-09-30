@@ -46,7 +46,7 @@ impl ModelRef {
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessage {
     pub role: String,
-    pub content: String,
+    pub content: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]

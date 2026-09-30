@@ -55,9 +55,13 @@ export type StreamEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
-export type ChatMessage = {
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type RequestMessage = {
   role: string;
-  content: string;
+  content: string | ContentPart[];
 };
 
 export type SendRequest = {
@@ -66,7 +70,19 @@ export type SendRequest = {
   system?: string;
   temperature?: number;
   useContext?: boolean;
-  messages: ChatMessage[];
+  messages: RequestMessage[];
+};
+
+export type Attachment = {
+  id: string;
+  path: string;
+  mime: string | null;
+};
+
+export type NewAttachment = {
+  id: string;
+  path: string;
+  mime?: string;
 };
 
 export type Theme = {
@@ -103,6 +119,7 @@ export type StoredMessage = {
   tokensOut: number | null;
   cost: number | null;
   createdAt: number;
+  attachments: Attachment[];
 };
 
 export type ChatView = {
@@ -118,6 +135,7 @@ export type NewMessage = {
   tokensIn?: number;
   tokensOut?: number;
   cost?: number;
+  attachments?: NewAttachment[];
 };
 
 export type ProviderModel = {

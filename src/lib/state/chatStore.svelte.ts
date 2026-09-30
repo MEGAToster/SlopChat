@@ -1,10 +1,11 @@
-import type { Chat, Usage } from "../types";
+import type { Attachment, Chat, Usage } from "../types";
 
 export type ChatMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
   usage?: Usage;
+  attachments?: Attachment[];
 };
 
 export type SendOptions = {

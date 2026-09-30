@@ -1,14 +1,14 @@
 import { Channel } from "@tauri-apps/api/core";
 
 import { send as sendRequest, stop as stopStream } from "../ipc";
-import type { ChatMessage, StreamEvent, Usage } from "../types";
+import type { RequestMessage, StreamEvent, Usage } from "../types";
 
 export type StreamRequest = {
   model: string;
   system?: string;
   temperature?: number;
   useContext?: boolean;
-  messages: ChatMessage[];
+  messages: RequestMessage[];
 };
 
 export type StreamCallbacks = {

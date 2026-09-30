@@ -1,6 +1,8 @@
 use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
 
+use super::attachments::{Attachment, NewAttachment};
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
@@ -13,6 +15,7 @@ pub struct Message {
     pub tokens_out: Option<i64>,
     pub cost: Option<f64>,
     pub created_at: i64,
+    pub attachments: Vec<Attachment>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +32,8 @@ pub struct NewMessage {
     pub tokens_out: Option<i64>,
     #[serde(default)]
     pub cost: Option<f64>,
+    #[serde(default)]
+    pub attachments: Vec<NewAttachment>,
 }
 
 const COLUMNS: &str =
@@ -45,25 +50,33 @@ fn row_to_message(row: &Row<'_>) -> rusqlite::Result<Message> {
         tokens_out: row.get(6)?,
         cost: row.get(7)?,
         created_at: row.get(8)?,
+        attachments: Vec::new(),
     })
 }
 
 pub fn list(conn: &Connection, chat_id: &str) -> Result<Vec<Message>, String> {
-    let mut statement = conn
-        .prepare(&format!(
-            "SELECT {COLUMNS} FROM messages WHERE chat_id = ?1 ORDER BY created_at ASC, rowid ASC"
-        ))
-        .map_err(|error| error.to_string())?;
-    let messages = statement
-        .query_map(params![chat_id], row_to_message)
-        .map_err(|error| error.to_string())?
-        .collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(|error| error.to_string())?;
+    let mut messages = {
+        let mut statement = conn
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM messages WHERE chat_id = ?1 ORDER BY created_at ASC, rowid ASC"
+            ))
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map(params![chat_id], row_to_message)
+            .map_err(|error| error.to_string())?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|error| error.to_string())?
+    };
+
+    for message in &mut messages {
+        message.attachments = super::attachments::list_for_message(conn, &message.id)?;
+    }
+
     Ok(messages)
 }
 
 pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
-    let message = Message {
+    let mut message = Message {
         id: super::new_id("m"),
         chat_id: new.chat_id.clone(),
         role: new.role.clone(),
@@ -73,6 +86,7 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
         tokens_out: new.tokens_out,
         cost: new.cost,
         created_at: super::now_millis(),
+        attachments: Vec::new(),
     };
 
     conn.execute(
@@ -92,6 +106,19 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
     )
     .map_err(|error| error.to_string())?;
 
+    for attachment in &new.attachments {
+        super::attachments::insert(conn, &message.id, attachment)?;
+    }
+    message.attachments = new
+        .attachments
+        .iter()
+        .map(|attachment| Attachment {
+            id: attachment.id.clone(),
+            path: attachment.path.clone(),
+            mime: attachment.mime.clone(),
+        })
+        .collect();
+
     super::chats::touch(conn, &message.chat_id, message.created_at)?;
 
     if message.role == "user" {
@@ -101,7 +128,12 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
     Ok(message)
 }
 
-pub fn rewind(conn: &Connection, chat_id: &str, message_id: &str, content: &str) -> Result<(), String> {
+pub fn rewind(
+    conn: &Connection,
+    chat_id: &str,
+    message_id: &str,
+    content: &str,
+) -> Result<(), String> {
     conn.execute(
         "UPDATE messages SET content = ?1 WHERE id = ?2 AND chat_id = ?3",
         params![content, message_id, chat_id],

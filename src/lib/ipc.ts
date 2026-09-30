@@ -1,6 +1,7 @@
 import { invoke, type Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  Attachment,
   Chat,
   ChatView,
   NewMessage,
@@ -150,6 +151,18 @@ export function setWindowStyle(
   opacity: number,
 ): Promise<void> {
   return invoke("set_window_style", { scheme, vibrancy, opacity });
+}
+
+export function setSuppressHide(value: boolean): Promise<void> {
+  return invoke("set_suppress_hide", { value });
+}
+
+export function saveAttachment(name: string, mime: string, data: string): Promise<Attachment> {
+  return invoke("save_attachment", { name, mime, data });
+}
+
+export function readAttachment(path: string): Promise<string> {
+  return invoke("read_attachment", { path });
 }
 
 export function onPanelShown(handler: () => void): Promise<UnlistenFn> {

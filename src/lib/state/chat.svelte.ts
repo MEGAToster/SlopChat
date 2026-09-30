@@ -1,6 +1,8 @@
-import { appendMessage, getChat, rewindTo } from "../ipc";
-import { chatState, type SendOptions } from "./chatStore.svelte";
+import { appendMessage, getChat, readAttachment, rewindTo, saveAttachment } from "../ipc";
+import type { Attachment, ContentPart, NewAttachment, RequestMessage } from "../types";
+import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
+import { chatState, type SendOptions } from "./chatStore.svelte";
 import { toChatMessage } from "./messages";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
 
@@ -9,11 +11,20 @@ export * from "./chatHistory.svelte";
 
 export async function submit(text: string, options: SendOptions): Promise<void> {
   const content = text.trim();
-  if (chatState.streaming || !content) return;
+  const attachments = pending();
+  if (chatState.streaming || (!content && attachments.length === 0)) return;
 
   const chatId = await ensureChat(options.profileName);
-  const stored = await appendMessage({ chatId, role: "user", content });
+
+  const saved: NewAttachment[] = [];
+  for (const item of attachments) {
+    const stored = await saveAttachment(item.name, item.mime, base64Of(item.dataUrl));
+    saved.push({ id: stored.id, path: stored.path, mime: stored.mime ?? item.mime });
+  }
+
+  const stored = await appendMessage({ chatId, role: "user", content, attachments: saved });
   chatState.messages.push(toChatMessage(stored));
+  clearPending();
   await refreshChats();
 
   await streamReply(chatId, options);
@@ -40,6 +51,39 @@ export async function stop(): Promise<void> {
   if (chatState.streamingChatId) await stopStream(chatState.streamingChatId);
 }
 
+async function messageContent(
+  text: string,
+  attachments: Attachment[],
+): Promise<string | ContentPart[]> {
+  if (attachments.length === 0) return text;
+
+  const parts: ContentPart[] = [];
+  if (text) parts.push({ type: "text", text });
+
+  for (const attachment of attachments) {
+    let data = "";
+    try {
+      data = await readAttachment(attachment.path);
+    } catch {
+      continue;
+    }
+
+    if ((attachment.mime ?? "").startsWith("image/")) {
+      parts.push({
+        type: "image_url",
+        image_url: { url: `data:${attachment.mime};base64,${data}` },
+      });
+    } else if (isText(attachment.mime)) {
+      parts.push({
+        type: "text",
+        text: `File: ${basename(attachment.path)}\n\n${decode(data)}`,
+      });
+    }
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
 async function streamReply(chatId: string, options: SendOptions): Promise<void> {
   chatState.error = null;
 
@@ -50,9 +94,12 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
   chatState.streamingChatId = chatId;
   chatState.thinking = false;
 
-  const history = chatState.messages
-    .slice(0, index)
-    .map((message) => ({ role: message.role, content: message.content }));
+  const history: RequestMessage[] = await Promise.all(
+    chatState.messages.slice(0, index).map(async (message) => ({
+      role: message.role,
+      content: await messageContent(message.content, message.attachments ?? []),
+    })),
+  );
 
   const find = () => chatState.messages.find((message) => message.id === tempId);
 
@@ -106,4 +153,21 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
     const emptyIndex = chatState.messages.findIndex((message) => message.id === tempId);
     if (emptyIndex !== -1) chatState.messages.splice(emptyIndex, 1);
   }
+}
+
+function isText(mime: string | null): boolean {
+  if (!mime) return false;
+  return mime.startsWith("text/") || mime === "application/json" || mime.endsWith("+json");
+}
+
+function decode(data: string): string {
+  try {
+    return atob(data);
+  } catch {
+    return "";
+  }
+}
+
+function basename(path: string): string {
+  return path.split("/").pop() ?? path;
 }

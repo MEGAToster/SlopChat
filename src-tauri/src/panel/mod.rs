@@ -20,6 +20,7 @@ pub const DEFAULT_COMPACT_WIDTH: f64 = 680.0;
 
 pub struct PanelState {
     expanded: AtomicBool,
+    suppressed: AtomicBool,
     compact_height: Mutex<f64>,
 }
 
@@ -27,9 +28,20 @@ impl Default for PanelState {
     fn default() -> Self {
         Self {
             expanded: AtomicBool::new(false),
+            suppressed: AtomicBool::new(false),
             compact_height: Mutex::new(MIN_HEIGHT),
         }
     }
+}
+
+pub fn set_suppressed(app: &AppHandle, value: bool) {
+    app.state::<PanelState>()
+        .suppressed
+        .store(value, Ordering::SeqCst);
+}
+
+pub fn is_suppressed(app: &AppHandle) -> bool {
+    app.state::<PanelState>().suppressed.load(Ordering::SeqCst)
 }
 
 pub fn is_expanded(app: &AppHandle) -> bool {

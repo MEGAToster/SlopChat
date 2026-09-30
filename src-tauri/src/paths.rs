@@ -34,3 +34,7 @@ pub fn data_dir() -> PathBuf {
 pub fn chats_db_path() -> PathBuf {
     data_dir().join("history").join("chats.db")
 }
+
+pub fn attachments_dir() -> PathBuf {
+    data_dir().join("history").join("attachments")
+}
