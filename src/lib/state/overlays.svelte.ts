@@ -10,6 +10,7 @@ import {
 } from "./settingsPanel.svelte";
 import {
   clampSelection,
+  endEdit,
   isExpanded,
   measurePanel,
   pendingDelete,
@@ -51,7 +52,12 @@ export function createOverlays() {
   function confirmDelete(): void {
     const id = pendingDelete();
     setPendingDelete(null);
-    if (id) void removeChat(id).then(clampSelection);
+    if (id) {
+      void removeChat(id).then(() => {
+        clampSelection();
+        endEdit();
+      });
+    }
   }
 
   function cancelDelete(): void {

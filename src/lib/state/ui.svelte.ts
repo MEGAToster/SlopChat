@@ -166,6 +166,7 @@ export async function openChatWithProfile(chatId: string): Promise<void> {
   await openChat(chatId);
   syncProfileFromActive();
   store.modelOverride = null;
+  store.editingId = null;
   store.context = "composer";
 }
 
@@ -183,12 +184,14 @@ export async function previewChatWithProfile(chatId: string): Promise<void> {
   if (activeChatId() === chatId) return;
   await openChat(chatId);
   syncProfileFromActive();
+  store.editingId = null;
 }
 
 export async function newChatWithProfile(): Promise<void> {
   if (isBlank()) return;
   await newChat();
   store.modelOverride = null;
+  store.editingId = null;
   store.context = "composer";
 }
 

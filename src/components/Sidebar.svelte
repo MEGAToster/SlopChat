@@ -154,6 +154,11 @@
     background: var(--selection);
   }
 
+  .chat:focus-visible,
+  .new:focus-visible {
+    outline: none;
+  }
+
   .chat.confirming {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
   }

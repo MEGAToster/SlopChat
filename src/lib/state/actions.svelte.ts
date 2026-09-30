@@ -136,10 +136,16 @@ export function createActions(text: TextRef) {
         startEdit();
         break;
       case "prevChat":
-        void prevChat().then(syncProfileFromActive);
+        void prevChat().then(() => {
+          syncProfileFromActive();
+          endEdit();
+        });
         break;
       case "nextChat":
-        void nextChat().then(syncProfileFromActive);
+        void nextChat().then(() => {
+          syncProfileFromActive();
+          endEdit();
+        });
         break;
       case "cancelEdit":
         cancelEdit();
