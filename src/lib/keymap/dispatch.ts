@@ -17,6 +17,7 @@ export type Action =
   | "stop"
   | "scrollUp"
   | "scrollDown"
+  | "webToggle"
   | "toggleSidebar"
   | "editLast"
   | "prevChat"
@@ -47,6 +48,7 @@ export function resolve(
   if (matchesAny(keybinds.palette, event)) return "palette";
   if (matchesAny(keybinds.sticky, event)) return "sticky";
   if (matchesAny(keybinds.sidebar, event)) return "toggleSidebar";
+  if (matchesAny(keybinds.webToggle, event)) return "webToggle";
   if (state.streaming && matchesAny(keybinds.stop, event)) return "stop";
 
   if (context === "composer" || context === "sidebar") {

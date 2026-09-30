@@ -4,6 +4,7 @@ import {
   openSettingsFile,
   reloadConfig,
   searchChats,
+  searchUsage,
   toggleSticky,
 } from "../ipc";
 import type { Chat, ProviderModel } from "../types";
@@ -16,6 +17,7 @@ import { applyThemeFor, setStyle, setTheme, themes } from "./theme.svelte";
 import {
   isExpanded,
   newChatWithProfile,
+  notify,
   openChatWithProfile,
   setMode,
   setModelOverride,
@@ -203,6 +205,13 @@ async function runAction(id: string): Promise<void> {
     case "switch-style":
       await setStyle(settings().style === "tui" ? "minimal" : "tui");
       break;
+    case "search-usage": {
+      const usage = await searchUsage();
+      notify(
+        `Exa: ${usage.requests} searches · $${usage.cost.toFixed(2)} / $${usage.budget.toFixed(2)} this month`,
+      );
+      break;
+    }
     case "settings-panel":
       openPanel();
       break;

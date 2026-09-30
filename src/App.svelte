@@ -24,12 +24,14 @@
   import { isOpen as settingsPanelIsOpen } from "./lib/state/settingsPanel.svelte";
   import { applyThemeFor, loadUser } from "./lib/state/theme.svelte";
   import {
+    clearNotice,
     editingId,
     filtering,
     isExpanded,
     keyContext,
     pendingDelete,
     setContext,
+    uiNotice,
   } from "./lib/state/ui.svelte";
   import type { KeymapState } from "./lib/keymap/dispatch";
 
@@ -42,6 +44,7 @@
   const actions = createActions({ get: () => text, set: (value) => (text = value) });
 
   const persistentError = $derived(configError());
+  const uiNoticeText = $derived(uiNotice());
   let notice = $state<string | null>(null);
   let lastError: string | null = null;
   let wasStreaming = false;
@@ -61,6 +64,12 @@
   $effect(() => {
     if (!notice) return;
     const timer = setTimeout(() => (notice = null), 5000);
+    return () => clearTimeout(timer);
+  });
+
+  $effect(() => {
+    if (!uiNotice()) return;
+    const timer = setTimeout(clearNotice, 5000);
     return () => clearTimeout(timer);
   });
 
@@ -222,6 +231,8 @@
         <Toast message={persistentError} kind="warning" />
       {:else if notice}
         <Toast message={notice} />
+      {:else if uiNoticeText}
+        <Toast message={uiNoticeText} />
       {/if}
     </div>
   </div>

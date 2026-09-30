@@ -1,3 +1,4 @@
+use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
@@ -310,6 +311,25 @@ pub fn set_style(app: AppHandle, style: String) -> Result<(), String> {
 #[tauri::command(async)]
 pub fn load_user_themes() -> Vec<config::UserTheme> {
     config::load_user_themes()
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchUsage {
+    pub requests: i64,
+    pub cost: f64,
+    pub budget: f64,
+}
+
+#[tauri::command(async)]
+pub fn search_usage(app: AppHandle) -> SearchUsage {
+    let (requests, cost) = crate::tools::budget::usage(&app);
+    let budget = app.state::<ConfigState>().get().search.monthly_budget;
+    SearchUsage {
+        requests,
+        cost,
+        budget,
+    }
 }
 
 fn open_path(target: &std::path::Path) -> Result<(), String> {

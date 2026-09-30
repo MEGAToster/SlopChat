@@ -9,6 +9,7 @@ export type Keybinds = {
   stop: string[];
   scrollUp: string[];
   scrollDown: string[];
+  webToggle: string[];
 };
 
 export type Provider = {
@@ -23,6 +24,8 @@ export type Profile = {
   temperature?: number;
   useContext: boolean;
   color?: string;
+  tools?: string[];
+  webSearch?: WebSearchMode;
 };
 
 export type Startup = "last" | "new";
@@ -52,9 +55,27 @@ export type Usage = {
   provider?: string | null;
 };
 
+export type Source = {
+  n: number;
+  title: string;
+  url: string;
+};
+
+export type ToolStep = {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  status: "running" | "done" | "error";
+  summary: string;
+};
+
+export type WebSearchMode = "auto" | "always" | "off";
+
 export type StreamEvent =
   | { type: "delta"; content: string }
   | { type: "reasoning" }
+  | { type: "toolCall"; id: string; name: string; args: Record<string, unknown> }
+  | { type: "toolResult"; id: string; ok: boolean; summary: string; sources: Source[] }
   | { type: "usage"; tokensIn: number; tokensOut: number; cost: number | null; provider: string | null }
   | { type: "done" }
   | { type: "error"; message: string };
@@ -74,6 +95,9 @@ export type SendRequest = {
   system?: string;
   temperature?: number;
   useContext?: boolean;
+  tools?: string[];
+  webSearch?: WebSearchMode;
+  webToggle?: boolean;
   messages: RequestMessage[];
 };
 
@@ -129,6 +153,7 @@ export type StoredMessage = {
   tokensOut: number | null;
   cost: number | null;
   createdAt: number;
+  sources: Source[] | null;
   attachments: Attachment[];
 };
 
@@ -145,6 +170,7 @@ export type NewMessage = {
   tokensIn?: number;
   tokensOut?: number;
   cost?: number;
+  sources?: Source[];
   attachments?: NewAttachment[];
 };
 
@@ -152,4 +178,10 @@ export type ProviderModel = {
   provider: string;
   id: string;
   name?: string | null;
+};
+
+export type SearchUsage = {
+  requests: number;
+  cost: number;
+  budget: number;
 };

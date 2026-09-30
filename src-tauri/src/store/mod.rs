@@ -101,8 +101,24 @@ fn migrate(conn: &Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
     }
 
+    if version < 2 {
+        conn.execute_batch(SCHEMA_V2)
+            .map_err(|error| format!("migrating schema: {error}"))?;
+        conn.pragma_update(None, "user_version", 2)
+            .map_err(|error| error.to_string())?;
+    }
+
     Ok(())
 }
+
+const SCHEMA_V2: &str = "
+ALTER TABLE messages ADD COLUMN sources TEXT;
+CREATE TABLE search_usage (
+  month TEXT PRIMARY KEY,
+  requests INTEGER NOT NULL DEFAULT 0,
+  cost REAL NOT NULL DEFAULT 0
+);
+";
 
 pub fn now_millis() -> i64 {
     SystemTime::now()
@@ -130,6 +146,7 @@ mod tests {
             tokens_in: None,
             tokens_out: None,
             cost: None,
+            sources: None,
             attachments: Vec::new(),
         }
     }

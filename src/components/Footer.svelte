@@ -8,6 +8,7 @@
     editingId,
     keyContext,
     modelOverride,
+    webArmed,
   } from "../lib/state/ui.svelte";
   import { toggleSticky } from "../lib/ipc";
   import Icon from "./Icon.svelte";
@@ -66,6 +67,7 @@
 <footer class="footer">
   <div class="column inner">
     <span class="mode" data-tone={mode.tone}>{mode.label}</span>
+    {#if webArmed()}<span class="web">WEB</span>{/if}
 
     <div class="profile">
       <span class="dot" style={`background: var(--c-${color})`}></span>
@@ -117,6 +119,15 @@
 
   .mode {
     display: none;
+  }
+
+  .web {
+    padding: 0 6px;
+    border-radius: var(--radius-sm);
+    background: var(--c-purple, var(--accent));
+    color: var(--bg);
+    font-weight: 600;
+    font-size: var(--fs-xs);
   }
 
   .profile {

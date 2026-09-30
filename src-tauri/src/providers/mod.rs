@@ -1,14 +1,18 @@
+pub mod agent;
+pub mod capabilities;
+mod chunks;
 pub mod client;
 pub mod kinds;
+mod prompt;
 pub mod sse;
+pub mod stream;
 
 use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 
-use crate::config::Settings;
+use crate::config::{Settings, WebSearchMode};
 use crate::secrets;
 
 pub fn client() -> &'static reqwest::Client {
@@ -60,20 +64,13 @@ pub struct ChatRequest {
     pub temperature: Option<f32>,
     #[serde(default)]
     pub use_context: bool,
+    #[serde(default)]
+    pub tools: Vec<String>,
+    #[serde(default)]
+    pub web_search: WebSearchMode,
+    #[serde(default)]
+    pub web_toggle: bool,
     pub messages: Vec<ChatMessage>,
-}
-
-pub(crate) fn messages(request: &ChatRequest) -> Vec<Value> {
-    let mut messages = Vec::new();
-    if let Some(system) = request.system.as_deref() {
-        if !system.is_empty() {
-            messages.push(json!({ "role": "system", "content": system }));
-        }
-    }
-    for message in &request.messages {
-        messages.push(json!({ "role": message.role, "content": message.content }));
-    }
-    messages
 }
 
 impl ChatRequest {
@@ -87,10 +84,31 @@ impl ChatRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Source {
+    pub n: u32,
+    pub title: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum StreamEvent {
-    Delta { content: String },
+    Delta {
+        content: String,
+    },
     Reasoning,
+    ToolCall {
+        id: String,
+        name: String,
+        args: serde_json::Value,
+    },
+    ToolResult {
+        id: String,
+        ok: bool,
+        summary: String,
+        sources: Vec<Source>,
+    },
     Usage {
         tokens_in: u32,
         tokens_out: u32,
@@ -98,7 +116,9 @@ pub enum StreamEvent {
         provider: Option<String>,
     },
     Done,
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]

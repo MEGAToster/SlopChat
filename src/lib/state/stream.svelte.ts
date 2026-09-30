@@ -1,13 +1,16 @@
 import { Channel } from "@tauri-apps/api/core";
 
 import { send as sendRequest, stop as stopStream } from "../ipc";
-import type { RequestMessage, StreamEvent, Usage } from "../types";
+import type { RequestMessage, Source, StreamEvent, ToolStep, Usage } from "../types";
 
 export type StreamRequest = {
   model: string;
   system?: string;
   temperature?: number;
   useContext?: boolean;
+  tools?: string[];
+  webSearch?: "auto" | "always" | "off";
+  webToggle?: boolean;
   messages: RequestMessage[];
 };
 
@@ -15,6 +18,8 @@ export type StreamCallbacks = {
   onUpdate: (content: string) => void;
   onReasoning: () => void;
   onUsage: (usage: Usage) => void;
+  onSteps: (steps: ToolStep[]) => void;
+  onSources: (sources: Source[]) => void;
 };
 
 export type StreamOutcome = {
@@ -22,6 +27,8 @@ export type StreamOutcome = {
   usage?: Usage;
   error?: string;
   reasoning: boolean;
+  steps: ToolStep[];
+  sources: Source[];
 };
 
 export async function run(
@@ -33,6 +40,8 @@ export async function run(
   let usage: Usage | undefined;
   let error: string | undefined;
   let reasoning = false;
+  const steps: ToolStep[] = [];
+  const sources: Source[] = [];
 
   const channel = new Channel<StreamEvent>();
   channel.onmessage = (event) => {
@@ -45,6 +54,27 @@ export async function run(
         reasoning = true;
         callbacks.onReasoning();
         break;
+      case "toolCall":
+        steps.push({
+          id: event.id,
+          name: event.name,
+          args: event.args,
+          status: "running",
+          summary: "",
+        });
+        callbacks.onSteps([...steps]);
+        break;
+      case "toolResult": {
+        const step = steps.find((entry) => entry.id === event.id);
+        if (step) {
+          step.status = event.ok ? "done" : "error";
+          step.summary = event.summary;
+        }
+        sources.push(...event.sources);
+        callbacks.onSteps([...steps]);
+        callbacks.onSources([...sources]);
+        break;
+      }
       case "usage":
         usage = {
           tokensIn: event.tokensIn,
@@ -66,7 +96,7 @@ export async function run(
     error = String(cause);
   }
 
-  return { content, usage, error, reasoning };
+  return { content, usage, error, reasoning, steps, sources };
 }
 
 export async function stop(chatId: string): Promise<void> {

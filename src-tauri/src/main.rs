@@ -7,6 +7,7 @@ mod paths;
 mod providers;
 mod secrets;
 mod store;
+mod tools;
 
 use crate::providers::client::Streams;
 
@@ -77,6 +78,7 @@ fn main() {
             commands::set_style,
             commands::load_user_themes,
             commands::open_url,
+            commands::search_usage,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

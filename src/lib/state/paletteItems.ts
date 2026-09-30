@@ -47,6 +47,7 @@ function actionItems(settings: Settings): PaletteItem[] {
     { id: "toggle-expanded", label: "Toggle expanded", binding: keys.sidebar?.[0] },
     { id: "toggle-sticky", label: "Toggle sticky", binding: keys.sticky?.[0] },
     { id: "switch-style", label: "Switch style" },
+    { id: "search-usage", label: "Search usage" },
     { id: "pin-chat", label: "Pin / unpin chat" },
     { id: "add-models", label: "Add models…" },
     { id: "settings-panel", label: "Settings" },

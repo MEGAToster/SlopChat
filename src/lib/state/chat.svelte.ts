@@ -88,7 +88,7 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
   chatState.error = null;
 
   const tempId = `pending-${Date.now()}`;
-  chatState.messages.push({ id: tempId, role: "assistant", content: "" });
+  chatState.messages.push({ id: tempId, role: "assistant", content: "", steps: [], sources: [] });
   const index = chatState.messages.length - 1;
   chatState.streaming = true;
   chatState.streamingChatId = chatId;
@@ -110,6 +110,9 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       system: options.system,
       temperature: options.temperature,
       useContext: options.useContext,
+      tools: options.tools,
+      webSearch: options.webSearch,
+      webToggle: options.webToggle,
       messages: history,
     },
     {
@@ -125,6 +128,16 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
         if (chatState.activeChatId !== chatId) return;
         const message = find();
         if (message) message.usage = usage;
+      },
+      onSteps: (steps) => {
+        if (chatState.activeChatId !== chatId) return;
+        const message = find();
+        if (message) message.steps = steps;
+      },
+      onSources: (sources) => {
+        if (chatState.activeChatId !== chatId) return;
+        const message = find();
+        if (message) message.sources = sources;
       },
     },
   );
@@ -144,6 +157,7 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       tokensIn: outcome.usage?.tokensIn,
       tokensOut: outcome.usage?.tokensOut,
       cost: outcome.usage?.cost ?? undefined,
+      sources: outcome.sources,
     });
     const message = find();
     if (message) message.id = stored.id;

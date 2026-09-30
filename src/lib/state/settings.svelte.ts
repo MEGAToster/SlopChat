@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
     stop: ["Ctrl+C"],
     scrollUp: ["Ctrl+U"],
     scrollDown: ["Ctrl+D"],
+    webToggle: ["Ctrl+W"],
   },
   providers: {},
   profiles: [],

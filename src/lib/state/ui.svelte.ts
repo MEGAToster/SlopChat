@@ -19,7 +19,33 @@ const store = $state({
   pendingDelete: null as string | null,
   editingId: null as string | null,
   modelOverride: null as string | null,
+  webArmed: false,
+  noticeMessage: null as string | null,
 });
+
+export function webArmed(): boolean {
+  return store.webArmed;
+}
+
+export function toggleWebArmed(): void {
+  store.webArmed = !store.webArmed;
+}
+
+export function clearWebArmed(): void {
+  store.webArmed = false;
+}
+
+export function notify(message: string): void {
+  store.noticeMessage = message;
+}
+
+export function uiNotice(): string | null {
+  return store.noticeMessage;
+}
+
+export function clearNotice(): void {
+  store.noticeMessage = null;
+}
 
 export function mode(): PanelMode {
   return store.mode;

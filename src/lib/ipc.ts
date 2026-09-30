@@ -6,6 +6,7 @@ import type {
   ChatView,
   NewMessage,
   ProviderModel,
+  SearchUsage,
   SendRequest,
   Settings,
   StoredMessage,
@@ -159,6 +160,10 @@ export function setWindowStyle(
 
 export function setSuppressHide(value: boolean): Promise<void> {
   return invoke("set_suppress_hide", { value });
+}
+
+export function searchUsage(): Promise<SearchUsage> {
+  return invoke("search_usage");
 }
 
 export function saveAttachment(name: string, mime: string, data: string): Promise<Attachment> {

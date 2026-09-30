@@ -1,6 +1,21 @@
 use std::collections::BTreeMap;
 
-use super::{Keybinds, Profile, Provider, Settings, Startup, WindowConfig};
+use super::{
+    Keybinds, Profile, Provider, SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
+};
+
+impl Default for SearchSettings {
+    fn default() -> Self {
+        Self {
+            provider: "exa".to_string(),
+            search_type: "instant".to_string(),
+            num_results: 5,
+            contents: "highlights".to_string(),
+            max_characters: 1500,
+            monthly_budget: 10.0,
+        }
+    }
+}
 
 pub(super) fn default_true() -> bool {
     true
@@ -18,6 +33,7 @@ impl Default for Settings {
             theme: "default-dark".to_string(),
             style: "auto".to_string(),
             font: None,
+            search: SearchSettings::default(),
             window: WindowConfig::default(),
         }
     }
@@ -36,6 +52,7 @@ impl Default for Keybinds {
             stop: vec!["Ctrl+C".to_string()],
             scroll_up: vec!["Ctrl+U".to_string()],
             scroll_down: vec!["Ctrl+D".to_string()],
+            web_toggle: vec!["Ctrl+W".to_string()],
         }
     }
 }
@@ -84,6 +101,8 @@ fn default_profiles() -> Vec<Profile> {
             temperature: None,
             use_context: true,
             color: None,
+            tools: vec!["web_search".to_string(), "fetch_url".to_string()],
+            web_search: WebSearchMode::Auto,
         },
         Profile {
             name: "cheap".to_string(),
@@ -92,6 +111,8 @@ fn default_profiles() -> Vec<Profile> {
             temperature: None,
             use_context: true,
             color: None,
+            tools: Vec::new(),
+            web_search: WebSearchMode::Auto,
         },
         Profile {
             name: "complex".to_string(),
@@ -100,6 +121,8 @@ fn default_profiles() -> Vec<Profile> {
             temperature: None,
             use_context: true,
             color: None,
+            tools: Vec::new(),
+            web_search: WebSearchMode::Auto,
         },
         Profile {
             name: "translate".to_string(),
@@ -111,6 +134,8 @@ fn default_profiles() -> Vec<Profile> {
             temperature: None,
             use_context: false,
             color: None,
+            tools: Vec::new(),
+            web_search: WebSearchMode::Auto,
         },
     ]
 }

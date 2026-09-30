@@ -18,6 +18,7 @@ import { activate as paletteActivate } from "./palette.svelte";
 import {
   activeProfile,
   beginEdit,
+  clearWebArmed,
   cycleProfile,
   editingId,
   endEdit,
@@ -32,6 +33,8 @@ import {
   setMode,
   setPendingDelete,
   syncProfileFromActive,
+  toggleWebArmed,
+  webArmed,
 } from "./ui.svelte";
 
 export type TextRef = {
@@ -54,7 +57,11 @@ export function createActions(text: TextRef) {
       system: profile.system,
       temperature: profile.temperature,
       useContext: profile.useContext,
+      tools: profile.tools,
+      webSearch: profile.webSearch,
+      webToggle: webArmed(),
     };
+    clearWebArmed();
     const editing = editingId();
     const value = text.get();
     text.set("");
@@ -122,6 +129,9 @@ export function createActions(text: TextRef) {
         break;
       case "sticky":
         void toggleSticky();
+        break;
+      case "webToggle":
+        toggleWebArmed();
         break;
       case "send":
         void handleSend();

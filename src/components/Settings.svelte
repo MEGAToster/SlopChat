@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { hasApiKey, storeApiKey } from "../lib/ipc";
   import {
     add,
     composedModel,
@@ -22,8 +23,20 @@
   const models = $derived(settings().models);
 
   let modelInput = $state<HTMLInputElement | null>(null);
+  let exaKey = $state("");
+  let exaStored = $state(false);
 
-  onMount(() => modelInput?.focus());
+  onMount(() => {
+    modelInput?.focus();
+    void hasApiKey("exa").then((stored) => (exaStored = stored));
+  });
+
+  async function saveExa() {
+    if (!exaKey.trim()) return;
+    await storeApiKey("exa", exaKey.trim());
+    exaStored = true;
+    exaKey = "";
+  }
 </script>
 
 <div class="settings">
@@ -89,6 +102,20 @@
         </div>
       {/each}
     {/if}
+
+    <div class="section-title">Search</div>
+    <label class="row">
+      <span class="label">Exa API key</span>
+      <input
+        class="control"
+        type="password"
+        placeholder={exaStored ? "stored" : "exa-…"}
+        value={exaKey}
+        oninput={(event) => (exaKey = event.currentTarget.value)}
+        onkeydown={(event) => event.key === "Enter" && void saveExa()}
+      />
+    </label>
+    <p class="muted">With no card attached to your Exa account, it can't overspend.</p>
     </div>
   </Frame>
 </div>

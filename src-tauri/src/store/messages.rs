@@ -15,6 +15,7 @@ pub struct Message {
     pub tokens_out: Option<i64>,
     pub cost: Option<f64>,
     pub created_at: i64,
+    pub sources: Option<serde_json::Value>,
     pub attachments: Vec<Attachment>,
 }
 
@@ -33,11 +34,13 @@ pub struct NewMessage {
     #[serde(default)]
     pub cost: Option<f64>,
     #[serde(default)]
+    pub sources: Option<serde_json::Value>,
+    #[serde(default)]
     pub attachments: Vec<NewAttachment>,
 }
 
 const COLUMNS: &str =
-    "id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at";
+    "id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at, sources";
 
 fn row_to_message(row: &Row<'_>) -> rusqlite::Result<Message> {
     Ok(Message {
@@ -50,6 +53,9 @@ fn row_to_message(row: &Row<'_>) -> rusqlite::Result<Message> {
         tokens_out: row.get(6)?,
         cost: row.get(7)?,
         created_at: row.get(8)?,
+        sources: row
+            .get::<_, Option<String>>(9)?
+            .and_then(|text| serde_json::from_str(&text).ok()),
         attachments: Vec::new(),
     })
 }
@@ -86,12 +92,15 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
         tokens_out: new.tokens_out,
         cost: new.cost,
         created_at: super::now_millis(),
+        sources: new.sources.clone(),
         attachments: Vec::new(),
     };
 
+    let sources_json = new.sources.as_ref().map(|value| value.to_string());
+
     conn.execute(
-        "INSERT INTO messages (id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO messages (id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at, sources)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             message.id,
             message.chat_id,
@@ -102,6 +111,7 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
             message.tokens_out,
             message.cost,
             message.created_at,
+            sources_json,
         ],
     )
     .map_err(|error| error.to_string())?;

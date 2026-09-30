@@ -1,4 +1,4 @@
-import type { Attachment, Chat, Usage } from "../types";
+import type { Attachment, Chat, Source, ToolStep, Usage } from "../types";
 
 export type ChatMessage = {
   id?: string;
@@ -6,6 +6,8 @@ export type ChatMessage = {
   content: string;
   usage?: Usage;
   attachments?: Attachment[];
+  steps?: ToolStep[];
+  sources?: Source[];
 };
 
 export type SendOptions = {
@@ -14,6 +16,9 @@ export type SendOptions = {
   system?: string;
   temperature?: number;
   useContext?: boolean;
+  tools?: string[];
+  webSearch?: "auto" | "always" | "off";
+  webToggle?: boolean;
 };
 
 export const chatState = $state<{

@@ -37,6 +37,14 @@
   color: var(--c-yellow);
 }
 
+[data-style="tui"] .message .step {
+  color: var(--c-cyan);
+}
+
+[data-style="tui"] .message .step.failed {
+  color: var(--c-red);
+}
+
 /* --- Composer --------------------------------------------------------- */
 [data-style="tui"] .composer-box .input {
   caret-color: var(--accent);

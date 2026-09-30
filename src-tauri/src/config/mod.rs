@@ -26,7 +26,20 @@ pub struct Settings {
     pub style: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font: Option<Font>,
+    pub search: SearchSettings,
     pub window: WindowConfig,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SearchSettings {
+    pub provider: String,
+    #[serde(rename = "type")]
+    pub search_type: String,
+    pub num_results: u32,
+    pub contents: String,
+    pub max_characters: u32,
+    pub monthly_budget: f64,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -57,6 +70,7 @@ pub struct Keybinds {
     pub stop: Vec<String>,
     pub scroll_up: Vec<String>,
     pub scroll_down: Vec<String>,
+    pub web_toggle: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -80,6 +94,25 @@ pub struct Profile {
     pub use_context: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    #[serde(default)]
+    pub tools: Vec<String>,
+    #[serde(default)]
+    pub web_search: WebSearchMode,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WebSearchMode {
+    #[default]
+    Auto,
+    Always,
+    Off,
+}
+
+impl WebSearchMode {
+    pub fn is_off(self) -> bool {
+        self == WebSearchMode::Off
+    }
 }
 
 #[derive(Clone, Copy, Default, Serialize, Deserialize)]

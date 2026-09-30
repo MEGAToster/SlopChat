@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use super::{ChatRequest, ProviderModel};
+use super::ProviderModel;
 use crate::config::Settings;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -41,7 +41,7 @@ impl Kind {
         matches!(self, Kind::Ollama)
     }
 
-    fn base_url(self, settings: &Settings) -> String {
+    pub(crate) fn base_url(self, settings: &Settings) -> String {
         settings
             .providers
             .get(self.name())
@@ -56,10 +56,17 @@ impl Kind {
         )
     }
 
-    pub fn body(self, request: &ChatRequest, model: &str) -> Value {
+    pub fn body(
+        self,
+        model: &str,
+        messages: &Value,
+        temperature: Option<f32>,
+        tools: Option<&Value>,
+        tool_choice: &Value,
+    ) -> Value {
         let mut body = json!({
             "model": model,
-            "messages": super::messages(request),
+            "messages": messages,
             "stream": true,
         });
 
@@ -69,14 +76,19 @@ impl Kind {
             Kind::Gemini => {}
         }
 
-        if let Some(temperature) = request.temperature {
+        if let Some(temperature) = temperature {
             body["temperature"] = json!(temperature);
+        }
+
+        if let Some(tools) = tools {
+            body["tools"] = tools.clone();
+            body["tool_choice"] = tool_choice.clone();
         }
 
         body
     }
 
-    fn models_url(self, settings: &Settings) -> String {
+    pub(crate) fn models_url(self, settings: &Settings) -> String {
         match self {
             Kind::Ollama => format!(
                 "{}/api/tags",
