@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 use serde_json::{json, Value};
 
@@ -38,8 +39,10 @@ async fn openrouter(settings: &Settings, key: Option<&str>, model: &str) -> bool
     let Some(key) = key else {
         return true;
     };
-    let mut request = super::client().get(Kind::OpenRouter.models_url(settings));
-    request = request.bearer_auth(key);
+    let request = super::client()
+        .get(Kind::OpenRouter.models_url(settings))
+        .bearer_auth(key)
+        .timeout(Duration::from_secs(5));
 
     let Ok(response) = request.send().await else {
         return true;
@@ -68,6 +71,7 @@ async fn ollama(settings: &Settings, model: &str) -> bool {
     let Ok(response) = super::client()
         .post(url)
         .json(&json!({ "model": model }))
+        .timeout(Duration::from_secs(5))
         .send()
         .await
     else {

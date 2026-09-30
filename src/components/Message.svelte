@@ -1,5 +1,7 @@
 <script lang="ts">
   import { applyCitations } from "../lib/markdown/citations";
+  import { mathState } from "../lib/markdown/math.svelte";
+  import { renderMermaid } from "../lib/markdown/mermaid";
   import { renderMarkdown } from "../lib/markdown/render";
   import { MarkdownStream } from "../lib/markdown/stream";
   import type { ChatMessage } from "../lib/state/chat.svelte";
@@ -14,11 +16,18 @@
 
   const stream = new MarkdownStream();
   let html = $state("");
+  let markdown = $state<HTMLElement | null>(null);
 
   const rendered = $derived(applyCitations(html, message.sources ?? []));
 
   $effect(() => {
+    void mathState.ready;
     html = streaming ? stream.update(message.content) : renderMarkdown(message.content);
+  });
+
+  $effect(() => {
+    void rendered;
+    if (!streaming && markdown) void renderMermaid(markdown);
   });
 
   function name(path: string): string {
@@ -76,7 +85,7 @@
         <span class="caret">▍</span>
       {/if}
     {:else}
-      <div class="markdown">{@html rendered}</div>
+      <div class="markdown" bind:this={markdown}>{@html rendered}</div>
       {#if streaming}<span class="caret">▍</span>{/if}
     {/if}
 

@@ -36,7 +36,11 @@ pub async fn run(
     let web_enabled = has_web && !request.web_search.is_off();
     let forced =
         web_enabled && (request.web_search == WebSearchMode::Always || request.web_toggle);
-    let supports = supports_tools(kind, &model.model, &settings, key.as_deref()).await;
+    let supports = if request.tools.is_empty() {
+        false
+    } else {
+        supports_tools(kind, &model.model, &settings, key.as_deref()).await
+    };
 
     let mut tool_names: Vec<String> = request
         .tools

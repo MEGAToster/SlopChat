@@ -97,6 +97,7 @@
 
       <button type="button" class="sticky" class:on={sticky} onclick={() => void toggleSticky()}>
         <Icon name="lock" size={13} />
+        <Kbd binding={keybinds.sticky?.[0]} />
         <span>Sticky</span>
       </button>
     </div>

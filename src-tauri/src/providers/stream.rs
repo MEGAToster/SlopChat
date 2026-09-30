@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::ipc::Channel;
 use tokio::sync::Notify;
@@ -84,8 +85,11 @@ pub async fn run_step(
     loop {
         let chunk = tokio::select! {
             _ = cancel.notify.notified() => return Err(StreamError::Cancelled),
-            chunk = response.chunk() => {
-                chunk.map_err(|error| StreamError::Failed(error.to_string()))?
+            result = tokio::time::timeout(Duration::from_secs(90), response.chunk()) => {
+                match result {
+                    Ok(chunk) => chunk.map_err(|error| StreamError::Failed(error.to_string()))?,
+                    Err(_) => return Err(StreamError::Failed("provider timed out".to_string())),
+                }
             }
         };
 

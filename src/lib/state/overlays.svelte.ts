@@ -2,7 +2,7 @@ import { tick } from "svelte";
 
 import { focusComposer } from "../dom";
 import { hidePanel, resizePanel } from "../ipc";
-import { isStreaming, removeChat, stop } from "./chat.svelte";
+import { removeChat } from "./chat.svelte";
 import { close as paletteClose, open as paletteOpen } from "./palette.svelte";
 import {
   closePanel as settingsPanelClose,
@@ -65,10 +65,6 @@ export function createOverlays() {
   }
 
   function escChain(): void {
-    if (isStreaming()) {
-      void stop();
-      return;
-    }
     void hidePanel();
   }
 
