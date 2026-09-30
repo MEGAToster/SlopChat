@@ -1,13 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod config;
 mod panel;
+mod paths;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
-
-const TOGGLE_SHORTCUT: &str = "Alt+Space";
+use tauri_plugin_global_shortcut::ShortcutState;
 
 fn main() {
     let builder = tauri::Builder::default()
@@ -35,24 +35,20 @@ fn main() {
             commands::toggle_panel,
             commands::toggle_sticky,
             commands::is_sticky,
+            commands::get_settings,
+            commands::config_error,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             panel::init(app.handle())?;
+            config::init(app.handle())?;
             setup_tray(app.handle())?;
-            register_toggle_shortcut(app.handle())?;
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running SlopChat");
-}
-
-fn register_toggle_shortcut(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let shortcut: Shortcut = TOGGLE_SHORTCUT.parse()?;
-    app.global_shortcut().register(shortcut)?;
-    Ok(())
 }
 
 fn setup_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {

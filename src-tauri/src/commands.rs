@@ -1,5 +1,6 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 
+use crate::config::{ConfigState, Settings};
 use crate::panel;
 
 #[tauri::command]
@@ -25,4 +26,14 @@ pub fn toggle_sticky(app: AppHandle) -> bool {
 #[tauri::command]
 pub fn is_sticky(app: AppHandle) -> bool {
     panel::is_sticky(&app)
+}
+
+#[tauri::command]
+pub fn get_settings(config: State<ConfigState>) -> Settings {
+    config.get()
+}
+
+#[tauri::command]
+pub fn config_error(config: State<ConfigState>) -> Option<String> {
+    config.error()
 }
