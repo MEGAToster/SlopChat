@@ -7,6 +7,8 @@ export type Keybinds = {
   cycleProfile: string[];
   sticky: string[];
   stop: string[];
+  scrollUp: string[];
+  scrollDown: string[];
 };
 
 export type Provider = {
@@ -62,4 +64,40 @@ export type SendRequest = {
   system?: string;
   temperature?: number;
   messages: ChatMessage[];
+};
+
+export type Chat = {
+  id: string;
+  title: string;
+  profile: string;
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type StoredMessage = {
+  id: string;
+  chatId: string;
+  role: string;
+  content: string;
+  model: string | null;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  cost: number | null;
+  createdAt: number;
+};
+
+export type ChatView = {
+  chat: Chat;
+  messages: StoredMessage[];
+};
+
+export type NewMessage = {
+  chatId: string;
+  role: string;
+  content: string;
+  model?: string;
+  tokensIn?: number;
+  tokensOut?: number;
+  cost?: number;
 };

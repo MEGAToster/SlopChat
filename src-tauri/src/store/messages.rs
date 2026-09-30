@@ -1,0 +1,130 @@
+use rusqlite::{params, Connection, Row};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Message {
+    pub id: String,
+    pub chat_id: String,
+    pub role: String,
+    pub content: String,
+    pub model: Option<String>,
+    pub tokens_in: Option<i64>,
+    pub tokens_out: Option<i64>,
+    pub cost: Option<f64>,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewMessage {
+    pub chat_id: String,
+    pub role: String,
+    pub content: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub tokens_in: Option<i64>,
+    #[serde(default)]
+    pub tokens_out: Option<i64>,
+    #[serde(default)]
+    pub cost: Option<f64>,
+}
+
+const COLUMNS: &str =
+    "id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at";
+
+fn row_to_message(row: &Row<'_>) -> rusqlite::Result<Message> {
+    Ok(Message {
+        id: row.get(0)?,
+        chat_id: row.get(1)?,
+        role: row.get(2)?,
+        content: row.get(3)?,
+        model: row.get(4)?,
+        tokens_in: row.get(5)?,
+        tokens_out: row.get(6)?,
+        cost: row.get(7)?,
+        created_at: row.get(8)?,
+    })
+}
+
+pub fn list(conn: &Connection, chat_id: &str) -> Result<Vec<Message>, String> {
+    let mut statement = conn
+        .prepare(&format!(
+            "SELECT {COLUMNS} FROM messages WHERE chat_id = ?1 ORDER BY created_at ASC, rowid ASC"
+        ))
+        .map_err(|error| error.to_string())?;
+    let messages = statement
+        .query_map(params![chat_id], row_to_message)
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    Ok(messages)
+}
+
+pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
+    let message = Message {
+        id: super::new_id("m"),
+        chat_id: new.chat_id.clone(),
+        role: new.role.clone(),
+        content: new.content.clone(),
+        model: new.model.clone(),
+        tokens_in: new.tokens_in,
+        tokens_out: new.tokens_out,
+        cost: new.cost,
+        created_at: super::now_millis(),
+    };
+
+    conn.execute(
+        "INSERT INTO messages (id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            message.id,
+            message.chat_id,
+            message.role,
+            message.content,
+            message.model,
+            message.tokens_in,
+            message.tokens_out,
+            message.cost,
+            message.created_at,
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+
+    super::chats::touch(conn, &message.chat_id, message.created_at)?;
+
+    if message.role == "user" {
+        super::chats::set_title_if_empty(conn, &message.chat_id, &truncate(&message.content, 60))?;
+    }
+
+    Ok(message)
+}
+
+pub fn rewind(conn: &Connection, chat_id: &str, message_id: &str, content: &str) -> Result<(), String> {
+    conn.execute(
+        "UPDATE messages SET content = ?1 WHERE id = ?2 AND chat_id = ?3",
+        params![content, message_id, chat_id],
+    )
+    .map_err(|error| error.to_string())?;
+
+    conn.execute(
+        "DELETE FROM messages
+         WHERE chat_id = ?1
+           AND rowid > (SELECT rowid FROM messages WHERE id = ?2)",
+        params![chat_id, message_id],
+    )
+    .map_err(|error| error.to_string())?;
+
+    super::chats::touch(conn, chat_id, super::now_millis())?;
+    Ok(())
+}
+
+fn truncate(text: &str, limit: usize) -> String {
+    let trimmed = text.trim();
+    let mut result: String = trimmed.chars().take(limit).collect();
+    if trimmed.chars().count() > limit {
+        result.push('…');
+    }
+    result
+}

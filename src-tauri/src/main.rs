@@ -6,11 +6,13 @@ mod panel;
 mod paths;
 mod providers;
 mod secrets;
+mod store;
 
 use crate::providers::client::Streams;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
+use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
 
 fn main() {
@@ -19,6 +21,7 @@ fn main() {
             panel::show(app);
         }))
         .manage(panel::Sticky::default())
+        .manage(panel::PanelState::default())
         .manage(Streams::default());
 
     #[cfg(target_os = "macos")]
@@ -43,11 +46,23 @@ fn main() {
             commands::get_settings,
             commands::config_error,
             commands::resize_panel,
+            commands::set_panel_expanded,
+            commands::toggle_panel_expanded,
+            commands::is_panel_expanded,
             commands::has_api_key,
             commands::store_api_key,
             commands::delete_api_key,
             commands::send,
             commands::stop,
+            commands::initial_chat,
+            commands::list_chats,
+            commands::create_chat,
+            commands::get_chat,
+            commands::delete_chat,
+            commands::toggle_chat_pin,
+            commands::set_chat_profile,
+            commands::append_message,
+            commands::rewind_to,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -56,6 +71,13 @@ fn main() {
             panel::init(app.handle())?;
             config::init(app.handle())?;
             setup_tray(app.handle())?;
+
+            let store = store::Store::open(&paths::chats_db_path()).unwrap_or_else(|error| {
+                eprintln!("history unavailable, using in-memory store: {error}");
+                store::Store::in_memory().expect("in-memory store")
+            });
+            app.manage(store);
+
             Ok(())
         })
         .run(tauri::generate_context!())

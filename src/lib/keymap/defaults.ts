@@ -9,4 +9,6 @@ export const DEFAULT_KEYBINDS: Keybinds = {
   cycleProfile: ["Shift+Tab"],
   sticky: ["Ctrl+Shift+P"],
   stop: ["Ctrl+D"],
+  scrollUp: ["Ctrl+U"],
+  scrollDown: ["Ctrl+D"],
 };

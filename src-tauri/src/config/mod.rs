@@ -34,6 +34,8 @@ pub struct Keybinds {
     pub cycle_profile: Vec<String>,
     pub sticky: Vec<String>,
     pub stop: Vec<String>,
+    pub scroll_up: Vec<String>,
+    pub scroll_down: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -217,6 +219,8 @@ impl Default for Keybinds {
             cycle_profile: vec!["Shift+Tab".to_string()],
             sticky: vec!["Ctrl+Shift+P".to_string()],
             stop: vec!["Ctrl+D".to_string()],
+            scroll_up: vec!["Ctrl+U".to_string()],
+            scroll_down: vec!["Ctrl+D".to_string()],
         }
     }
 }
@@ -301,6 +305,7 @@ mod tests {
         let settings: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(settings.keybinds.toggle, vec!["Alt+Space".to_string()]);
         assert_eq!(settings.keybinds.stop, vec!["Ctrl+D".to_string()]);
+        assert_eq!(settings.keybinds.scroll_up, vec!["Ctrl+U".to_string()]);
         assert!(settings.providers.contains_key("openrouter"));
         assert_eq!(settings.profiles.len(), 4);
         assert_eq!(settings.theme, "default-dark");

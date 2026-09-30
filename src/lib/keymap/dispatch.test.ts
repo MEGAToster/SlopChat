@@ -15,7 +15,13 @@ function key(init: Partial<KeyboardEvent>): KeyboardEvent {
 }
 
 function state(overrides: Partial<KeymapState> = {}): KeymapState {
-  return { composerEmpty: true, chatHasMessages: false, ...overrides };
+  return {
+    composerEmpty: true,
+    chatHasMessages: false,
+    streaming: false,
+    editing: false,
+    ...overrides,
+  };
 }
 
 const bindings = DEFAULT_KEYBINDS;
@@ -56,8 +62,10 @@ describe("context handling", () => {
     expect(resolve("sidebar", key({ key: "Enter" }), bindings, state())).toBe("openChat");
   });
 
-  it("routes Esc by context", () => {
-    expect(resolve("editing", key({ key: "Escape" }), bindings, state())).toBe("cancelEdit");
+  it("routes Esc by state and context", () => {
+    expect(
+      resolve("composer", key({ key: "Escape" }), bindings, state({ editing: true })),
+    ).toBe("cancelEdit");
     expect(resolve("composer", key({ key: "Escape" }), bindings, state())).toBe("hide");
     expect(resolve("palette", key({ key: "Escape" }), bindings, state())).toBe("hide");
   });
@@ -66,7 +74,7 @@ describe("context handling", () => {
 describe("configured bindings", () => {
   it("resolves default actions", () => {
     expect(resolve("composer", key({ key: "h", ctrlKey: true }), bindings, state())).toBe(
-      "focusSidebar",
+      "toggleSidebar",
     );
     expect(resolve("composer", key({ key: "p", ctrlKey: true }), bindings, state())).toBe(
       "palette",
@@ -74,7 +82,27 @@ describe("configured bindings", () => {
     expect(
       resolve("composer", key({ key: "p", ctrlKey: true, shiftKey: true }), bindings, state()),
     ).toBe("sticky");
-    expect(resolve("composer", key({ key: "d", ctrlKey: true }), bindings, state())).toBe("stop");
+  });
+
+  it("scrolls with Ctrl+U/D, and Ctrl+D stops while streaming", () => {
+    expect(resolve("composer", key({ key: "u", ctrlKey: true }), bindings, state())).toBe(
+      "scrollUp",
+    );
+    expect(resolve("composer", key({ key: "d", ctrlKey: true }), bindings, state())).toBe(
+      "scrollDown",
+    );
+    expect(
+      resolve("composer", key({ key: "d", ctrlKey: true }), bindings, state({ streaming: true })),
+    ).toBe("stop");
+  });
+
+  it("toggles the sidebar from both contexts", () => {
+    expect(resolve("composer", key({ key: "ArrowLeft" }), bindings, state())).toBe(
+      "toggleSidebar",
+    );
+    expect(resolve("sidebar", key({ key: "ArrowLeft" }), bindings, state())).toBe(
+      "toggleSidebar",
+    );
   });
 
   it("follows a rebound keybind", () => {

@@ -4,8 +4,10 @@
   import MessageList from "./components/MessageList.svelte";
   import Onboarding from "./components/Onboarding.svelte";
   import ProfileBadge from "./components/ProfileBadge.svelte";
+  import Sidebar from "./components/Sidebar.svelte";
   import StatusLine from "./components/StatusLine.svelte";
   import Toast from "./components/Toast.svelte";
+  import { messagesViewport } from "./lib/dom";
   import {
     hasApiKey,
     hidePanel,
@@ -16,9 +18,44 @@
     toggleSticky,
   } from "./lib/ipc";
   import { resolve, type Action } from "./lib/keymap/dispatch";
-  import { chatError, isStreaming, reportError, stop, submit } from "./lib/state/chat.svelte";
+  import {
+    chatError,
+    init as initChat,
+    isStreaming,
+    lastUserMessage,
+    messages,
+    nextChat,
+    pinChat,
+    prevChat,
+    regenerate,
+    removeChat,
+    reportError,
+    setCurrentProfile,
+    stop,
+    submit,
+  } from "./lib/state/chat.svelte";
   import { configError, initSettings, setConfigError, settings } from "./lib/state/settings.svelte";
-  import { activeProfile, cycleProfile } from "./lib/state/ui.svelte";
+  import {
+    activeProfile,
+    beginEdit,
+    clampSelection,
+    cycleProfile,
+    editingId,
+    endEdit,
+    filtering,
+    isExpanded,
+    keyContext,
+    moveSelection,
+    openChatWithProfile,
+    pendingDelete,
+    selectActive,
+    selectedChatId,
+    setContext,
+    setFiltering,
+    setMode,
+    setPendingDelete,
+    syncProfileFromActive,
+  } from "./lib/state/ui.svelte";
 
   let composer = $state<HTMLTextAreaElement | null>(null);
   let content = $state<HTMLElement | null>(null);
@@ -53,15 +90,30 @@
     composer?.focus();
   }
 
+  function measure() {
+    if (content && !isExpanded()) {
+      void resizePanel(Math.ceil(content.getBoundingClientRect().height));
+    }
+  }
+
+  async function enterExpanded() {
+    if (!isExpanded()) await setMode("expanded");
+  }
+
   async function load() {
     try {
       await initSettings();
+      setCurrentProfile(activeProfile()?.name ?? "default");
       needsKey = !(await hasApiKey("openrouter"));
+      await initChat();
     } catch (error) {
       setConfigError(String(error));
     } finally {
       ready = true;
     }
+
+    await tick();
+    if (!needsKey) focusComposer();
   }
 
   onMount(() => {
@@ -72,14 +124,14 @@
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (content) void resizePanel(Math.ceil(content.getBoundingClientRect().height));
-      });
+      frame = requestAnimationFrame(measure);
     });
     if (content) observer.observe(content);
 
     const subscriptions = [
-      onPanelShown(focusComposer),
+      onPanelShown(() => {
+        if (keyContext() === "composer") focusComposer();
+      }),
       onStickyChanged((value) => (sticky = value)),
     ];
 
@@ -96,13 +148,66 @@
       reportError("No profile configured in settings.json");
       return;
     }
-    const value = text;
-    text = "";
-    await submit(value, {
+    const options = {
+      profileName: profile.name,
       model: profile.model,
       system: profile.system,
       temperature: profile.temperature,
-    });
+    };
+    const editing = editingId();
+    const value = text;
+    text = "";
+    if (editing) {
+      endEdit();
+      await regenerate(editing, value, options);
+    } else {
+      await submit(value, options);
+    }
+  }
+
+  function startEdit() {
+    const last = lastUserMessage();
+    if (!last?.id) return;
+    text = last.content;
+    beginEdit(last.id);
+    focusComposer();
+  }
+
+  function cancelEdit() {
+    endEdit();
+    text = "";
+    focusComposer();
+  }
+
+  async function toggleSidebar() {
+    if (isExpanded()) {
+      setFiltering(false);
+      setContext("composer");
+      await setMode("compact");
+      await tick();
+      measure();
+      focusComposer();
+    } else {
+      (document.activeElement as HTMLElement | null)?.blur();
+      await setMode("expanded");
+      selectActive();
+      setFiltering(false);
+      setContext("sidebar");
+    }
+  }
+
+  function scrollMessages(direction: number) {
+    const viewport = messagesViewport();
+    if (viewport) viewport.scrollTop += direction * viewport.clientHeight * 0.5;
+  }
+
+  async function openSelected() {
+    const id = selectedChatId();
+    if (id) await openChatWithProfile(id);
+    setFiltering(false);
+    setContext("composer");
+    await tick();
+    focusComposer();
   }
 
   function perform(action: Action) {
@@ -113,19 +218,86 @@
       case "stop":
         void stop();
         break;
+      case "scrollUp":
+        scrollMessages(-1);
+        break;
+      case "scrollDown":
+        scrollMessages(1);
+        break;
       case "sticky":
         void toggleSticky().then((value) => (sticky = value));
-        break;
-      case "cycleProfile":
-        cycleProfile();
         break;
       case "send":
         void handleSend();
         break;
+      case "cycleProfile":
+        cycleProfile();
+        break;
+      case "toggleSidebar":
+        void toggleSidebar();
+        break;
+      case "editLast":
+        startEdit();
+        break;
+      case "prevChat":
+        void prevChat().then(syncProfileFromActive);
+        break;
+      case "nextChat":
+        void nextChat().then(syncProfileFromActive);
+        break;
+      case "cancelEdit":
+        cancelEdit();
+        break;
+      case "sidebarDown":
+        moveSelection(1);
+        break;
+      case "sidebarUp":
+        moveSelection(-1);
+        break;
+      case "openChat":
+        void openSelected();
+        break;
+      case "pinChat": {
+        const id = selectedChatId();
+        if (id) void pinChat(id);
+        break;
+      }
+      case "deleteChat": {
+        const id = selectedChatId();
+        if (id) setPendingDelete(id);
+        break;
+      }
+      case "filterChats":
+        void enterExpanded().then(() => {
+          setContext("sidebar");
+          setFiltering(true);
+        });
+        break;
     }
   }
 
+  function composerIsEmpty(event: KeyboardEvent): boolean {
+    const target = event.target;
+    if (target instanceof HTMLTextAreaElement && target.classList.contains("composer")) {
+      return target.value.trim().length === 0;
+    }
+    return text.trim().length === 0;
+  }
+
   function onKeydown(event: KeyboardEvent) {
+    const deleting = pendingDelete();
+    if (deleting) {
+      if (event.key === "y" || event.key === "Enter") {
+        event.preventDefault();
+        setPendingDelete(null);
+        void removeChat(deleting).then(clampSelection);
+      } else if (event.key === "n" || event.key === "Escape") {
+        event.preventDefault();
+        setPendingDelete(null);
+      }
+      return;
+    }
+
     if (!ready || needsKey) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -134,12 +306,34 @@
       return;
     }
 
-    const action = resolve("composer", event, settings().keybinds, {
-      composerEmpty: text.trim().length === 0,
-      chatHasMessages: false,
+    if (filtering() && keyContext() === "sidebar") {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setFiltering(false);
+        setContext("composer");
+        focusComposer();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        void openSelected();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveSelection(1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveSelection(-1);
+      }
+      return;
+    }
+
+    if (event.key === "Tab") event.preventDefault();
+
+    const action = resolve(keyContext(), event, settings().keybinds, {
+      composerEmpty: composerIsEmpty(event),
+      chatHasMessages: messages().length > 0,
+      streaming: isStreaming(),
+      editing: editingId() !== null,
     });
     if (!action) return;
-
     event.preventDefault();
     perform(action);
   }
@@ -147,37 +341,50 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<main class="panel" class:pinned={sticky}>
-  <div class="content" bind:this={content}>
-    {#if !ready}
-      <p class="muted">Loading…</p>
-    {:else if needsKey}
-      <Onboarding
-        onSaved={async () => {
-          needsKey = false;
-          await tick();
-          focusComposer();
-        }}
-      />
-    {:else}
-      <MessageList />
-      <div class="footer">
-        <StatusLine />
-        <div class="footer-row">
-          <ProfileBadge />
-          {#if sticky}<span class="pin">pinned</span>{/if}
-          {#if isStreaming()}
-            <button type="button" class="stop" onclick={() => void stop()}>Stop</button>
-          {/if}
-        </div>
-      </div>
-      <Composer bind:value={text} bind:element={composer} />
+<main class="panel" class:expanded={isExpanded()}>
+  <div class="layout">
+    {#if ready && !needsKey && isExpanded()}
+      <Sidebar />
     {/if}
 
-    {#if persistentError}
-      <Toast message={persistentError} />
-    {:else if notice}
-      <Toast message={notice} />
-    {/if}
+    <div class="content" bind:this={content}>
+      {#if !ready}
+        <p class="muted">Loading…</p>
+      {:else if needsKey}
+        <Onboarding
+          onSaved={async () => {
+            needsKey = false;
+            await tick();
+            focusComposer();
+          }}
+        />
+      {:else}
+        <MessageList />
+        <div class="meta">
+          <StatusLine />
+          <div class="actions">
+            <ProfileBadge />
+            {#if sticky}<span class="pin">pinned</span>{/if}
+            {#if isStreaming()}
+              <button type="button" class="stop" onclick={() => void stop()}>Stop</button>
+            {/if}
+          </div>
+        </div>
+        <div class="composer-box" class:editing={editingId() !== null}>
+          <Composer
+            bind:value={text}
+            bind:element={composer}
+            disabled={isStreaming()}
+            onfocus={() => setContext("composer")}
+          />
+        </div>
+      {/if}
+
+      {#if persistentError}
+        <Toast message={persistentError} />
+      {:else if notice}
+        <Toast message={notice} />
+      {/if}
+    </div>
   </div>
 </main>

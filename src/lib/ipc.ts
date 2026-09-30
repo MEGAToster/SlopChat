@@ -1,6 +1,14 @@
 import { invoke, type Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { SendRequest, Settings, StreamEvent } from "./types";
+import type {
+  Chat,
+  ChatView,
+  NewMessage,
+  SendRequest,
+  Settings,
+  StoredMessage,
+  StreamEvent,
+} from "./types";
 
 export function showPanel(): Promise<void> {
   return invoke("show_panel");
@@ -52,6 +60,50 @@ export function send(request: SendRequest, channel: Channel<StreamEvent>): Promi
 
 export function stop(chatId: string): Promise<void> {
   return invoke("stop", { chatId });
+}
+
+export function setPanelExpanded(expanded: boolean): Promise<void> {
+  return invoke("set_panel_expanded", { expanded });
+}
+
+export function isPanelExpanded(): Promise<boolean> {
+  return invoke("is_panel_expanded");
+}
+
+export function initialChat(): Promise<ChatView | null> {
+  return invoke("initial_chat");
+}
+
+export function listChats(): Promise<Chat[]> {
+  return invoke("list_chats");
+}
+
+export function createChat(profile: string): Promise<Chat> {
+  return invoke("create_chat", { profile });
+}
+
+export function getChat(chatId: string): Promise<ChatView | null> {
+  return invoke("get_chat", { chatId });
+}
+
+export function deleteChat(chatId: string): Promise<void> {
+  return invoke("delete_chat", { chatId });
+}
+
+export function toggleChatPin(chatId: string): Promise<Chat> {
+  return invoke("toggle_chat_pin", { chatId });
+}
+
+export function setChatProfile(chatId: string, profile: string): Promise<void> {
+  return invoke("set_chat_profile", { chatId, profile });
+}
+
+export function appendMessage(message: NewMessage): Promise<StoredMessage> {
+  return invoke("append_message", { message });
+}
+
+export function rewindTo(chatId: string, messageId: string, content: string): Promise<void> {
+  return invoke("rewind_to", { chatId, messageId, content });
 }
 
 export function onPanelShown(handler: () => void): Promise<UnlistenFn> {

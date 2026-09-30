@@ -11,6 +11,8 @@ export const DEFAULT_SETTINGS: Settings = {
     cycleProfile: ["Shift+Tab"],
     sticky: ["Ctrl+Shift+P"],
     stop: ["Ctrl+D"],
+    scrollUp: ["Ctrl+U"],
+    scrollDown: ["Ctrl+D"],
   },
   providers: {},
   profiles: [],

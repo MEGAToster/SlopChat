@@ -18,3 +18,11 @@ pub fn config_dir() -> PathBuf {
 pub fn settings_path() -> PathBuf {
     config_dir().join("settings.json")
 }
+
+pub fn data_dir() -> PathBuf {
+    xdg_dir("XDG_DATA_HOME", ".local/share").join("SlopChat")
+}
+
+pub fn chats_db_path() -> PathBuf {
+    data_dir().join("history").join("chats.db")
+}

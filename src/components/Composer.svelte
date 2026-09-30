@@ -4,11 +4,13 @@
     element = $bindable(null),
     disabled = false,
     placeholder = "Ask anything",
+    onfocus,
   }: {
     value: string;
     element?: HTMLTextAreaElement | null;
     disabled?: boolean;
     placeholder?: string;
+    onfocus?: () => void;
   } = $props();
 </script>
 
@@ -20,4 +22,5 @@
   {disabled}
   rows="1"
   spellcheck="false"
+  onfocus={() => onfocus?.()}
 ></textarea>

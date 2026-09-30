@@ -10,7 +10,9 @@
     const last = all.at(-1);
     void last?.content;
     void all.length;
-    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+    if (!viewport) return;
+    const distance = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    if (distance < 80) viewport.scrollTop = viewport.scrollHeight;
   });
 </script>
 

@@ -1,14 +1,16 @@
 import type { Keybinds } from "../types";
 import { eventToBinding, matchesAny } from "./parse";
 
-export type Context = "composer" | "sidebar" | "palette" | "editing";
+export type Context = "composer" | "sidebar" | "palette";
 
 export type Action =
   | "hide"
   | "palette"
   | "sticky"
   | "stop"
-  | "focusSidebar"
+  | "scrollUp"
+  | "scrollDown"
+  | "toggleSidebar"
   | "editLast"
   | "prevChat"
   | "nextChat"
@@ -28,6 +30,8 @@ export type Action =
 export type KeymapState = {
   composerEmpty: boolean;
   chatHasMessages: boolean;
+  streaming: boolean;
+  editing: boolean;
 };
 
 export function resolve(
@@ -38,11 +42,13 @@ export function resolve(
 ): Action | null {
   const key = eventToBinding(event);
 
-  if (context === "editing" && key === "Esc") return "cancelEdit";
   if (matchesAny(keybinds.palette, event)) return "palette";
   if (matchesAny(keybinds.sticky, event)) return "sticky";
-  if (matchesAny(keybinds.stop, event)) return "stop";
-  if (key === "Esc") return "hide";
+  if (matchesAny(keybinds.sidebar, event)) return "toggleSidebar";
+  if (state.streaming && matchesAny(keybinds.stop, event)) return "stop";
+  if (matchesAny(keybinds.scrollUp, event)) return "scrollUp";
+  if (matchesAny(keybinds.scrollDown, event)) return "scrollDown";
+  if (key === "Esc") return state.editing && context === "composer" ? "cancelEdit" : "hide";
 
   switch (context) {
     case "composer":
@@ -51,8 +57,6 @@ export function resolve(
       return resolveSidebar(key, event, keybinds);
     case "palette":
       return resolvePalette(key, event, keybinds);
-    case "editing":
-      return key === "Enter" && !event.shiftKey ? "send" : null;
     default:
       return null;
   }
@@ -64,8 +68,7 @@ function resolveComposer(
   keybinds: Keybinds,
   state: KeymapState,
 ): Action | null {
-  if (matchesAny(keybinds.sidebar, event)) return "focusSidebar";
-  if (state.composerEmpty && key === "Left") return "focusSidebar";
+  if (state.composerEmpty && key === "Left") return "toggleSidebar";
 
   if (state.composerEmpty && state.chatHasMessages && key === "Up") return "editLast";
   if (matchesAny(keybinds.prevChat, event)) return "prevChat";
@@ -81,6 +84,7 @@ function resolveComposer(
 }
 
 function resolveSidebar(key: string, event: KeyboardEvent, keybinds: Keybinds): Action | null {
+  if (key === "Left") return "toggleSidebar";
   if (key === "J" || key === "Down" || matchesAny(keybinds.nextChat, event)) return "sidebarDown";
   if (key === "K" || key === "Up" || matchesAny(keybinds.prevChat, event)) return "sidebarUp";
   if (key === "Enter" || key === "L" || key === "Right" || key === "Ctrl+L") return "openChat";
