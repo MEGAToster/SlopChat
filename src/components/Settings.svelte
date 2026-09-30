@@ -13,6 +13,7 @@
     tags,
   } from "../lib/state/settingsPanel.svelte";
   import { settings } from "../lib/state/settings.svelte";
+  import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
@@ -26,7 +27,8 @@
 </script>
 
 <div class="settings">
-  <header class="head">
+  <Frame title="settings" hint="⎋ close" focused>
+    <header class="head">
     <h2>Settings</h2>
     <button type="button" class="ghost" onclick={onclose}>Done</button>
   </header>
@@ -87,7 +89,8 @@
         </div>
       {/each}
     {/if}
-  </div>
+    </div>
+  </Frame>
 </div>
 
 <style>

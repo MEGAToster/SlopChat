@@ -5,7 +5,7 @@
   "colors": {
     "bg": "#fafafa",
     "bg-solid": "#ffffff",
-    "sidebar": "rgba(0,0,0,.03)",
+    "sidebar": "rgba(0,0,0,.05)",
     "surface": "rgba(0,0,0,.04)",
     "surface-hover": "rgba(0,0,0,.06)",
     "selection": "rgba(0,0,0,.08)",
@@ -32,5 +32,16 @@
     "built_in": "#df8e1d",
     "variable": "#e64553",
     "meta": "#179299"
-  }
+  },
+  "palette": {
+    "red": "#d20f39",
+    "orange": "#fe640b",
+    "yellow": "#df8e1d",
+    "green": "#40a02b",
+    "cyan": "#179299",
+    "blue": "#1e66f5",
+    "purple": "#8839ef",
+    "pink": "#cc2f62"
+  },
+  "style": "minimal"
 }

@@ -1,12 +1,14 @@
-import type { Theme } from "../types";
+import type { Theme, ThemeStyles } from "../types";
 
 export type ResolvedTheme = {
   name: string;
   scheme: "dark" | "light";
+  style?: ThemeStyles;
   vibrancy: string;
   opacity: number;
   colors: Record<string, string>;
   syntax: Record<string, string>;
+  palette: Record<string, string>;
   font: { ui?: string; mono?: string; size?: number };
 };
 
@@ -23,27 +25,31 @@ export function resolveTheme(themes: Map<string, Theme>, name: string): Resolved
     current = theme.extends ?? `default-${theme.scheme ?? "dark"}`;
   }
 
-  const merged: Theme = { colors: {}, syntax: {}, font: {} };
+  const merged: Theme = { colors: {}, syntax: {}, palette: {}, font: {} };
   for (const theme of chain) mergeTheme(merged, theme);
 
   return {
     name,
     scheme: merged.scheme ?? "dark",
+    style: merged.style,
     vibrancy: merged.vibrancy ?? "none",
     opacity: merged.opacity ?? 1,
     colors: merged.colors ?? {},
     syntax: merged.syntax ?? {},
+    palette: merged.palette ?? {},
     font: merged.font ?? {},
   };
 }
 
 function mergeTheme(target: Theme, source: Theme): void {
   if (source.scheme) target.scheme = source.scheme;
+  if (source.style) target.style = source.style;
   if (source.extends) target.extends = source.extends;
   if (source.vibrancy) target.vibrancy = source.vibrancy;
   if (source.opacity !== undefined) target.opacity = source.opacity;
   target.colors = { ...target.colors, ...source.colors };
   target.syntax = { ...target.syntax, ...source.syntax };
+  target.palette = { ...target.palette, ...source.palette };
   target.font = { ...target.font, ...source.font };
 }
 
@@ -62,6 +68,10 @@ export function applyTheme(resolved: ResolvedTheme): string[] {
     if (isValue(value)) next.push([`syn-${key}`, value]);
     else invalid.push(`syntax.${key}`);
   }
+  for (const [key, value] of Object.entries(resolved.palette)) {
+    if (isValue(value)) next.push([`c-${key}`, value]);
+    else invalid.push(`palette.${key}`);
+  }
 
   const rgb = resolved.colors.bg ? hexToRgb(resolved.colors.bg) : null;
   if (rgb) next.push(["bg-rgb", rgb.join(" ")]);
@@ -78,6 +88,8 @@ export function applyTheme(resolved: ResolvedTheme): string[] {
     root.style.setProperty(`--${key}`, value);
     applied.add(key);
   }
+
+  root.dataset.style = resolved.style ?? "minimal";
 
   return invalid;
 }

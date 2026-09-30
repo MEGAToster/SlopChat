@@ -7,6 +7,9 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/markdown.css";
 import "./styles/syntax.css";
+import "./styles/tui.css";
+import "./styles/tui-app.css";
+import "./styles/tui-markdown.css";
 
 const builtin = new Map(BUILTIN_THEMES.map((entry) => [entry.name, entry.theme]));
 applyTheme(resolveTheme(builtin, "default-dark"));

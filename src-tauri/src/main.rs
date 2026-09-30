@@ -74,6 +74,7 @@ fn main() {
             commands::add_model,
             commands::remove_model,
             commands::set_theme,
+            commands::set_style,
             commands::load_user_themes,
             commands::open_url,
         ])

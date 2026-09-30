@@ -12,7 +12,7 @@ import { addGroups, rootGroups } from "./paletteItems";
 import type { PaletteGroup, PaletteItem } from "./paletteTypes";
 import { settings } from "./settings.svelte";
 import { openFromProvider, openPanel } from "./settingsPanel.svelte";
-import { setTheme, themes } from "./theme.svelte";
+import { applyThemeFor, setStyle, setTheme, themes } from "./theme.svelte";
 import {
   isExpanded,
   newChatWithProfile,
@@ -88,6 +88,7 @@ export function close(): void {
   state.open = false;
   state.mode = "root";
   clearTimeout(searchTimer);
+  applyThemeFor(settings().theme);
 }
 
 export function setQuery(value: string): void {
@@ -104,10 +105,17 @@ export function move(delta: number): void {
   const count = items().length;
   if (count === 0) return;
   state.index = Math.min(Math.max(state.index + delta, 0), count - 1);
+  previewSelected();
 }
 
 export function select(index: number): void {
   state.index = index;
+  previewSelected();
+}
+
+function previewSelected(): void {
+  const item = items()[state.index];
+  if (item?.kind === "theme") applyThemeFor(item.id);
 }
 
 export function back(): void {
@@ -192,6 +200,9 @@ async function runAction(id: string): Promise<void> {
       if (chatId) await pinChat(chatId);
       break;
     }
+    case "switch-style":
+      await setStyle(settings().style === "tui" ? "minimal" : "tui");
+      break;
     case "settings-panel":
       openPanel();
       break;

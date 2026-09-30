@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
 
   let {
@@ -8,8 +9,10 @@
 </script>
 
 <div class="toast" class:warning={kind === "warning"} class:success={kind === "success"}>
-  <span class="icon"><Icon name={kind === "success" ? "check" : "alert"} size={14} /></span>
-  <span>{message}</span>
+  <Frame title={kind} tone={kind}>
+    <span class="icon"><Icon name={kind === "success" ? "check" : "alert"} size={14} /></span>
+    <span>{message}</span>
+  </Frame>
 </div>
 
 <style>

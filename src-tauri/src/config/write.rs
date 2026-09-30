@@ -73,6 +73,14 @@ pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
     })
 }
 
+pub fn set_style(app: &AppHandle, style: &str) -> Result<(), String> {
+    patch(app, |value| {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("style".to_string(), json!(style));
+        }
+    })
+}
+
 fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
     let parent = path
         .parent()

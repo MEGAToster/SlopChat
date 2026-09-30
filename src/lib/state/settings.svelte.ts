@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   startup: "last",
   resumeWithinMinutes: 10,
   theme: "default-dark",
+  style: "auto",
   window: { compactWidth: 680, expandedScreenRatio: 0.7 },
 };
 

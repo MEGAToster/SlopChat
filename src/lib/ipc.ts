@@ -137,6 +137,10 @@ export function setTheme(theme: string): Promise<void> {
   return invoke("set_theme", { theme });
 }
 
+export function setStyle(style: string): Promise<void> {
+  return invoke("set_style", { style });
+}
+
 export function loadUserThemes(): Promise<ThemeInfo[]> {
   return invoke("load_user_themes");
 }

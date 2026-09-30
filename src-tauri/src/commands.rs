@@ -303,6 +303,11 @@ pub fn set_theme(app: AppHandle, theme: String) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+pub fn set_style(app: AppHandle, style: String) -> Result<(), String> {
+    config::set_style(&app, &style)
+}
+
+#[tauri::command(async)]
 pub fn load_user_themes() -> Vec<config::UserTheme> {
     config::load_user_themes()
 }

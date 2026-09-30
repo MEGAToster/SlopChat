@@ -11,9 +11,13 @@
     pendingDelete,
     schedulePreview,
     selectedIndex,
+    setContext,
+    setFiltering,
     setFilterQuery,
     setSelectedIndex,
+    keyContext,
   } from "../lib/state/ui.svelte";
+  import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
   import Kbd from "./Kbd.svelte";
 
@@ -31,6 +35,11 @@
     return offset + chatIndex;
   }
 
+  function startFilter() {
+    setContext("sidebar");
+    setFiltering(true);
+  }
+
   async function open(index: number, chatId: string) {
     setSelectedIndex(index);
     await openChatWithProfile(chatId);
@@ -39,7 +48,13 @@
 </script>
 
 <aside class="sidebar">
-  {#if filtering()}
+  <Frame
+    title="chats"
+    hint="↵ open · p pin · d delete"
+    focused={keyContext() === "sidebar"}
+    count={`${groups.reduce((total, group) => total + group.chats.length, 0)}`}
+  >
+    {#if filtering()}
     <input
       bind:this={filterInput}
       class="filter"
@@ -47,6 +62,12 @@
       value={filterQuery()}
       oninput={(event) => setFilterQuery(event.currentTarget.value)}
     />
+  {:else}
+    <button type="button" class="search" onclick={startFilter}>
+      <span class="search-icon"><Icon name="search" size={14} /></span>
+      <span class="search-label">Search chats</span>
+      <Kbd binding="/" />
+    </button>
   {/if}
 
   <div class="list">
@@ -79,10 +100,11 @@
     {/each}
   </div>
 
-  <button type="button" class="new" disabled={isBlank()} onclick={() => void newChatWithProfile()}>
-    <span class="plus">+</span> New chat
-    <Kbd binding={keybinds.nextChat?.[0]} />
-  </button>
+    <button type="button" class="new" disabled={isBlank()} onclick={() => void newChatWithProfile()}>
+      <span class="plus">+</span> New chat
+      <Kbd binding={keybinds.nextChat?.[0]} />
+    </button>
+  </Frame>
 </aside>
 
 <style>
@@ -97,21 +119,43 @@
     overflow: hidden;
   }
 
+  .search,
   .filter {
     height: 32px;
     margin-bottom: var(--sp-1);
-    padding: 0 var(--sp-2);
     border: none;
     border-radius: var(--radius-md);
-    outline: none;
     background: var(--surface);
-    color: var(--text);
+    color: var(--text-secondary);
     font: inherit;
     font-size: var(--fs-md);
   }
 
-  .filter::placeholder {
+  .search {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-2);
+    cursor: default;
+  }
+
+  .search:hover {
+    background: var(--surface-hover);
+  }
+
+  .search-icon {
+    display: inline-flex;
     color: var(--text-tertiary);
+  }
+
+  .search-label {
+    flex: 1;
+    text-align: left;
+  }
+
+  .filter {
+    padding: 0 var(--sp-2);
+    outline: none;
   }
 
   .list {
@@ -121,9 +165,9 @@
   }
 
   .section {
-    height: 28px;
     display: flex;
     align-items: center;
+    height: 28px;
     padding: 0 var(--sp-2);
     color: var(--text-tertiary);
     font-size: var(--fs-xs);
@@ -143,9 +187,9 @@
     border: none;
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--text);
+    color: var(--text-secondary);
     font: inherit;
-    font-size: var(--fs-md);
+    font-size: 13px;
     text-align: left;
     cursor: default;
   }
@@ -154,9 +198,9 @@
     background: var(--selection);
   }
 
-  .chat:focus-visible,
-  .new:focus-visible {
-    outline: none;
+  .chat.active,
+  .chat.selected {
+    color: var(--text);
   }
 
   .chat.confirming {
@@ -165,9 +209,9 @@
 
   .active-bar {
     position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
+    left: 2px;
+    top: 7px;
+    bottom: 7px;
     width: 2px;
     border-radius: 1px;
     background: var(--accent);
@@ -200,7 +244,7 @@
     background: transparent;
     color: var(--text-secondary);
     font: inherit;
-    font-size: var(--fs-md);
+    font-size: 13px;
     cursor: default;
   }
 

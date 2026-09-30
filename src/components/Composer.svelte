@@ -57,7 +57,7 @@
 </script>
 
 <div
-  class="composer-box"
+  class="composer-box column"
   class:editing
   class:dragging
   role="presentation"

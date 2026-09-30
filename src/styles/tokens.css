@@ -20,6 +20,7 @@
   --dur: 150ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.3);
+  --fade-bottom: linear-gradient(to bottom, rgb(0 0 0 / 1) calc(100% - 16px), transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

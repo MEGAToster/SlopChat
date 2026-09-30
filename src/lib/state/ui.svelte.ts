@@ -144,6 +144,10 @@ export function activeProfile(): Profile | undefined {
   return profiles[store.profileIndex % profiles.length];
 }
 
+export function activeProfileIndex(): number {
+  return store.profileIndex;
+}
+
 export function setProfile(name: string): void {
   const index = settings().profiles.findIndex((profile) => profile.name === name);
   if (index !== -1) store.profileIndex = index;

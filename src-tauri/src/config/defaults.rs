@@ -16,6 +16,8 @@ impl Default for Settings {
             startup: Startup::default(),
             resume_within_minutes: 10,
             theme: "default-dark".to_string(),
+            style: "auto".to_string(),
+            font: None,
             window: WindowConfig::default(),
         }
     }
@@ -81,6 +83,7 @@ fn default_profiles() -> Vec<Profile> {
             system: None,
             temperature: None,
             use_context: true,
+            color: None,
         },
         Profile {
             name: "cheap".to_string(),
@@ -88,6 +91,7 @@ fn default_profiles() -> Vec<Profile> {
             system: None,
             temperature: None,
             use_context: true,
+            color: None,
         },
         Profile {
             name: "complex".to_string(),
@@ -95,6 +99,7 @@ fn default_profiles() -> Vec<Profile> {
             system: None,
             temperature: None,
             use_context: true,
+            color: None,
         },
         Profile {
             name: "translate".to_string(),
@@ -105,6 +110,7 @@ fn default_profiles() -> Vec<Profile> {
             ),
             temperature: None,
             use_context: false,
+            color: None,
         },
     ]
 }

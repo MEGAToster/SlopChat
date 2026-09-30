@@ -11,6 +11,7 @@
     setQuery,
     type PaletteItem,
   } from "../lib/state/palette.svelte";
+  import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
   import Kbd from "./Kbd.svelte";
 
@@ -39,7 +40,13 @@
 </script>
 
 <div class="palette">
-  <div class="search">
+  <Frame
+    title="commands"
+    hint={mode() === "add" ? "↵ add · ⎋ back" : "↵ open · ⎋ close"}
+    focused
+    count={`${sections.reduce((total, section) => total + section.items.length, 0)}`}
+  >
+    <div class="search">
     <Icon name="search" size={18} />
     <input
       bind:this={input}
@@ -84,6 +91,7 @@
       <Kbd binding="Esc" /> {mode() === "add" ? "Back" : "Close"}
     </span>
   </footer>
+  </Frame>
 </div>
 
 <style>

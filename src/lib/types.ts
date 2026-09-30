@@ -22,6 +22,7 @@ export type Profile = {
   system?: string;
   temperature?: number;
   useContext: boolean;
+  color?: string;
 };
 
 export type Startup = "last" | "new";
@@ -39,6 +40,8 @@ export type Settings = {
   startup: Startup;
   resumeWithinMinutes: number;
   theme: string;
+  style: "auto" | ThemeStyles;
+  font?: FontSettings;
   window: WindowConfig;
 };
 
@@ -85,15 +88,21 @@ export type NewAttachment = {
   mime?: string;
 };
 
+export type ThemeStyles = "minimal" | "tui";
+
 export type Theme = {
   scheme?: "dark" | "light";
+  style?: ThemeStyles;
   extends?: string;
   vibrancy?: "hud" | "popover" | "sidebar" | "none";
   opacity?: number;
   colors?: Record<string, string>;
   syntax?: Record<string, string>;
+  palette?: Record<string, string>;
   font?: { ui?: string; mono?: string; size?: number };
 };
+
+export type FontSettings = { ui?: string; mono?: string; size?: number };
 
 export type ThemeInfo = {
   name: string;

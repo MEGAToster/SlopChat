@@ -7,7 +7,7 @@
   const streamingHere = $derived(isStreamingHere());
   const thinking = $derived(isThinking());
 
-  let pinned = true;
+  let pinned = $state(true);
 
   $effect.pre(() => {
     const last = all.at(-1);
@@ -23,7 +23,7 @@
   });
 </script>
 
-<div class="messages" bind:this={viewport}>
+<div class="messages column" class:fading={!pinned} bind:this={viewport}>
   {#each all as message, index (index)}
     <Message
       {message}
@@ -38,10 +38,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
-    width: 100%;
-    max-width: 760px;
     max-height: 320px;
-    margin: 0 auto;
     overflow-y: auto;
+  }
+
+  .messages.fading {
+    mask-image: var(--fade-bottom);
   }
 </style>

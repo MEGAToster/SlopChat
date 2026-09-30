@@ -1,5 +1,5 @@
 export function focusComposer(): void {
-  document.querySelector<HTMLTextAreaElement>(".composer")?.focus();
+  document.querySelector<HTMLTextAreaElement>(".composer-box textarea")?.focus();
 }
 
 export function messagesViewport(): HTMLElement | null {

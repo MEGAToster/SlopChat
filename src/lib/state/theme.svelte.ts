@@ -1,7 +1,8 @@
-import { loadUserThemes, setTheme as setThemeCommand, setWindowStyle } from "../ipc";
+import { loadUserThemes, setStyle as setStyleCommand, setTheme as setThemeCommand, setWindowStyle } from "../ipc";
 import { applyTheme, resolveTheme } from "../theme/apply";
 import { BUILTIN_THEMES } from "../theme/builtin";
 import type { ThemeInfo } from "../types";
+import { settings } from "./settings.svelte";
 
 const state = $state({ user: [] as ThemeInfo[] });
 
@@ -16,7 +17,11 @@ export async function loadUser(): Promise<void> {
 export function applyThemeFor(name: string): string[] {
   const map = new Map(themes().map((entry) => [entry.name, entry.theme]));
   const resolved = resolveTheme(map, name);
-  const invalid = applyTheme(resolved);
+  const current = settings();
+  const style = current.style === "auto" ? resolved.style ?? "minimal" : current.style;
+  const font = { ...resolved.font, ...(current.font ?? {}) };
+
+  const invalid = applyTheme({ ...resolved, style, font });
   void setWindowStyle(resolved.scheme, resolved.vibrancy, resolved.opacity);
   return invalid;
 }
@@ -24,4 +29,8 @@ export function applyThemeFor(name: string): string[] {
 export async function setTheme(name: string): Promise<void> {
   applyThemeFor(name);
   await setThemeCommand(name);
+}
+
+export async function setStyle(style: string): Promise<void> {
+  await setStyleCommand(style);
 }

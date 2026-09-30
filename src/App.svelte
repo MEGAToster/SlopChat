@@ -80,15 +80,26 @@
     try {
       await initSettings();
       await loadUser();
-      needsKey = !(await hasApiKey("openrouter"));
       await initChat();
     } catch (error) {
       setConfigError(String(error));
-    } finally {
-      ready = true;
     }
+
+    ready = true;
     await tick();
-    if (!needsKey) focusComposer();
+    focusComposer();
+
+    // Keychain lookups can be slow or prompt, so resolve the key in the
+    // background instead of blocking the first paint.
+    try {
+      needsKey = !(await hasApiKey("openrouter"));
+    } catch {
+      needsKey = false;
+    }
+    if (!needsKey) {
+      await tick();
+      focusComposer();
+    }
   }
 
   onMount(() => {
@@ -123,10 +134,9 @@
 
   function keymapState(): KeymapState {
     const active = document.activeElement;
-    const empty =
-      active instanceof HTMLTextAreaElement && active.classList.contains("composer")
-        ? active.value.trim().length === 0
-        : text.trim().length === 0;
+    const inComposer =
+      active instanceof HTMLTextAreaElement && active.closest(".composer-box") !== null;
+    const empty = inComposer ? active.value.trim().length === 0 : text.trim().length === 0;
     return {
       composerEmpty: empty,
       chatHasMessages: messages().length > 0,
@@ -178,7 +188,7 @@
 
     <div class="content" bind:this={content}>
       {#if !ready}
-        <p class="muted">Loading…</p>
+        <div class="column loading">Loading…</div>
       {:else if needsKey}
         <Onboarding
           onSaved={async () => {

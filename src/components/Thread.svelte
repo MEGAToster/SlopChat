@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { messages } from "../lib/state/chat.svelte";
+  import { activeChatId, chats, messages } from "../lib/state/chat.svelte";
+  import { activeProfile, keyContext } from "../lib/state/ui.svelte";
   import Composer from "./Composer.svelte";
   import Footer from "./Footer.svelte";
-  import Header from "./Header.svelte";
+  import Frame from "./Frame.svelte";
   import MessageList from "./MessageList.svelte";
 
   let {
@@ -11,17 +12,24 @@
     sticky = false,
     expanded = false,
   }: { text: string; onfocus: () => void; sticky?: boolean; expanded?: boolean } = $props();
+
+  const title = $derived(chats().find((chat) => chat.id === activeChatId())?.title || "New chat");
+  const profileName = $derived(activeProfile()?.name ?? "");
+  const context = $derived(keyContext());
 </script>
 
-{#if expanded}<Header {sticky} />{/if}
-<MessageList />
-{#if messages().length > 0}<div class="divider"></div>{/if}
-<Composer bind:value={text} {onfocus} />
-<Footer />
+{#if messages().length > 0 || expanded}
+  <Frame {title}>
+    <MessageList />
+  </Frame>
+{/if}
 
-<style>
-  .divider {
-    height: 1px;
-    background: var(--border);
-  }
-</style>
+<Frame
+  title={`ask · ${profileName}`}
+  focused={context === "composer"}
+  hint="↵ send · ⇧⇥ profile · ⌃P cmds"
+>
+  <Composer bind:value={text} {onfocus} />
+</Frame>
+
+<Footer {sticky} />

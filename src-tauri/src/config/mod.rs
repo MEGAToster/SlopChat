@@ -22,7 +22,26 @@ pub struct Settings {
     pub startup: Startup,
     pub resume_within_minutes: u64,
     pub theme: String,
+    #[serde(default = "default_style")]
+    pub style: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<Font>,
     pub window: WindowConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Font {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ui: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mono: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+}
+
+fn default_style() -> String {
+    "auto".to_string()
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -59,6 +78,8 @@ pub struct Profile {
     pub temperature: Option<f32>,
     #[serde(default = "defaults::default_true")]
     pub use_context: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, Serialize, Deserialize)]
@@ -172,6 +193,10 @@ pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
 
 pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
     write::set_theme(app, theme)
+}
+
+pub fn set_style(app: &AppHandle, style: &str) -> Result<(), String> {
+    write::set_style(app, style)
 }
 
 pub fn load_user_themes() -> Vec<UserTheme> {

@@ -14,7 +14,7 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, LogicalPosition, Manager, Position};
 
-pub const MIN_HEIGHT: f64 = 160.0;
+pub const MIN_HEIGHT: f64 = 88.0;
 pub const MAX_HEIGHT: f64 = 480.0;
 pub const DEFAULT_COMPACT_WIDTH: f64 = 680.0;
 

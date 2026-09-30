@@ -1,0 +1,47 @@
+{
+  "scheme": "dark",
+  "style": "tui",
+  "vibrancy": "hud",
+  "opacity": 0.94,
+  "colors": {
+    "bg": "#1a1b26",
+    "bg-solid": "#16161e",
+    "sidebar": "#16161e",
+    "surface": "#292e42",
+    "surface-hover": "#414868",
+    "selection": "#414868",
+    "border": "#292e42",
+    "border-strong": "#414868",
+    "text": "#c0caf5",
+    "text-secondary": "#a9b1d6",
+    "text-tertiary": "#a9b1d6",
+    "accent": "#7aa2f7",
+    "accent-contrast": "#16161e",
+    "accent-soft": "rgba(122,162,247,.16)",
+    "danger": "#f7768e",
+    "warning": "#e0af68",
+    "success": "#9ece6a",
+    "code-bg": "#16161e"
+  },
+  "syntax": {
+    "fg": "#c0caf5",
+    "comment": "#565f89",
+    "keyword": "#bb9af7",
+    "string": "#9ece6a",
+    "number": "#ff9e64",
+    "title": "#7aa2f7",
+    "built_in": "#7dcfff",
+    "variable": "#f7768e",
+    "meta": "#73daca"
+  },
+  "palette": {
+    "red": "#f7768e",
+    "orange": "#ff9e64",
+    "yellow": "#e0af68",
+    "green": "#9ece6a",
+    "cyan": "#7dcfff",
+    "blue": "#7aa2f7",
+    "purple": "#bb9af7",
+    "pink": "#bb9af7"
+  }
+}

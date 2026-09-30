@@ -1,0 +1,74 @@
+[data-style="tui"] .markdown h1 {
+  color: var(--c-red);
+}
+
+[data-style="tui"] .markdown h2 {
+  color: var(--c-orange);
+}
+
+[data-style="tui"] .markdown h3 {
+  color: var(--c-yellow);
+}
+
+[data-style="tui"] .markdown h4,
+[data-style="tui"] .markdown h5,
+[data-style="tui"] .markdown h6 {
+  color: var(--c-green);
+}
+
+[data-style="tui"] .markdown h1::before {
+  content: "# ";
+  color: var(--text-tertiary);
+}
+
+[data-style="tui"] .markdown h2::before {
+  content: "## ";
+  color: var(--text-tertiary);
+}
+
+[data-style="tui"] .markdown ul li::marker {
+  content: "• ";
+  color: var(--c-purple);
+}
+
+[data-style="tui"] .markdown ol li::marker {
+  color: var(--c-blue);
+}
+
+[data-style="tui"] .markdown :not(pre) > code {
+  color: var(--c-green);
+  background: var(--surface);
+}
+
+[data-style="tui"] .markdown a {
+  color: var(--c-blue);
+  text-decoration-color: var(--c-blue);
+}
+
+[data-style="tui"] .markdown blockquote {
+  border-left-color: var(--c-blue);
+}
+
+[data-style="tui"] .markdown em {
+  color: var(--c-pink);
+}
+
+[data-style="tui"] .markdown hr {
+  border-top-style: dashed;
+}
+
+[data-style="tui"] .markdown table th {
+  color: var(--accent);
+}
+
+[data-style="tui"] .code-block {
+  border-color: var(--border-strong);
+}
+
+[data-style="tui"] .code-block .code-lang {
+  color: var(--c-cyan);
+}
+
+[data-style="tui"] .code-block .code-copy {
+  color: var(--accent);
+}
