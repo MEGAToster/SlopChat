@@ -108,6 +108,13 @@ fn migrate(conn: &Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
     }
 
+    if version < 3 {
+        conn.execute_batch(SCHEMA_V3)
+            .map_err(|error| format!("migrating schema: {error}"))?;
+        conn.pragma_update(None, "user_version", 3)
+            .map_err(|error| error.to_string())?;
+    }
+
     Ok(())
 }
 
@@ -118,6 +125,22 @@ CREATE TABLE search_usage (
   requests INTEGER NOT NULL DEFAULT 0,
   cost REAL NOT NULL DEFAULT 0
 );
+";
+
+const SCHEMA_V3: &str = "
+CREATE TABLE search_usage_v3 (
+  month TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  requests INTEGER NOT NULL DEFAULT 0,
+  units INTEGER NOT NULL DEFAULT 0,
+  cost REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (month, provider)
+);
+INSERT INTO search_usage_v3 (month, provider, requests, units, cost)
+  SELECT month, 'exa', requests, requests, cost FROM search_usage;
+DROP TABLE search_usage;
+ALTER TABLE search_usage_v3 RENAME TO search_usage;
+CREATE TABLE search_exhausted (provider TEXT PRIMARY KEY, month TEXT NOT NULL);
 ";
 
 pub fn now_millis() -> i64 {
@@ -194,6 +217,36 @@ mod tests {
 
         assert_eq!(chats::pinned(&conn).unwrap().unwrap().id, second.id);
         assert!(!chats::get(&conn, &first.id).unwrap().unwrap().pinned);
+    }
+
+    #[test]
+    fn v3_preserves_exa_usage_rows() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_V1).unwrap();
+        conn.execute_batch(SCHEMA_V2).unwrap();
+        conn.pragma_update(None, "user_version", 2).unwrap();
+        conn.execute(
+            "INSERT INTO search_usage (month, requests, cost) VALUES ('2024-01', 7, 1.5)",
+            [],
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+
+        let (provider, requests, units, cost): (String, i64, i64, f64) = conn
+            .query_row(
+                "SELECT provider, requests, units, cost FROM search_usage WHERE month = '2024-01'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(provider, "exa");
+        assert_eq!((requests, units, cost), (7, 7, 1.5));
+
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 3);
     }
 
     #[test]

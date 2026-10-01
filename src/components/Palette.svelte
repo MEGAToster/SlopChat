@@ -23,7 +23,13 @@
 
   $effect(() => {
     void index();
-    list?.querySelector(".row.selected")?.scrollIntoView({ block: "nearest" });
+    const viewport = list;
+    const row = viewport?.querySelector<HTMLElement>(".row.selected");
+    if (!viewport || !row) return;
+    const view = viewport.getBoundingClientRect();
+    const target = row.getBoundingClientRect();
+    if (target.top < view.top) viewport.scrollTop -= view.top - target.top;
+    else if (target.bottom > view.bottom) viewport.scrollTop += target.bottom - view.bottom;
   });
 
   function flatIndex(sectionIndex: number, itemIndex: number): number {
@@ -41,7 +47,7 @@
 
 <div class="palette">
   <Frame
-    title="commands"
+    title={breadcrumb()}
     hint={mode() === "add" ? "↵ add · ⎋ back" : "↵ open · ⎋ close"}
     focused
     count={`${sections.reduce((total, section) => total + section.items.length, 0)}`}
@@ -108,6 +114,7 @@
   .search {
     display: flex;
     align-items: center;
+    flex: none;
     gap: var(--sp-2);
     height: 52px;
     padding: 0 var(--sp-4);
@@ -131,6 +138,7 @@
 
   .list {
     flex: 1;
+    min-height: 0;
     padding: var(--sp-2);
     overflow-y: auto;
   }
@@ -185,13 +193,13 @@
   .label {
     flex: 1;
     overflow: hidden;
-    color: var(--text-secondary);
+    color: var(--text);
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
   .label .matched {
-    color: var(--text);
+    color: var(--accent);
     font-weight: 600;
   }
 
@@ -211,6 +219,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex: none;
     height: 36px;
     padding: 0 var(--sp-3);
     border-top: 1px solid var(--border);

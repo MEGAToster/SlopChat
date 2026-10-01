@@ -11,6 +11,13 @@ export function narrow(items: PaletteItem[], query: string): PaletteItem[] {
     .map((entry) => entry.item);
 }
 
+// A query matching the category title keeps every entry, so "models" lists
+// all models rather than only those whose own label contains the query.
+function category(title: string, items: PaletteItem[], query: string): PaletteItem[] {
+  if (query && fuzzyMatch(query, title)) return items;
+  return narrow(items, query);
+}
+
 export function rootGroups(input: {
   settings: Settings;
   chats: Chat[];
@@ -20,10 +27,10 @@ export function rootGroups(input: {
   const query = input.query.trim();
   return [
     { title: "Chats", items: chatItems(input.chats) },
-    { title: "Models", items: narrow(modelItems(input.settings), query) },
-    { title: "Profiles", items: narrow(profileItems(input.settings), query) },
-    { title: "Themes", items: narrow(themeItems(input.themes), query) },
-    { title: "Actions", items: narrow(actionItems(input.settings), query) },
+    { title: "Models", items: category("Models", modelItems(input.settings), query) },
+    { title: "Profiles", items: category("Profiles", profileItems(input.settings), query) },
+    { title: "Themes", items: category("Themes", themeItems(input.themes), query) },
+    { title: "Actions", items: category("Actions", actionItems(input.settings), query) },
   ].filter((group) => group.items.length > 0);
 }
 
@@ -37,7 +44,9 @@ export function addGroups(models: ProviderModel[], query: string): PaletteGroup[
       label: model.name || model.id,
       provider: model.provider,
     }));
-  return [{ title: "Provider models", items: narrow(items, query.trim()) }];
+  return [
+    { title: "Provider models", items: category("Provider models", items, query.trim()) },
+  ].filter((group) => group.items.length > 0);
 }
 
 function actionItems(settings: Settings): PaletteItem[] {

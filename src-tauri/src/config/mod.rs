@@ -31,15 +31,95 @@ pub struct Settings {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", from = "RawSearchSettings")]
 pub struct SearchSettings {
-    pub provider: String,
+    pub providers: Vec<String>,
+    pub num_results: u32,
+    pub limits: BTreeMap<String, Limit>,
+    pub exa: ExaSettings,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Limit {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monthly: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monthly_usd: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<u32>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ExaSettings {
     #[serde(rename = "type")]
     pub search_type: String,
-    pub num_results: u32,
     pub contents: String,
     pub max_characters: u32,
-    pub monthly_budget: f64,
+}
+
+// Accepts both the current shape and the legacy flat Exa keys.
+#[derive(Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct RawSearchSettings {
+    providers: Vec<String>,
+    num_results: u32,
+    limits: BTreeMap<String, Limit>,
+    exa: Option<ExaSettings>,
+    provider: Option<String>,
+    monthly_budget: Option<f64>,
+    #[serde(rename = "type")]
+    search_type: Option<String>,
+    contents: Option<String>,
+    max_characters: Option<u32>,
+}
+
+impl Default for RawSearchSettings {
+    fn default() -> Self {
+        Self {
+            providers: Vec::new(),
+            num_results: 5,
+            limits: BTreeMap::new(),
+            exa: None,
+            provider: None,
+            monthly_budget: None,
+            search_type: None,
+            contents: None,
+            max_characters: None,
+        }
+    }
+}
+
+impl From<RawSearchSettings> for SearchSettings {
+    fn from(raw: RawSearchSettings) -> Self {
+        let mut limits = defaults::default_search_limits();
+        for (name, limit) in raw.limits {
+            limits.insert(name, limit);
+        }
+        if let Some(budget) = raw.monthly_budget {
+            limits.entry("exa".to_string()).or_default().monthly_usd = Some(budget);
+        }
+
+        let exa = raw.exa.unwrap_or_else(|| ExaSettings {
+            search_type: raw.search_type.unwrap_or_else(|| "instant".to_string()),
+            contents: raw.contents.unwrap_or_else(|| "highlights".to_string()),
+            max_characters: raw.max_characters.unwrap_or(1500),
+        });
+
+        let providers = if raw.providers.is_empty() {
+            defaults::default_search_providers()
+        } else {
+            raw.providers
+        };
+
+        Self {
+            providers,
+            num_results: raw.num_results,
+            limits,
+            exa,
+        }
+    }
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -280,6 +360,21 @@ mod tests {
         let settings: Settings =
             serde_json::from_str(r#"{"profiles":[{"name":"x","model":"y"}]}"#).unwrap();
         assert!(settings.profiles[0].use_context);
+    }
+
+    #[test]
+    fn legacy_search_keys_map_onto_the_new_shape() {
+        let settings: Settings = serde_json::from_str(
+            r#"{"search":{"provider":"exa","monthlyBudget":3.5,"type":"fast","contents":"text","maxCharacters":900}}"#,
+        )
+        .unwrap();
+        assert_eq!(settings.search.providers.len(), 4);
+        assert_eq!(settings.search.providers[0], "exa");
+        assert_eq!(settings.search.limits["exa"].monthly_usd, Some(3.5));
+        assert_eq!(settings.search.limits["serper"].total, Some(2500));
+        assert_eq!(settings.search.exa.search_type, "fast");
+        assert_eq!(settings.search.exa.contents, "text");
+        assert_eq!(settings.search.exa.max_characters, 900);
     }
 
     #[test]

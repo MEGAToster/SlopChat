@@ -8,7 +8,13 @@
   import Toast from "./components/Toast.svelte";
   import { handleWindowClick } from "./lib/clicks";
   import { focusComposer } from "./lib/dom";
-  import { hasApiKey, isSticky, onPanelShown, onStickyChanged, resizePanel } from "./lib/ipc";
+  import {
+    hasApiKey,
+    isSticky,
+    onPanelShown,
+    onSearchUnavailable,
+    onStickyChanged,
+  } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
   import { createActions } from "./lib/state/actions.svelte";
   import { chatError, init as initChat, isStreaming, messages } from "./lib/state/chat.svelte";
@@ -21,6 +27,7 @@
     activate as paletteActivate,
   } from "./lib/state/palette.svelte";
   import { configError, initSettings, setConfigError, settings } from "./lib/state/settings.svelte";
+  import { measurePanel } from "./lib/state/overlays.svelte";
   import { isOpen as settingsPanelIsOpen } from "./lib/state/settingsPanel.svelte";
   import { applyThemeFor, loadUser } from "./lib/state/theme.svelte";
   import {
@@ -29,9 +36,11 @@
     filtering,
     isExpanded,
     keyContext,
+    notify,
     pendingDelete,
     setContext,
     uiNotice,
+    uiNoticeKind,
   } from "./lib/state/ui.svelte";
   import type { KeymapState } from "./lib/keymap/dispatch";
 
@@ -79,14 +88,8 @@
 
   $effect(() => {
     void messages().length;
-    requestAnimationFrame(measure);
+    requestAnimationFrame(measurePanel);
   });
-
-  function measure() {
-    if (content && !isExpanded()) {
-      void resizePanel(Math.ceil(content.getBoundingClientRect().height));
-    }
-  }
 
   $effect(() => {
     const streaming = isStreaming();
@@ -130,7 +133,7 @@
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
+      frame = requestAnimationFrame(measurePanel);
     });
     if (content) observer.observe(content);
 
@@ -139,6 +142,7 @@
         if (keyContext() === "composer") focusComposer();
       }),
       onStickyChanged((value) => (sticky = value)),
+      onSearchUnavailable((message) => notify(message, "warning")),
     ];
 
     return () => {
@@ -232,7 +236,7 @@
       {:else if notice}
         <Toast message={notice} />
       {:else if uiNoticeText}
-        <Toast message={uiNoticeText} />
+        <Toast message={uiNoticeText} kind={uiNoticeKind()} />
       {/if}
     </div>
   </div>

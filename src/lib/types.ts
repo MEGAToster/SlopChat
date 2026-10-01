@@ -180,8 +180,19 @@ export type ProviderModel = {
   name?: string | null;
 };
 
-export type SearchUsage = {
+export type SearchLimit = {
+  monthly?: number;
+  monthlyUsd?: number;
+  total?: number;
+};
+
+export type SearchProviderUsage = {
+  provider: string;
   requests: number;
+  units: number;
+  totalUnits: number;
   cost: number;
-  budget: number;
+  limit?: SearchLimit;
+  exhausted: boolean;
+  hasKey: boolean;
 };

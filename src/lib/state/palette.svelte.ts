@@ -7,7 +7,7 @@ import {
   searchUsage,
   toggleSticky,
 } from "../ipc";
-import type { Chat, ProviderModel } from "../types";
+import type { Chat, ProviderModel, SearchProviderUsage } from "../types";
 import { activeChatId, pinChat } from "./chat.svelte";
 import { addGroups, rootGroups } from "./paletteItems";
 import type { PaletteGroup, PaletteItem } from "./paletteTypes";
@@ -39,6 +39,7 @@ const state = $state({
 });
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+let previewTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function isOpen(): boolean {
   return state.open;
@@ -83,6 +84,7 @@ export async function open(): Promise<void> {
   state.mode = "root";
   state.query = "";
   state.index = 0;
+  clearTimeout(previewTimer);
   await refreshChats("");
 }
 
@@ -90,6 +92,7 @@ export function close(): void {
   state.open = false;
   state.mode = "root";
   clearTimeout(searchTimer);
+  clearTimeout(previewTimer);
   applyThemeFor(settings().theme);
 }
 
@@ -115,18 +118,25 @@ export function select(index: number): void {
   previewSelected();
 }
 
+// Previewing rewrites every CSS variable and fires a window-style IPC, so
+// defer it until the selection settles to avoid overlapping fast key repeats.
 function previewSelected(): void {
-  const item = items()[state.index];
-  if (item?.kind === "theme") applyThemeFor(item.id);
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const item = items()[state.index];
+    if (item?.kind === "theme") applyThemeFor(item.id);
+  }, 90);
 }
 
 export function back(): void {
+  clearTimeout(previewTimer);
   state.mode = "root";
   state.query = "";
   state.index = 0;
 }
 
 export async function activate(selected?: number): Promise<boolean> {
+  clearTimeout(previewTimer);
   if (selected !== undefined) state.index = selected;
   const item = items()[state.index];
   if (!item) return true;
@@ -186,6 +196,22 @@ async function run(item: PaletteItem): Promise<void> {
   }
 }
 
+function usageLabel(entry: SearchProviderUsage): string {
+  if (!entry.hasKey) return `${entry.provider} —`;
+  if (entry.exhausted) return `${entry.provider} used up`;
+  const limit = entry.limit ?? {};
+  if (limit.monthlyUsd !== undefined) {
+    return `${entry.provider} $${entry.cost.toFixed(2)}/$${limit.monthlyUsd}`;
+  }
+  if (limit.monthly !== undefined) {
+    return `${entry.provider} ${entry.units}/${limit.monthly}`;
+  }
+  if (limit.total !== undefined) {
+    return `${entry.provider} ${entry.totalUnits}/${limit.total} total`;
+  }
+  return `${entry.provider} ${entry.requests}`;
+}
+
 async function runAction(id: string): Promise<void> {
   switch (id) {
     case "new-chat":
@@ -207,9 +233,7 @@ async function runAction(id: string): Promise<void> {
       break;
     case "search-usage": {
       const usage = await searchUsage();
-      notify(
-        `Exa: ${usage.requests} searches · $${usage.cost.toFixed(2)} / $${usage.budget.toFixed(2)} this month`,
-      );
+      notify(usage.map(usageLabel).join(" · "));
       break;
     }
     case "settings-panel":

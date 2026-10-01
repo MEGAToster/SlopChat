@@ -5,6 +5,7 @@ import type { ThemeInfo } from "../types";
 import { settings } from "./settings.svelte";
 
 const state = $state({ user: [] as ThemeInfo[] });
+let styleChain: Promise<unknown> = Promise.resolve();
 
 export function themes(): ThemeInfo[] {
   return [...BUILTIN_THEMES, ...state.user];
@@ -22,7 +23,11 @@ export function applyThemeFor(name: string): string[] {
   const font = { ...resolved.font, ...(current.font ?? {}) };
 
   const invalid = applyTheme({ ...resolved, style, font });
-  void setWindowStyle(resolved.scheme, resolved.vibrancy, resolved.opacity);
+  // Chain so rapid previews apply in order; otherwise the last IPC to resolve
+  // can win with a stale window style.
+  styleChain = styleChain
+    .then(() => setWindowStyle(resolved.scheme, resolved.vibrancy, resolved.opacity))
+    .catch(() => {});
   return invalid;
 }
 

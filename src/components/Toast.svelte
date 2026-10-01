@@ -2,15 +2,33 @@
   import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
 
-  let {
-    message,
-    kind = "danger",
-  }: { message: string; kind?: "danger" | "warning" | "success" } = $props();
+  type ToastKind = "danger" | "warning" | "success" | "info";
+
+  const titles: Record<ToastKind, string> = {
+    danger: "error",
+    warning: "warning",
+    success: "done",
+    info: "notice",
+  };
+  const tones: Record<ToastKind, string> = {
+    danger: "red",
+    warning: "yellow",
+    success: "green",
+    info: "accent",
+  };
+  const icons: Record<ToastKind, string> = {
+    danger: "alert",
+    warning: "alert",
+    success: "check",
+    info: "spark",
+  };
+
+  let { message, kind = "info" }: { message: string; kind?: ToastKind } = $props();
 </script>
 
 <div class="toast" class:warning={kind === "warning"} class:success={kind === "success"}>
-  <Frame title={kind} tone={kind}>
-    <span class="icon"><Icon name={kind === "success" ? "check" : "alert"} size={14} /></span>
+  <Frame title={titles[kind]} tone={tones[kind]}>
+    <span class="icon" class:info={kind === "info"}><Icon name={icons[kind]} size={14} /></span>
     <span>{message}</span>
   </Frame>
 </div>
@@ -47,5 +65,9 @@
 
   .toast.success .icon {
     color: var(--success);
+  }
+
+  .icon.info {
+    color: var(--accent);
   }
 </style>

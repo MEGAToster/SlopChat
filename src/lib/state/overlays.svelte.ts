@@ -3,7 +3,11 @@ import { tick } from "svelte";
 import { focusComposer } from "../dom";
 import { hidePanel, resizePanel } from "../ipc";
 import { removeChat } from "./chat.svelte";
-import { close as paletteClose, open as paletteOpen } from "./palette.svelte";
+import {
+  close as paletteClose,
+  isOpen as paletteIsOpen,
+  open as paletteOpen,
+} from "./palette.svelte";
 import {
   closePanel as settingsPanelClose,
   isOpen as settingsPanelIsOpen,
@@ -12,7 +16,7 @@ import {
   clampSelection,
   endEdit,
   isExpanded,
-  measurePanel,
+  OVERLAY_HEIGHT,
   pendingDelete,
   selectActive,
   setContext,
@@ -21,9 +25,21 @@ import {
   setPendingDelete,
 } from "./ui.svelte";
 
+// Overlays are absolutely positioned inside the panel, so while one is open the
+// compact height must not follow the (hidden) thread underneath it.
+export function measurePanel(): void {
+  if (isExpanded()) return;
+  if (paletteIsOpen() || settingsPanelIsOpen()) {
+    void resizePanel(OVERLAY_HEIGHT);
+    return;
+  }
+  const content = document.querySelector<HTMLElement>(".content");
+  if (content) void resizePanel(Math.ceil(content.getBoundingClientRect().height));
+}
+
 export function createOverlays() {
   async function openPalette(): Promise<void> {
-    if (!isExpanded()) void resizePanel(480);
+    if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
     setContext("palette");
     await paletteOpen();
     await tick();

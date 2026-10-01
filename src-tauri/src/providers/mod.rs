@@ -146,6 +146,15 @@ pub fn api_key(settings: &Settings, provider: &str) -> Result<Option<String>, St
     secrets::get(provider)
 }
 
+// Falls back to the conventional <NAME>_API_KEY environment variable.
+pub fn search_key(settings: &Settings, provider: &str) -> Result<Option<String>, String> {
+    if let Some(key) = api_key(settings, provider)? {
+        return Ok(Some(key));
+    }
+    let variable = format!("{}_API_KEY", provider.to_ascii_uppercase());
+    Ok(std::env::var(variable).ok().filter(|value| !value.trim().is_empty()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

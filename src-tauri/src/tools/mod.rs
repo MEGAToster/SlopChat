@@ -1,7 +1,7 @@
 pub mod budget;
 mod fetch_url;
 mod html;
-mod web_search;
+mod search;
 
 use serde_json::Value;
 use tauri::AppHandle;
@@ -26,7 +26,7 @@ pub fn schemas(names: &[String]) -> Vec<Value> {
     names
         .iter()
         .filter_map(|name| match name.as_str() {
-            "web_search" => Some(web_search::schema()),
+            "web_search" => Some(search::schema()),
             "fetch_url" => Some(fetch_url::schema()),
             _ => None,
         })
@@ -35,7 +35,7 @@ pub fn schemas(names: &[String]) -> Vec<Value> {
 
 pub async fn run(name: &str, args: Value, context: ToolContext) -> Result<ToolOutput, String> {
     match name {
-        "web_search" => web_search::run(args, context).await,
+        "web_search" => search::run(args, context).await,
         "fetch_url" => fetch_url::run(args, context).await,
         other => Err(format!("unknown tool {other}")),
     }

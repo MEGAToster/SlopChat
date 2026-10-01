@@ -1,5 +1,5 @@
 import { groupChats, type ChatGroup } from "../chatGroups";
-import { resizePanel, setChatProfile, setPanelExpanded } from "../ipc";
+import { setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, Profile } from "../types";
 import { activeChatId, chats, isBlank, newChat, openChat } from "./chat.svelte";
@@ -8,6 +8,8 @@ import { settings } from "./settings.svelte";
 export type { ChatGroup };
 
 type PanelMode = "compact" | "expanded";
+
+export const OVERLAY_HEIGHT = 480;
 
 const store = $state({
   mode: "compact" as PanelMode,
@@ -21,6 +23,7 @@ const store = $state({
   modelOverride: null as string | null,
   webArmed: false,
   noticeMessage: null as string | null,
+  noticeKind: "info" as "danger" | "warning" | "success" | "info",
 });
 
 export function webArmed(): boolean {
@@ -35,12 +38,20 @@ export function clearWebArmed(): void {
   store.webArmed = false;
 }
 
-export function notify(message: string): void {
+export function notify(
+  message: string,
+  kind: "danger" | "warning" | "success" | "info" = "info",
+): void {
+  store.noticeKind = kind;
   store.noticeMessage = message;
 }
 
 export function uiNotice(): string | null {
   return store.noticeMessage;
+}
+
+export function uiNoticeKind(): "danger" | "warning" | "success" | "info" {
+  return store.noticeKind;
 }
 
 export function clearNotice(): void {
@@ -121,12 +132,6 @@ export function endEdit(): void {
 export async function setMode(mode: PanelMode): Promise<void> {
   store.mode = mode;
   await setPanelExpanded(mode === "expanded");
-}
-
-export function measurePanel(): void {
-  if (store.mode === "expanded") return;
-  const content = document.querySelector<HTMLElement>(".content");
-  if (content) void resizePanel(Math.ceil(content.getBoundingClientRect().height));
 }
 
 export function visibleChats(): Chat[] {

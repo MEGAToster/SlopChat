@@ -78,8 +78,13 @@ pub fn has_api_key(app: AppHandle, provider: String) -> Result<bool, String> {
 }
 
 #[tauri::command(async)]
-pub fn store_api_key(provider: String, key: String) -> Result<(), String> {
-    secrets::set(&provider, &key)
+pub fn store_api_key(app: AppHandle, provider: String, key: String) -> Result<(), String> {
+    secrets::set(&provider, &key)?;
+    let settings = app.state::<ConfigState>().get();
+    if settings.search.providers.iter().any(|name| name == &provider) {
+        crate::tools::budget::reset(&app, &provider);
+    }
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -315,21 +320,39 @@ pub fn load_user_themes() -> Vec<config::UserTheme> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchUsage {
+pub struct SearchProviderUsage {
+    pub provider: String,
     pub requests: i64,
+    pub units: i64,
+    pub total_units: i64,
     pub cost: f64,
-    pub budget: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<crate::config::Limit>,
+    pub exhausted: bool,
+    pub has_key: bool,
 }
 
 #[tauri::command(async)]
-pub fn search_usage(app: AppHandle) -> SearchUsage {
-    let (requests, cost) = crate::tools::budget::usage(&app);
-    let budget = app.state::<ConfigState>().get().search.monthly_budget;
-    SearchUsage {
-        requests,
-        cost,
-        budget,
-    }
+pub fn search_usage(app: AppHandle) -> Vec<SearchProviderUsage> {
+    let settings = app.state::<ConfigState>().get();
+    settings
+        .search
+        .providers
+        .iter()
+        .map(|name| {
+            let (requests, units, cost) = crate::tools::budget::monthly(&app, name);
+            SearchProviderUsage {
+                provider: name.clone(),
+                requests,
+                units,
+                total_units: crate::tools::budget::total_units(&app, name),
+                cost,
+                limit: settings.search.limits.get(name).cloned(),
+                exhausted: crate::tools::budget::is_exhausted(&app, name),
+                has_key: providers::search_key(&settings, name).ok().flatten().is_some(),
+            }
+        })
+        .collect()
 }
 
 fn open_path(target: &std::path::Path) -> Result<(), String> {

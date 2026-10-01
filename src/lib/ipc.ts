@@ -6,7 +6,7 @@ import type {
   ChatView,
   NewMessage,
   ProviderModel,
-  SearchUsage,
+  SearchProviderUsage,
   SendRequest,
   Settings,
   StoredMessage,
@@ -162,8 +162,12 @@ export function setSuppressHide(value: boolean): Promise<void> {
   return invoke("set_suppress_hide", { value });
 }
 
-export function searchUsage(): Promise<SearchUsage> {
+export function searchUsage(): Promise<SearchProviderUsage[]> {
   return invoke("search_usage");
+}
+
+export function onSearchUnavailable(handler: (message: string) => void): Promise<UnlistenFn> {
+  return listen<string>("search://unavailable", (event) => handler(event.payload));
 }
 
 export function saveAttachment(name: string, mime: string, data: string): Promise<Attachment> {

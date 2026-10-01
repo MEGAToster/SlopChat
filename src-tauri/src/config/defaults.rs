@@ -1,20 +1,69 @@
 use std::collections::BTreeMap;
 
 use super::{
-    Keybinds, Profile, Provider, SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
+    ExaSettings, Keybinds, Limit, Profile, Provider, SearchSettings, Settings, Startup,
+    WebSearchMode, WindowConfig,
 };
 
 impl Default for SearchSettings {
     fn default() -> Self {
         Self {
-            provider: "exa".to_string(),
-            search_type: "instant".to_string(),
+            providers: default_search_providers(),
             num_results: 5,
-            contents: "highlights".to_string(),
-            max_characters: 1500,
-            monthly_budget: 10.0,
+            limits: default_search_limits(),
+            exa: ExaSettings::default(),
         }
     }
+}
+
+impl Default for ExaSettings {
+    fn default() -> Self {
+        Self {
+            search_type: "instant".to_string(),
+            contents: "highlights".to_string(),
+            max_characters: 1500,
+        }
+    }
+}
+
+pub(super) fn default_search_providers() -> Vec<String> {
+    ["exa", "serper", "tavily", "brave"]
+        .iter()
+        .map(|name| name.to_string())
+        .collect()
+}
+
+pub(super) fn default_search_limits() -> BTreeMap<String, Limit> {
+    let mut limits = BTreeMap::new();
+    limits.insert(
+        "exa".to_string(),
+        Limit {
+            monthly_usd: Some(10.0),
+            ..Limit::default()
+        },
+    );
+    limits.insert(
+        "serper".to_string(),
+        Limit {
+            total: Some(2500),
+            ..Limit::default()
+        },
+    );
+    limits.insert(
+        "tavily".to_string(),
+        Limit {
+            monthly: Some(1000),
+            ..Limit::default()
+        },
+    );
+    limits.insert(
+        "brave".to_string(),
+        Limit {
+            monthly_usd: Some(5.0),
+            ..Limit::default()
+        },
+    );
+    limits
 }
 
 pub(super) fn default_true() -> bool {

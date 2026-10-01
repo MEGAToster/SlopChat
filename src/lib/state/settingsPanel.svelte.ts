@@ -1,4 +1,5 @@
-import { addModel, removeModel } from "../ipc";
+import { addModel, removeModel, resizePanel } from "../ipc";
+import { isExpanded, OVERLAY_HEIGHT } from "./ui.svelte";
 
 const VARIANTS = ["", ":floor", ":nitro", ":online", ":free", ":thinking"];
 const VARIANT_PATTERN = /:(floor|nitro|online|free|thinking)$/;
@@ -49,6 +50,7 @@ export function openPanel(prefill?: { provider?: string; modelId?: string; tag?:
   state.modelId = prefill?.modelId ?? "";
   state.tag = prefill?.tag ?? "";
   state.open = true;
+  if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
 }
 
 export function openFromProvider(provider: string, modelRef: string): void {

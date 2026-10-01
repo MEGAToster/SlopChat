@@ -63,6 +63,29 @@
 }
 
 /* --- Palette ---------------------------------------------------------- */
+/* Higher specificity than Frame.svelte's scoped `display: contents`, so the
+   palette keeps a real flex column in TUI regardless of stylesheet order. */
+[data-style="tui"] .palette .frame,
+[data-style="tui"] .palette .frame .body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+[data-style="tui"] .palette .frame .edge {
+  display: flex;
+}
+
+[data-style="tui"] .palette .list {
+  min-height: 0;
+}
+
+/* The frame title/hint already carry the breadcrumb and key hints. */
+[data-style="tui"] .palette .bar {
+  display: none;
+}
+
 [data-style="tui"] .palette .search {
   height: 40px;
 }

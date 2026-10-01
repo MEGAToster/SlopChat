@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { hasApiKey, storeApiKey } from "../lib/ipc";
+  import { searchUsage } from "../lib/ipc";
+  import type { SearchProviderUsage } from "../lib/types";
   import {
     add,
     composedModel,
@@ -14,6 +15,7 @@
     tags,
   } from "../lib/state/settingsPanel.svelte";
   import { settings } from "../lib/state/settings.svelte";
+  import ApiKeyRow from "./ApiKeyRow.svelte";
   import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
 
@@ -22,20 +24,28 @@
   const providers = $derived(Object.keys(settings().providers));
   const models = $derived(settings().models);
 
+  const searchProviders = [
+    { name: "exa", label: "Exa", placeholder: "exa-…", hint: "$10 free credit / month" },
+    { name: "serper", label: "Serper", placeholder: "…", hint: "2,500 free queries once" },
+    { name: "tavily", label: "Tavily", placeholder: "tvly-…", hint: "1,000 free credits / month" },
+    { name: "brave", label: "Brave", placeholder: "…", hint: "$5 free credit / month" },
+  ];
+
   let modelInput = $state<HTMLInputElement | null>(null);
-  let exaKey = $state("");
-  let exaStored = $state(false);
+  let usage = $state<Record<string, SearchProviderUsage>>({});
+  let order = $state("exa → serper → tavily → brave");
 
   onMount(() => {
     modelInput?.focus();
-    void hasApiKey("exa").then((stored) => (exaStored = stored));
+    void searchUsage().then((list) => {
+      usage = Object.fromEntries(list.map((entry) => [entry.provider, entry]));
+      if (list.length > 0) order = list.map((entry) => entry.provider).join(" → ");
+    });
   });
 
-  async function saveExa() {
-    if (!exaKey.trim()) return;
-    await storeApiKey("exa", exaKey.trim());
-    exaStored = true;
-    exaKey = "";
+  function dim(name: string): boolean {
+    const entry = usage[name];
+    return entry !== undefined && (!entry.hasKey || entry.exhausted);
   }
 </script>
 
@@ -103,19 +113,18 @@
       {/each}
     {/if}
 
-    <div class="section-title">Search</div>
-    <label class="row">
-      <span class="label">Exa API key</span>
-      <input
-        class="control"
-        type="password"
-        placeholder={exaStored ? "stored" : "exa-…"}
-        value={exaKey}
-        oninput={(event) => (exaKey = event.currentTarget.value)}
-        onkeydown={(event) => event.key === "Enter" && void saveExa()}
+    <div class="section-title">Web search</div>
+    <p class="order">{order}</p>
+    {#each searchProviders as entry (entry.name)}
+      <ApiKeyRow
+        provider={entry.name}
+        label={entry.label}
+        placeholder={entry.placeholder}
+        hint={entry.hint}
+        dim={dim(entry.name)}
       />
-    </label>
-    <p class="muted">With no card attached to your Exa account, it can't overspend.</p>
+    {/each}
+    <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>
     </div>
   </Frame>
 </div>
@@ -262,6 +271,13 @@
   .muted {
     margin: var(--sp-2);
     color: var(--text-tertiary);
+    font-size: var(--fs-sm);
+  }
+
+  .order {
+    margin: var(--sp-1) var(--sp-2);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
     font-size: var(--fs-sm);
   }
 </style>
