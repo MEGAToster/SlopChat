@@ -150,7 +150,8 @@ fn default_profiles() -> Vec<Profile> {
             temperature: None,
             use_context: true,
             color: None,
-            tools: vec!["web_search".to_string(), "fetch_url".to_string()],
+            tools: vec!["web_search".to_string(), "web_fetch".to_string()],
+            tool_calling: true,
             web_search: WebSearchMode::Auto,
         },
         Profile {
@@ -161,6 +162,7 @@ fn default_profiles() -> Vec<Profile> {
             use_context: true,
             color: None,
             tools: Vec::new(),
+            tool_calling: false,
             web_search: WebSearchMode::Auto,
         },
         Profile {
@@ -171,6 +173,7 @@ fn default_profiles() -> Vec<Profile> {
             use_context: true,
             color: None,
             tools: Vec::new(),
+            tool_calling: true,
             web_search: WebSearchMode::Auto,
         },
         Profile {
@@ -184,6 +187,7 @@ fn default_profiles() -> Vec<Profile> {
             use_context: false,
             color: None,
             tools: Vec::new(),
+            tool_calling: false,
             web_search: WebSearchMode::Auto,
         },
     ]

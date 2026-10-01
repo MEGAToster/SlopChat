@@ -25,6 +25,7 @@ export type Profile = {
   useContext: boolean;
   color?: string;
   tools?: string[];
+  toolCalling?: boolean;
   webSearch?: WebSearchMode;
 };
 
@@ -96,6 +97,7 @@ export type SendRequest = {
   temperature?: number;
   useContext?: boolean;
   tools?: string[];
+  toolCalling?: boolean;
   webSearch?: WebSearchMode;
   webToggle?: boolean;
   messages: RequestMessage[];

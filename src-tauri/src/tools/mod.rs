@@ -27,7 +27,7 @@ pub fn schemas(names: &[String]) -> Vec<Value> {
         .iter()
         .filter_map(|name| match name.as_str() {
             "web_search" => Some(search::schema()),
-            "fetch_url" => Some(fetch_url::schema()),
+            "web_fetch" | "fetch_url" => Some(fetch_url::schema()),
             _ => None,
         })
         .collect()
@@ -36,7 +36,7 @@ pub fn schemas(names: &[String]) -> Vec<Value> {
 pub async fn run(name: &str, args: Value, context: ToolContext) -> Result<ToolOutput, String> {
     match name {
         "web_search" => search::run(args, context).await,
-        "fetch_url" => fetch_url::run(args, context).await,
+        "web_fetch" | "fetch_url" => fetch_url::run(args, context).await,
         other => Err(format!("unknown tool {other}")),
     }
 }

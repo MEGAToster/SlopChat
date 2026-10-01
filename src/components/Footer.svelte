@@ -32,6 +32,7 @@
   const editing = $derived(editingId() !== null);
 
   const web = $derived.by(() => {
+    if (profile?.toolCalling === false) return "off";
     const override = webOverride();
     if (override === "off") return "off";
     if (override === "on") return "on";
@@ -39,11 +40,13 @@
   });
 
   const webTitle = $derived(
-    web === "off"
-      ? "Web search off for this chat"
-      : web === "on"
-        ? "Web search forced on for this chat"
-        : "Web search available (the model decides)",
+    profile?.toolCalling === false
+      ? "Tool calling is off for this profile (toolCalling: false)"
+      : web === "off"
+        ? "Web search off for this chat"
+        : web === "on"
+          ? "Web search forced on for this chat"
+          : "Web search available (the model decides)",
   );
 
   const total = $derived.by(() => {
@@ -121,7 +124,14 @@
       </button>
     </div>
 
-    <button type="button" class="web" data-state={web} title={webTitle} onclick={toggleWeb}>
+    <button
+      type="button"
+      class="web"
+      data-state={web}
+      title={webTitle}
+      disabled={profile?.toolCalling === false}
+      onclick={toggleWeb}
+    >
       {web === "off" ? "WEB OFF" : web === "on" ? "WEB ON" : "WEB"}
     </button>
   </div>

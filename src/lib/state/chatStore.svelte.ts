@@ -17,6 +17,7 @@ export type SendOptions = {
   temperature?: number;
   useContext?: boolean;
   tools?: string[];
+  toolCalling?: boolean;
   webSearch?: "auto" | "always" | "off";
   webToggle?: boolean;
 };

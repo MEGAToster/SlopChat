@@ -112,6 +112,7 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       temperature: options.temperature,
       useContext: options.useContext,
       tools: options.tools,
+      toolCalling: options.toolCalling,
       webSearch: options.webSearch,
       webToggle: options.webToggle,
       messages: history,
@@ -165,8 +166,17 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
     if (chatState.activeChatId === chatId && outcome.usage) chatState.usage = outcome.usage;
     await refreshChats();
   } else {
-    const emptyIndex = chatState.messages.findIndex((message) => message.id === tempId);
-    if (emptyIndex !== -1) chatState.messages.splice(emptyIndex, 1);
+    const message = find();
+    const hasDetail =
+      (message?.steps?.length ?? 0) > 0 ||
+      (message?.sources?.length ?? 0) > 0 ||
+      outcome.error !== undefined;
+    if (message && hasDetail) {
+      message.content = outcome.error ? `⚠ ${outcome.error}` : "_No text response._";
+    } else {
+      const emptyIndex = chatState.messages.findIndex((entry) => entry.id === tempId);
+      if (emptyIndex !== -1) chatState.messages.splice(emptyIndex, 1);
+    }
   }
 }
 

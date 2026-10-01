@@ -6,6 +6,7 @@ use tauri::ipc::Channel;
 use tokio::sync::Notify;
 
 use super::chunks::{self, Usage};
+use super::leak;
 use super::sse::SseParser;
 use super::StreamEvent;
 
@@ -77,6 +78,8 @@ pub async fn run_step(
 
     let mut parser = SseParser::default();
     let mut content = String::new();
+    let mut forwarded = 0usize;
+    let mut leaked = false;
     let mut usage = None;
     let mut provider = None;
     let mut reasoned = false;
@@ -111,7 +114,9 @@ pub async fn run_step(
             }
             if let Some(part) = parsed.content {
                 content.push_str(&part);
-                let _ = channel.send(StreamEvent::Delta { content: part });
+                if !leaked {
+                    forward(&content, &mut forwarded, &mut leaked, channel);
+                }
             }
             if parsed.reasoning && !reasoned {
                 reasoned = true;
@@ -133,10 +138,42 @@ pub async fn run_step(
         }
     }
 
+    if !leaked && forwarded < content.len() {
+        let _ = channel.send(StreamEvent::Delta {
+            content: content[forwarded..].to_string(),
+        });
+    }
+
     Ok(StepOutcome {
         content,
         tool_calls: calls,
         usage,
         provider,
     })
+}
+
+// Streams the text up to a leak marker, holding back a tail so a marker split
+// across two deltas is still caught. Once a marker is seen, markup is dropped.
+fn forward(content: &str, forwarded: &mut usize, leaked: &mut bool, channel: &Channel<StreamEvent>) {
+    if let Some(index) = leak::find(content) {
+        *leaked = true;
+        if index > *forwarded {
+            let _ = channel.send(StreamEvent::Delta {
+                content: content[*forwarded..index].to_string(),
+            });
+        }
+        *forwarded = index;
+        return;
+    }
+
+    let mut safe = content.len().saturating_sub(leak::MAX_MARKER);
+    while safe > *forwarded && !content.is_char_boundary(safe) {
+        safe -= 1;
+    }
+    if safe > *forwarded {
+        let _ = channel.send(StreamEvent::Delta {
+            content: content[*forwarded..safe].to_string(),
+        });
+        *forwarded = safe;
+    }
 }

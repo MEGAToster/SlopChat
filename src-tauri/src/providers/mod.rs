@@ -3,6 +3,7 @@ pub mod capabilities;
 mod chunks;
 pub mod client;
 pub mod kinds;
+mod leak;
 mod prompt;
 pub mod sse;
 pub mod stream;
@@ -66,11 +67,17 @@ pub struct ChatRequest {
     pub use_context: bool,
     #[serde(default)]
     pub tools: Vec<String>,
+    #[serde(default = "default_true")]
+    pub tool_calling: bool,
     #[serde(default)]
     pub web_search: WebSearchMode,
     #[serde(default)]
     pub web_toggle: bool,
     pub messages: Vec<ChatMessage>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl ChatRequest {

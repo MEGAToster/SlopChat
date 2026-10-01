@@ -174,10 +174,30 @@ pub struct Profile {
     pub use_context: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "normalize_tools")]
     pub tools: Vec<String>,
+    #[serde(default = "defaults::default_true")]
+    pub tool_calling: bool,
     #[serde(default)]
     pub web_search: WebSearchMode,
+}
+
+// `fetch_url` was renamed to `web_fetch`.
+fn normalize_tools<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let tools = Vec::<String>::deserialize(deserializer)?;
+    Ok(tools
+        .into_iter()
+        .map(|tool| {
+            if tool == "fetch_url" {
+                "web_fetch".to_string()
+            } else {
+                tool
+            }
+        })
+        .collect())
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -375,6 +395,18 @@ mod tests {
         assert_eq!(settings.search.exa.search_type, "fast");
         assert_eq!(settings.search.exa.contents, "text");
         assert_eq!(settings.search.exa.max_characters, 900);
+    }
+
+    #[test]
+    fn legacy_fetch_url_tool_is_renamed() {
+        let settings: Settings = serde_json::from_str(
+            r#"{"profiles":[{"name":"x","model":"y","tools":["web_search","fetch_url"]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            settings.profiles[0].tools,
+            vec!["web_search".to_string(), "web_fetch".to_string()]
+        );
     }
 
     #[test]

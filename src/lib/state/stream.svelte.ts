@@ -1,6 +1,7 @@
 import { Channel } from "@tauri-apps/api/core";
 
 import { send as sendRequest, stop as stopStream } from "../ipc";
+import { stripControlTokens } from "../markdown/clean";
 import type { RequestMessage, Source, StreamEvent, ToolStep, Usage } from "../types";
 
 export type StreamRequest = {
@@ -9,6 +10,7 @@ export type StreamRequest = {
   temperature?: number;
   useContext?: boolean;
   tools?: string[];
+  toolCalling?: boolean;
   webSearch?: "auto" | "always" | "off";
   webToggle?: boolean;
   messages: RequestMessage[];
@@ -96,7 +98,7 @@ export async function run(
     error = String(cause);
   }
 
-  return { content, usage, error, reasoning, steps, sources };
+  return { content: stripControlTokens(content), usage, error, reasoning, steps, sources };
 }
 
 export async function stop(chatId: string): Promise<void> {

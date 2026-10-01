@@ -50,16 +50,23 @@ export function createActions(text: TextRef) {
       reportError("No profile configured in settings.json");
       return;
     }
-    const override = webOverride();
-    const webSearch =
-      override === "off" ? "off" : override === "on" ? "always" : profile.webSearch;
+    const toolCalling = profile.toolCalling !== false;
+    const override = toolCalling ? webOverride() : null;
+    const webSearch = !toolCalling
+      ? "off"
+      : override === "off"
+        ? "off"
+        : override === "on"
+          ? "always"
+          : profile.webSearch;
     const options = {
       profileName: profile.name,
       model: modelOverride() ?? profile.model,
       system: profile.system,
       temperature: profile.temperature,
       useContext: profile.useContext,
-      tools: profile.tools,
+      tools: toolCalling ? profile.tools : [],
+      toolCalling,
       webSearch,
     };
     const editing = editingId();
@@ -131,7 +138,7 @@ export function createActions(text: TextRef) {
         void toggleSticky();
         break;
       case "webToggle":
-        toggleWeb();
+        if (activeProfile()?.toolCalling !== false) toggleWeb();
         break;
       case "send":
         void handleSend();

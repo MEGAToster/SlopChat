@@ -40,6 +40,15 @@
     return typeof value === "string" ? value : step.name;
   }
 
+  function isFetch(step: ToolStep): boolean {
+    return step.name === "web_fetch" || step.name === "fetch_url";
+  }
+
+  function target(step: ToolStep): string {
+    const value = step.args?.url ?? step.args?.query;
+    return typeof value === "string" ? value : step.name;
+  }
+
   function domain(url: string): string {
     try {
       return new URL(url).hostname.replace(/^www\./, "");
@@ -66,8 +75,16 @@
       <div class="steps">
         {#each message.steps as step (step.id)}
           <div class="step" class:failed={step.status === "error"}>
-            <span class="glyph">⌕</span>
-            {#if step.status === "running"}
+            <span class="glyph">{isFetch(step) ? "↓" : "⌕"}</span>
+            {#if isFetch(step)}
+              {#if step.status === "running"}
+                fetching {domain(target(step))}…
+              {:else if step.status === "error"}
+                fetch failed · {step.summary}
+              {:else}
+                fetched {domain(target(step))} · {step.summary}
+              {/if}
+            {:else if step.status === "running"}
               searching “{query(step)}”…
             {:else if step.status === "error"}
               search failed · {step.summary}

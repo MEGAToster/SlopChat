@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { Marked, type MarkedExtension, type Tokens } from "marked";
 
+import { stripControlTokens } from "./clean";
 import { hljs } from "./highlight";
 import { renderMath } from "./math.svelte";
 
@@ -128,6 +129,6 @@ const marked = new Marked(
 );
 
 export function renderMarkdown(source: string): string {
-  const html = marked.parse(source, { async: false }) as string;
+  const html = marked.parse(stripControlTokens(source), { async: false }) as string;
   return DOMPurify.sanitize(html);
 }

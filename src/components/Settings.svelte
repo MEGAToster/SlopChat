@@ -35,12 +35,15 @@
   let usage = $state<Record<string, SearchProviderUsage>>({});
   let order = $state("exa → serper → tavily → brave");
 
+  async function refreshUsage(): Promise<void> {
+    const list = await searchUsage();
+    usage = Object.fromEntries(list.map((entry) => [entry.provider, entry]));
+    if (list.length > 0) order = list.map((entry) => entry.provider).join(" → ");
+  }
+
   onMount(() => {
     modelInput?.focus();
-    void searchUsage().then((list) => {
-      usage = Object.fromEntries(list.map((entry) => [entry.provider, entry]));
-      if (list.length > 0) order = list.map((entry) => entry.provider).join(" → ");
-    });
+    void refreshUsage();
   });
 
   function dim(name: string): boolean {
@@ -122,6 +125,7 @@
         placeholder={entry.placeholder}
         hint={entry.hint}
         dim={dim(entry.name)}
+        onchange={() => void refreshUsage()}
       />
     {/each}
     <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>

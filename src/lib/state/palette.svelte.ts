@@ -197,7 +197,6 @@ async function run(item: PaletteItem): Promise<void> {
 }
 
 function usageLabel(entry: SearchProviderUsage): string {
-  if (!entry.hasKey) return `${entry.provider} —`;
   if (entry.exhausted) return `${entry.provider} used up`;
   const limit = entry.limit ?? {};
   if (limit.monthlyUsd !== undefined) {
@@ -233,7 +232,12 @@ async function runAction(id: string): Promise<void> {
       break;
     case "search-usage": {
       const usage = await searchUsage();
-      notify(usage.map(usageLabel).join(" · "));
+      const keyed = usage.filter((entry) => entry.hasKey);
+      if (keyed.length === 0) {
+        notify("Web search: no API key yet — add one in Settings → Web search.");
+        break;
+      }
+      notify(`Search usage — ${keyed.map(usageLabel).join(" · ")}`);
       break;
     }
     case "settings-panel":

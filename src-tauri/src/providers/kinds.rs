@@ -83,6 +83,11 @@ impl Kind {
         if let Some(tools) = tools {
             body["tools"] = tools.clone();
             body["tool_choice"] = tool_choice.clone();
+            // Routing (:floor) must only pick providers that honor tool calls,
+            // otherwise the raw tool syntax leaks through as text.
+            if matches!(self, Kind::OpenRouter) {
+                body["provider"] = json!({ "require_parameters": true });
+            }
         }
 
         body
@@ -127,6 +132,24 @@ impl Kind {
             Kind::Ollama => parse_ollama(&body, self.name()),
             _ => parse_openai(&body, self.name()),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openrouter_requires_tool_capable_providers_when_tools_are_sent() {
+        let tools = json!([{ "type": "function" }]);
+        let body = Kind::OpenRouter.body("m", &json!([]), None, Some(&tools), &json!("auto"));
+        assert_eq!(body["provider"]["require_parameters"], json!(true));
+    }
+
+    #[test]
+    fn no_provider_hint_without_tools() {
+        let body = Kind::OpenRouter.body("m", &json!([]), None, None, &json!("none"));
+        assert!(body.get("provider").is_none());
     }
 }
 

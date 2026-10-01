@@ -28,7 +28,7 @@
 
 <div class="toast" class:warning={kind === "warning"} class:success={kind === "success"}>
   <Frame title={titles[kind]} tone={tones[kind]}>
-    <span class="content">
+    <span class="toast-body">
       <span class="icon" class:info={kind === "info"}><Icon name={icons[kind]} size={14} /></span>
       <span>{message}</span>
     </span>
@@ -56,8 +56,9 @@
   }
 
   /* A row even inside the TUI frame body, which is a column. */
-  .content {
+  .toast-body {
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: var(--sp-2);
     min-width: 0;

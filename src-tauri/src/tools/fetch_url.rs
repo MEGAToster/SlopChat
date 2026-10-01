@@ -12,7 +12,7 @@ pub fn schema() -> Value {
     json!({
         "type": "function",
         "function": {
-            "name": "fetch_url",
+            "name": "web_fetch",
             "description": "Fetch a web page and return its text. Read-only.",
             "parameters": {
                 "type": "object",
