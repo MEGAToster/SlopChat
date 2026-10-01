@@ -1,9 +1,25 @@
 use std::collections::BTreeMap;
 
 use super::{
-    ExaSettings, Keybinds, Limit, Profile, Provider, SearchSettings, Settings, Startup,
-    WebSearchMode, WindowConfig,
+    ExaSettings, Keybinds, Limit, ModelConfig, Profile, Provider, SearchSettings, Settings,
+    Startup, WebSearchMode, WindowConfig,
 };
+
+impl Default for ModelConfig {
+    fn default() -> Self {
+        Self {
+            model: String::new(),
+            system: None,
+            temperature: None,
+            use_context: true,
+            color: None,
+            tools: Vec::new(),
+            tool_calling: true,
+            web_search: WebSearchMode::Auto,
+            reasoning: None,
+        }
+    }
+}
 
 impl Default for SearchSettings {
     fn default() -> Self {
@@ -102,6 +118,7 @@ impl Default for Keybinds {
             scroll_up: vec!["Ctrl+U".to_string()],
             scroll_down: vec!["Ctrl+D".to_string()],
             web_toggle: vec!["Ctrl+W".to_string()],
+            reasoning: vec!["Ctrl+R".to_string()],
         }
     }
 }
@@ -141,54 +158,50 @@ fn default_providers() -> BTreeMap<String, Provider> {
     providers
 }
 
+fn profile(name: &str, config: ModelConfig) -> Profile {
+    Profile {
+        name: name.to_string(),
+        config,
+    }
+}
+
 fn default_profiles() -> Vec<Profile> {
     vec![
-        Profile {
-            name: "default".to_string(),
-            model: "openrouter/anthropic/claude-sonnet-5".to_string(),
-            system: None,
-            temperature: None,
-            use_context: true,
-            color: None,
-            tools: vec!["web_search".to_string(), "web_fetch".to_string()],
-            tool_calling: true,
-            web_search: WebSearchMode::Auto,
-        },
-        Profile {
-            name: "cheap".to_string(),
-            model: "openrouter/deepseek/deepseek-chat:floor".to_string(),
-            system: None,
-            temperature: None,
-            use_context: true,
-            color: None,
-            tools: Vec::new(),
-            tool_calling: false,
-            web_search: WebSearchMode::Auto,
-        },
-        Profile {
-            name: "complex".to_string(),
-            model: "openrouter/anthropic/claude-opus-5-5".to_string(),
-            system: None,
-            temperature: None,
-            use_context: true,
-            color: None,
-            tools: Vec::new(),
-            tool_calling: true,
-            web_search: WebSearchMode::Auto,
-        },
-        Profile {
-            name: "translate".to_string(),
-            model: "openrouter/google/gemini-2.5-flash".to_string(),
-            system: Some(
-                "Translate the user's text. Detect the source language; translate to English unless another target is given."
-                    .to_string(),
-            ),
-            temperature: None,
-            use_context: false,
-            color: None,
-            tools: Vec::new(),
-            tool_calling: false,
-            web_search: WebSearchMode::Auto,
-        },
+        profile(
+            "default",
+            ModelConfig {
+                model: "openrouter/anthropic/claude-sonnet-5".to_string(),
+                tools: vec!["web_search".to_string(), "web_fetch".to_string()],
+                ..ModelConfig::default()
+            },
+        ),
+        profile(
+            "cheap",
+            ModelConfig {
+                model: "openrouter/deepseek/deepseek-chat:floor".to_string(),
+                tool_calling: false,
+                ..ModelConfig::default()
+            },
+        ),
+        profile(
+            "complex",
+            ModelConfig {
+                model: "openrouter/anthropic/claude-opus-5-5".to_string(),
+                ..ModelConfig::default()
+            },
+        ),
+        profile(
+            "translate",
+            ModelConfig {
+                model: "openrouter/google/gemini-2.5-flash".to_string(),
+                system: Some(
+                    "Translate the user's text. Detect the source language; translate to English unless another target is given."
+                        .to_string(),
+                ),
+                use_context: false,
+                tool_calling: false,
+                ..ModelConfig::default()
+            },
+        ),
     ]
 }

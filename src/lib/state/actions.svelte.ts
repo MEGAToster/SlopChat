@@ -17,14 +17,15 @@ import {
 } from "./chat.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
+import { cycleReasoning, loadReasoning, reasoningOverride } from "./reasoning.svelte";
 import {
+  activeConfig,
   activeProfile,
   beginEdit,
   cycleProfile,
   editingId,
   endEdit,
   isExpanded,
-  modelOverride,
   moveSelection,
   openChatWithProfile,
   schedulePreview,
@@ -46,11 +47,12 @@ export function createActions(text: TextRef) {
 
   async function handleSend(): Promise<void> {
     const profile = activeProfile();
-    if (!profile) {
+    const config = activeConfig();
+    if (!profile || !config) {
       reportError("No profile configured in settings.json");
       return;
     }
-    const toolCalling = profile.toolCalling !== false;
+    const toolCalling = config.toolCalling !== false;
     const override = toolCalling ? webOverride() : null;
     const webSearch = !toolCalling
       ? "off"
@@ -58,16 +60,17 @@ export function createActions(text: TextRef) {
         ? "off"
         : override === "on"
           ? "always"
-          : profile.webSearch;
+          : config.webSearch;
     const options = {
       profileName: profile.name,
-      model: modelOverride() ?? profile.model,
-      system: profile.system,
-      temperature: profile.temperature,
-      useContext: profile.useContext,
-      tools: toolCalling ? profile.tools : [],
+      model: config.model,
+      system: config.system,
+      temperature: config.temperature,
+      useContext: config.useContext,
+      tools: toolCalling ? config.tools : [],
       toolCalling,
       webSearch,
+      reasoning: reasoningOverride() ?? config.reasoning,
     };
     const editing = editingId();
     const value = text.get();
@@ -138,8 +141,15 @@ export function createActions(text: TextRef) {
         void toggleSticky();
         break;
       case "webToggle":
-        if (activeProfile()?.toolCalling !== false) toggleWeb();
+        if (activeConfig()?.toolCalling !== false) toggleWeb();
         break;
+      case "reasoning": {
+        const config = activeConfig();
+        if (config) {
+          void loadReasoning(config.model).then(() => cycleReasoning(config.model));
+        }
+        break;
+      }
       case "send":
         void handleSend();
         break;

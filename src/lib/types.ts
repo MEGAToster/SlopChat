@@ -10,6 +10,7 @@ export type Keybinds = {
   scrollUp: string[];
   scrollDown: string[];
   webToggle: string[];
+  reasoning: string[];
 };
 
 export type Provider = {
@@ -17,8 +18,7 @@ export type Provider = {
   apiKey?: string;
 };
 
-export type Profile = {
-  name: string;
+export type ModelConfig = {
   model: string;
   system?: string;
   temperature?: number;
@@ -27,6 +27,16 @@ export type Profile = {
   tools?: string[];
   toolCalling?: boolean;
   webSearch?: WebSearchMode;
+  reasoning?: string;
+};
+
+export type Profile = ModelConfig & { name: string };
+
+export type ReasoningInfo = {
+  supportedEfforts: string[];
+  defaultEffort?: string;
+  defaultEnabled: boolean;
+  mandatory: boolean;
 };
 
 export type Startup = "last" | "new";
@@ -40,7 +50,7 @@ export type Settings = {
   keybinds: Keybinds;
   providers: Record<string, Provider>;
   profiles: Profile[];
-  models: string[];
+  models: ModelConfig[];
   startup: Startup;
   resumeWithinMinutes: number;
   theme: string;
@@ -100,6 +110,7 @@ export type SendRequest = {
   toolCalling?: boolean;
   webSearch?: WebSearchMode;
   webToggle?: boolean;
+  reasoning?: string;
   messages: RequestMessage[];
 };
 

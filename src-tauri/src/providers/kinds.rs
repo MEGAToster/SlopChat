@@ -61,6 +61,7 @@ impl Kind {
         model: &str,
         messages: &Value,
         temperature: Option<f32>,
+        reasoning: Option<&str>,
         tools: Option<&Value>,
         tool_choice: &Value,
     ) -> Value {
@@ -78,6 +79,12 @@ impl Kind {
 
         if let Some(temperature) = temperature {
             body["temperature"] = json!(temperature);
+        }
+
+        if let Some(effort) = reasoning {
+            if matches!(self, Kind::OpenRouter) {
+                body["reasoning"] = json!({ "effort": effort });
+            }
         }
 
         if let Some(tools) = tools {
@@ -142,14 +149,26 @@ mod tests {
     #[test]
     fn openrouter_requires_tool_capable_providers_when_tools_are_sent() {
         let tools = json!([{ "type": "function" }]);
-        let body = Kind::OpenRouter.body("m", &json!([]), None, Some(&tools), &json!("auto"));
+        let body = Kind::OpenRouter.body("m", &json!([]), None, None, Some(&tools), &json!("auto"));
         assert_eq!(body["provider"]["require_parameters"], json!(true));
     }
 
     #[test]
     fn no_provider_hint_without_tools() {
-        let body = Kind::OpenRouter.body("m", &json!([]), None, None, &json!("none"));
+        let body = Kind::OpenRouter.body("m", &json!([]), None, None, None, &json!("none"));
         assert!(body.get("provider").is_none());
+    }
+
+    #[test]
+    fn openrouter_sends_reasoning_effort() {
+        let body = Kind::OpenRouter.body("m", &json!([]), None, Some("high"), None, &json!("none"));
+        assert_eq!(body["reasoning"]["effort"], json!("high"));
+    }
+
+    #[test]
+    fn other_kinds_ignore_reasoning_effort() {
+        let body = Kind::Ollama.body("m", &json!([]), None, Some("high"), None, &json!("none"));
+        assert!(body.get("reasoning").is_none());
     }
 }
 

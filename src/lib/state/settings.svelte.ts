@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
     scrollUp: ["Ctrl+U"],
     scrollDown: ["Ctrl+D"],
     webToggle: ["Ctrl+W"],
+    reasoning: ["Ctrl+R"],
   },
   providers: {},
   profiles: [],

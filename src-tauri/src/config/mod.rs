@@ -18,7 +18,8 @@ pub struct Settings {
     pub keybinds: Keybinds,
     pub providers: BTreeMap<String, Provider>,
     pub profiles: Vec<Profile>,
-    pub models: Vec<String>,
+    #[serde(default, deserialize_with = "normalize_models")]
+    pub models: Vec<ModelConfig>,
     pub startup: Startup,
     pub resume_within_minutes: u64,
     pub theme: String,
@@ -151,6 +152,7 @@ pub struct Keybinds {
     pub scroll_up: Vec<String>,
     pub scroll_down: Vec<String>,
     pub web_toggle: Vec<String>,
+    pub reasoning: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -161,25 +163,52 @@ pub struct Provider {
     pub api_key: Option<String>,
 }
 
+// A model's settings. Profiles are named model configs; `models` entries are
+// the same shape without a name.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ModelConfig {
+    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    #[serde(default = "defaults::default_true")]
+    pub use_context: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(deserialize_with = "normalize_tools")]
+    pub tools: Vec<String>,
+    #[serde(default = "defaults::default_true")]
+    pub tool_calling: bool,
+    pub web_search: WebSearchMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<String>,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
     pub name: String,
-    pub model: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f32>,
-    #[serde(default = "defaults::default_true")]
-    pub use_context: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
-    #[serde(default, deserialize_with = "normalize_tools")]
-    pub tools: Vec<String>,
-    #[serde(default = "defaults::default_true")]
-    pub tool_calling: bool,
-    #[serde(default)]
-    pub web_search: WebSearchMode,
+    #[serde(flatten)]
+    pub config: ModelConfig,
+}
+
+// Legacy `models` entries were plain strings.
+fn normalize_models<'de, D>(deserializer: D) -> Result<Vec<ModelConfig>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Vec::<serde_json::Value>::deserialize(deserializer)?;
+    raw.into_iter()
+        .map(|value| match value {
+            serde_json::Value::String(model) => Ok(ModelConfig {
+                model,
+                ..ModelConfig::default()
+            }),
+            other => serde_json::from_value(other).map_err(serde::de::Error::custom),
+        })
+        .collect()
 }
 
 // `fetch_url` was renamed to `web_fetch`.
@@ -316,12 +345,20 @@ pub fn ensure_file() -> Result<(), String> {
     write::ensure_file()
 }
 
-pub fn add_model(app: &AppHandle, model: &str) -> Result<(), String> {
-    write::add_model(app, model)
+pub fn save_model(app: &AppHandle, config: &ModelConfig) -> Result<(), String> {
+    write::save_model(app, config)
 }
 
 pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
     write::remove_model(app, model)
+}
+
+pub fn save_profile(app: &AppHandle, profile: &Profile) -> Result<(), String> {
+    write::save_profile(app, profile)
+}
+
+pub fn remove_profile(app: &AppHandle, name: &str) -> Result<(), String> {
+    write::remove_profile(app, name)
 }
 
 pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
@@ -379,7 +416,18 @@ mod tests {
     fn profiles_default_to_using_context() {
         let settings: Settings =
             serde_json::from_str(r#"{"profiles":[{"name":"x","model":"y"}]}"#).unwrap();
-        assert!(settings.profiles[0].use_context);
+        assert!(settings.profiles[0].config.use_context);
+        assert!(settings.profiles[0].config.tool_calling);
+        assert_eq!(settings.profiles[0].config.model, "y");
+    }
+
+    #[test]
+    fn legacy_string_models_become_configs() {
+        let settings: Settings =
+            serde_json::from_str(r#"{"models":["openrouter/a","openrouter/b"]}"#).unwrap();
+        assert_eq!(settings.models.len(), 2);
+        assert_eq!(settings.models[0].model, "openrouter/a");
+        assert!(settings.models[0].tool_calling);
     }
 
     #[test]
@@ -404,7 +452,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            settings.profiles[0].tools,
+            settings.profiles[0].config.tools,
             vec!["web_search".to_string(), "web_fetch".to_string()]
         );
     }

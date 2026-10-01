@@ -294,13 +294,36 @@ pub fn reload_config(app: AppHandle) {
 }
 
 #[tauri::command(async)]
-pub fn add_model(app: AppHandle, model: String) -> Result<(), String> {
-    config::add_model(&app, &model)
+pub fn save_model(app: AppHandle, model: config::ModelConfig) -> Result<(), String> {
+    config::save_model(&app, &model)
 }
 
 #[tauri::command(async)]
 pub fn remove_model(app: AppHandle, model: String) -> Result<(), String> {
     config::remove_model(&app, &model)
+}
+
+#[tauri::command(async)]
+pub fn save_profile(app: AppHandle, profile: config::Profile) -> Result<(), String> {
+    config::save_profile(&app, &profile)
+}
+
+#[tauri::command(async)]
+pub fn remove_profile(app: AppHandle, name: String) -> Result<(), String> {
+    config::remove_profile(&app, &name)
+}
+
+#[tauri::command]
+pub async fn model_reasoning(
+    app: AppHandle,
+    model: String,
+) -> Result<Option<providers::capabilities::ReasoningInfo>, String> {
+    let reference = providers::ModelRef::parse(&model)?;
+    let kind = Kind::from_name(&reference.provider)
+        .ok_or_else(|| format!("provider {:?} is not supported", reference.provider))?;
+    let settings = app.state::<ConfigState>().get();
+    let key = providers::api_key(&settings, kind.name())?;
+    Ok(providers::capabilities::reasoning(kind, &reference.model, &settings, key.as_deref()).await)
 }
 
 #[tauri::command(async)]

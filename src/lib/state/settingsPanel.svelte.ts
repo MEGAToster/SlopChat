@@ -1,4 +1,4 @@
-import { addModel, removeModel, resizePanel } from "../ipc";
+import { removeModel, resizePanel, saveModel } from "../ipc";
 import { isExpanded, OVERLAY_HEIGHT } from "./ui.svelte";
 
 const VARIANTS = ["", ":floor", ":nitro", ":online", ":free", ":thinking"];
@@ -10,6 +10,7 @@ const state = $state({
   provider: "openrouter",
   modelId: "",
   tag: "",
+  reasoning: "",
 });
 
 export function isOpen(): boolean {
@@ -26,6 +27,14 @@ export function modelId(): string {
 
 export function tag(): string {
   return state.tag;
+}
+
+export function reasoning(): string {
+  return state.reasoning;
+}
+
+export function setReasoning(value: string): void {
+  state.reasoning = value;
 }
 
 export function tags(): string[] {
@@ -85,9 +94,14 @@ export function composedModel(): string {
 export async function add(): Promise<void> {
   const model = composedModel();
   if (!model) return;
-  await addModel(model);
+  await saveModel({
+    model,
+    useContext: true,
+    reasoning: state.reasoning || undefined,
+  });
   state.modelId = "";
   state.tag = "";
+  state.reasoning = "";
 }
 
 export async function remove(model: string): Promise<void> {

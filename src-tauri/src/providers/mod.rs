@@ -73,6 +73,8 @@ pub struct ChatRequest {
     pub web_search: WebSearchMode,
     #[serde(default)]
     pub web_toggle: bool,
+    #[serde(default)]
+    pub reasoning: Option<String>,
     pub messages: Vec<ChatMessage>,
 }
 

@@ -1,15 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { searchUsage } from "../lib/ipc";
+  import { removeModel, removeProfile, saveModel, saveProfile, searchUsage } from "../lib/ipc";
+  import { REASONING_LEVELS } from "../lib/reasoningLevels";
   import type { SearchProviderUsage } from "../lib/types";
   import {
     add,
     composedModel,
     modelId,
     provider,
-    remove,
+    reasoning,
     setModelId,
     setProvider,
+    setReasoning,
     setTag,
     tag,
     tags,
@@ -17,7 +19,7 @@
   import { settings } from "../lib/state/settings.svelte";
   import ApiKeyRow from "./ApiKeyRow.svelte";
   import Frame from "./Frame.svelte";
-  import Icon from "./Icon.svelte";
+  import ModelRow from "./ModelRow.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -34,6 +36,23 @@
   let modelInput = $state<HTMLInputElement | null>(null);
   let usage = $state<Record<string, SearchProviderUsage>>({});
   let order = $state("exa → serper → tavily → brave");
+
+  let rotationName = $state("");
+  let rotationModel = $state("");
+  let rotationReasoning = $state("");
+
+  async function addRotation(): Promise<void> {
+    if (!rotationName.trim() || !rotationModel.trim()) return;
+    await saveProfile({
+      name: rotationName.trim(),
+      model: rotationModel.trim(),
+      useContext: true,
+      reasoning: rotationReasoning || undefined,
+    });
+    rotationName = "";
+    rotationModel = "";
+    rotationReasoning = "";
+  }
 
   async function refreshUsage(): Promise<void> {
     const list = await searchUsage();
@@ -93,6 +112,19 @@
       </label>
     {/if}
 
+    <label class="row">
+      <span class="label">Reasoning</span>
+      <select
+        class="control"
+        value={reasoning()}
+        onchange={(event) => setReasoning(event.currentTarget.value)}
+      >
+        {#each REASONING_LEVELS as value (value)}
+          <option value={value}>{value || "default"}</option>
+        {/each}
+      </select>
+    </label>
+
     <div class="row">
       <span class="label">Preview</span>
       <span class="preview">{composedModel() || "—"}</span>
@@ -106,15 +138,43 @@
     {#if models.length === 0}
       <p class="muted">No models configured yet.</p>
     {:else}
-      {#each models as model (model)}
-        <div class="row">
-          <span class="model-id">{model}</span>
-          <button type="button" class="icon-button" title="Remove" onclick={() => void remove(model)}>
-            <Icon name="trash" size={15} />
-          </button>
-        </div>
+      {#each models as entry (entry.model)}
+        <ModelRow
+          label={entry.model}
+          reasoning={entry.reasoning ?? ""}
+          onreasoning={(value) => void saveModel({ ...entry, reasoning: value || undefined })}
+          onremove={() => void removeModel(entry.model)}
+        />
       {/each}
     {/if}
+
+    <div class="section-title">Rotation (Shift+Tab)</div>
+    {#each settings().profiles as entry (entry.name)}
+      <ModelRow
+        label={entry.name}
+        detail={entry.model}
+        reasoning={entry.reasoning ?? ""}
+        onreasoning={(value) => void saveProfile({ ...entry, reasoning: value || undefined })}
+        onremove={() => void removeProfile(entry.name)}
+      />
+    {/each}
+    <div class="add-row">
+      <input class="mini" placeholder="name" bind:value={rotationName} />
+      <input class="mini" placeholder="provider/model" bind:value={rotationModel} />
+      <select class="mini" bind:value={rotationReasoning}>
+        {#each REASONING_LEVELS as value (value)}
+          <option value={value}>{value || "default"}</option>
+        {/each}
+      </select>
+      <button
+        type="button"
+        class="ghost"
+        disabled={!rotationName.trim() || !rotationModel.trim()}
+        onclick={() => void addRotation()}
+      >
+        Add
+      </button>
+    </div>
 
     <div class="section-title">Web search</div>
     <p class="order">{order}</p>
@@ -219,30 +279,30 @@
     text-overflow: ellipsis;
   }
 
-  .model-id {
-    overflow: hidden;
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .icon-button {
-    display: inline-flex;
+  .add-row {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border: none;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
+    gap: var(--sp-2);
+    min-height: 40px;
+    padding: 0 var(--sp-2);
   }
 
-  .icon-button:hover {
-    background: var(--surface-hover);
-    color: var(--danger);
+  .mini {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    padding: 0 var(--sp-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    outline: none;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: var(--fs-sm);
+  }
+
+  .mini:focus {
+    border-color: var(--accent);
   }
 
   .primary {

@@ -13,6 +13,7 @@ export type StreamRequest = {
   toolCalling?: boolean;
   webSearch?: "auto" | "always" | "off";
   webToggle?: boolean;
+  reasoning?: string;
   messages: RequestMessage[];
 };
 

@@ -164,6 +164,26 @@
   padding: 0 8px;
 }
 
+[data-style="tui"] .footer .effort {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* --- Settings overlay -------------------------------------------------- */
+/* Higher specificity than Frame.svelte's scoped `display: contents`, so the
+   panel fills the overlay and the body scrolls instead of overflowing. */
+[data-style="tui"] .settings .frame,
+[data-style="tui"] .settings .frame .body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+[data-style="tui"] .settings .frame .edge {
+  display: flex;
+}
+
 /* --- Kbd -------------------------------------------------------------- */
 [data-style="tui"] .kbd {
   min-width: 0;

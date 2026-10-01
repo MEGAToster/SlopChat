@@ -1,7 +1,7 @@
 import { groupChats, type ChatGroup } from "../chatGroups";
 import { setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
-import type { Chat, Profile } from "../types";
+import type { Chat, ModelConfig, Profile } from "../types";
 import { activeChatId, chats, isBlank, newChat, openChat } from "./chat.svelte";
 import { settings } from "./settings.svelte";
 
@@ -164,6 +164,18 @@ export function activeProfile(): Profile | undefined {
 
 export function activeProfileIndex(): number {
   return store.profileIndex;
+}
+
+// The settings for the model in play: the override's entry if one is selected,
+// otherwise the active profile.
+export function activeConfig(): ModelConfig | null {
+  const profile = activeProfile();
+  if (!profile) return null;
+  const override = modelOverride();
+  if (override) {
+    return settings().models.find((entry) => entry.model === override) ?? profile;
+  }
+  return profile;
 }
 
 export function setProfile(name: string): void {

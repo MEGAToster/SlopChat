@@ -7,13 +7,19 @@
     toggleWeb,
     webOverride,
   } from "../lib/state/chat.svelte";
+  import {
+    cycleReasoning,
+    loadReasoning,
+    reasoningInfo,
+    reasoningOverride,
+  } from "../lib/state/reasoning.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import {
+    activeConfig,
     activeProfile,
     activeProfileIndex,
     editingId,
     keyContext,
-    modelOverride,
   } from "../lib/state/ui.svelte";
   import { toggleSticky } from "../lib/ipc";
   import Icon from "./Icon.svelte";
@@ -22,8 +28,9 @@
   let { sticky = false }: { sticky?: boolean } = $props();
 
   const profile = $derived(activeProfile());
+  const config = $derived(activeConfig());
   const color = $derived(profileColor(profile, activeProfileIndex()));
-  const fullModel = $derived(modelOverride() ?? profile?.model ?? "");
+  const fullModel = $derived(config?.model ?? "");
   const model = $derived(fullModel.split("/").pop() ?? "");
   const usage = $derived(lastUsage());
   const provider = $derived(usage?.provider ?? fullModel.split("/")[0] ?? "");
@@ -31,16 +38,25 @@
   const sidebar = $derived(keyContext() === "sidebar");
   const editing = $derived(editingId() !== null);
 
+  const info = $derived(config ? reasoningInfo(config.model) : undefined);
+  const reasoning = $derived(
+    reasoningOverride() ?? config?.reasoning ?? info?.defaultEffort ?? "auto",
+  );
+
+  $effect(() => {
+    if (config?.model) void loadReasoning(config.model);
+  });
+
   const web = $derived.by(() => {
-    if (profile?.toolCalling === false) return "off";
+    if (config?.toolCalling === false) return "off";
     const override = webOverride();
     if (override === "off") return "off";
     if (override === "on") return "on";
-    return profile?.webSearch === "off" ? "off" : "auto";
+    return config?.webSearch === "off" ? "off" : "auto";
   });
 
   const webTitle = $derived(
-    profile?.toolCalling === false
+    config?.toolCalling === false
       ? "Tool calling is off for this profile (toolCalling: false)"
       : web === "off"
         ? "Web search off for this chat"
@@ -95,6 +111,16 @@
       <span class="dot" style={`background: var(--c-${color})`}></span>
       <span class="name">{profile?.name ?? "no profile"}</span>
       {#if model}<span class="model">{model}</span>{/if}
+      {#if model}
+        <button
+          type="button"
+          class="effort"
+          title={`Reasoning effort: ${reasoning} (${keybinds.reasoning?.[0] ?? ""} to cycle)`}
+          onclick={() => config && void loadReasoning(config.model).then(() => cycleReasoning(config.model))}
+        >
+          {reasoning}
+        </button>
+      {/if}
     </div>
 
     <div class="usage number" title={totalText}>
@@ -129,7 +155,7 @@
       class="web"
       data-state={web}
       title={webTitle}
-      disabled={profile?.toolCalling === false}
+      disabled={config?.toolCalling === false}
       onclick={toggleWeb}
     >
       {web === "off" ? "WEB OFF" : web === "on" ? "WEB ON" : "WEB"}
@@ -205,6 +231,19 @@
     color: var(--text-tertiary);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .effort {
+    padding: 0 5px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: default;
   }
 
   .usage {

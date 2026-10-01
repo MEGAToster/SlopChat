@@ -4,8 +4,11 @@ import type {
   Attachment,
   Chat,
   ChatView,
+  ModelConfig,
   NewMessage,
+  Profile,
   ProviderModel,
+  ReasoningInfo,
   SearchProviderUsage,
   SendRequest,
   Settings,
@@ -126,12 +129,24 @@ export function reloadConfig(): Promise<void> {
   return invoke("reload_config");
 }
 
-export function addModel(model: string): Promise<void> {
-  return invoke("add_model", { model });
+export function saveModel(model: ModelConfig): Promise<void> {
+  return invoke("save_model", { model });
 }
 
 export function removeModel(model: string): Promise<void> {
   return invoke("remove_model", { model });
+}
+
+export function saveProfile(profile: Profile): Promise<void> {
+  return invoke("save_profile", { profile });
+}
+
+export function removeProfile(name: string): Promise<void> {
+  return invoke("remove_profile", { name });
+}
+
+export function modelReasoning(model: string): Promise<ReasoningInfo | null> {
+  return invoke("model_reasoning", { model });
 }
 
 export function setTheme(theme: string): Promise<void> {

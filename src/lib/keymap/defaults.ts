@@ -12,4 +12,5 @@ export const DEFAULT_KEYBINDS: Keybinds = {
   scrollUp: ["Ctrl+U"],
   scrollDown: ["Ctrl+D"],
   webToggle: ["Ctrl+W"],
+  reasoning: ["Ctrl+R"],
 };

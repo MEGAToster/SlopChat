@@ -73,7 +73,8 @@ function chatItems(chats: Chat[]): PaletteItem[] {
 function modelItems(settings: Settings): PaletteItem[] {
   const seen = new Set<string>();
   const items: PaletteItem[] = [];
-  for (const model of [...settings.models, ...settings.profiles.map((p) => p.model)]) {
+  const refs = [...settings.models.map((entry) => entry.model), ...settings.profiles.map((p) => p.model)];
+  for (const model of refs) {
     if (seen.has(model)) continue;
     seen.add(model);
     items.push({ kind: "model", id: model, label: model });

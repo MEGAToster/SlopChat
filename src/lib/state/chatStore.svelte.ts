@@ -20,6 +20,7 @@ export type SendOptions = {
   toolCalling?: boolean;
   webSearch?: "auto" | "always" | "off";
   webToggle?: boolean;
+  reasoning?: string;
 };
 
 export type WebOverride = "on" | "off";

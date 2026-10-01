@@ -45,18 +45,29 @@ export function createOverlays() {
     await tick();
   }
 
+  // Focus must wait for the overlay to unmount (while open, the composer sits
+  // under `.panel.overlay .layout`, i.e. visibility: hidden, and can't focus)
+  // and for the panel resize that follows, which can steal focus.
+  function restoreComposerFocus(): void {
+    void tick().then(() => {
+      if (!isExpanded()) measurePanel();
+      requestAnimationFrame(() => {
+        focusComposer();
+        setTimeout(focusComposer, 0);
+      });
+    });
+  }
+
   function closePalette(): void {
     paletteClose();
     setContext("composer");
     if (settingsPanelIsOpen()) return;
-    if (!isExpanded()) void tick().then(measurePanel);
-    focusComposer();
+    restoreComposerFocus();
   }
 
   function closeSettings(): void {
     settingsPanelClose();
-    if (!isExpanded()) void tick().then(measurePanel);
-    focusComposer();
+    restoreComposerFocus();
   }
 
   function closeFilter(): void {
