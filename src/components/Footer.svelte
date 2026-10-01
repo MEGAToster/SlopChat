@@ -145,10 +145,15 @@
         <span><Kbd binding={keybinds.palette?.[0]} /> Commands</span>
       {/if}
 
-      <button type="button" class="sticky" class:on={sticky} onclick={() => void toggleSticky()}>
+      <button
+        type="button"
+        class="sticky"
+        class:on={sticky}
+        title="Sticky"
+        onclick={() => void toggleSticky()}
+      >
         <Icon name="lock" size={13} />
         <Kbd binding={keybinds.sticky?.[0]} />
-        <span>Sticky</span>
       </button>
     </div>
 
@@ -174,7 +179,7 @@
   .inner {
     display: flex;
     align-items: center;
-    gap: var(--sp-3);
+    gap: var(--sp-2);
     height: 36px;
     font-size: var(--fs-sm);
   }
@@ -250,13 +255,18 @@
 
   .usage {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
     color: var(--text-tertiary);
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .hints {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
+    flex: none;
+    gap: var(--sp-1);
     color: var(--text-tertiary);
   }
 
@@ -269,6 +279,7 @@
   .sticky {
     display: inline-flex;
     align-items: center;
+    flex: none;
     gap: 4px;
     border: none;
     background: transparent;

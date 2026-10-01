@@ -138,11 +138,19 @@
   }
 
   .attachments,
-  .sources,
   .steps {
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-1);
+  }
+
+  .sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-2);
+    border-top: 1px solid var(--border);
   }
 
   .steps {
@@ -176,15 +184,16 @@
   }
 
   .source {
-    padding: 2px 8px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
     border-radius: 999px;
-    background: var(--surface);
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     font-size: var(--fs-xs);
     text-decoration: none;
   }
 
   .source:hover {
+    border-color: var(--accent);
     color: var(--accent);
   }
 

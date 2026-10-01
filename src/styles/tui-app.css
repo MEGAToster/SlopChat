@@ -150,14 +150,19 @@
 
 [data-style="tui"] .footer .profile {
   height: 22px;
+  min-width: 0;
   padding: 0 8px;
   background: var(--surface-hover);
 }
 
 [data-style="tui"] .footer .usage {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 8px;
   background: var(--surface);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 [data-style="tui"] .footer .sticky {
