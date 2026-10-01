@@ -116,6 +116,17 @@
     }
   }
 
+  // Retried across a frame because the panel may not be key when
+  // `panel://shown` arrives, which makes a single focus() a no-op.
+  function focusComposerSoon(): void {
+    void tick().then(() => {
+      requestAnimationFrame(() => {
+        focusComposer();
+        setTimeout(focusComposer, 0);
+      });
+    });
+  }
+
   onMount(() => {
     focusComposer();
     void isSticky().then((value) => (sticky = value));
@@ -130,10 +141,16 @@
 
     const subscriptions = [
       onPanelShown(() => {
-        if (keyContext() === "composer") focusComposer();
+        const overlay =
+          paletteIsOpen() ||
+          settingsPanelIsOpen() ||
+          pendingDelete() !== null ||
+          filtering();
+        if (!overlay) setContext("composer");
         void resumeOnShow({ hasDraft: text.trim().length > 0, streaming: isStreaming() }).then(
           () => {
             if (isExpanded()) selectActive();
+            if (!overlay) focusComposerSoon();
           },
         );
       }),
