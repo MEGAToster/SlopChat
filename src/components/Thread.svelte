@@ -3,6 +3,7 @@
   import { activeChatId, chats, messages } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import { activeProfile, keyContext } from "../lib/state/ui.svelte";
+  import { tracking } from "../lib/state/view.svelte";
   import Composer from "./Composer.svelte";
   import Footer from "./Footer.svelte";
   import Frame from "./Frame.svelte";
@@ -19,7 +20,7 @@
   const profileName = $derived(activeProfile()?.name ?? "");
   const context = $derived(keyContext());
   const hint = $derived(
-    `↵ send · ${formatKeys(settings().keybinds.cycleProfile)} profile · ${formatKeys(settings().keybinds.palette)} cmds`,
+    `↵ send · ${formatKeys(settings().keybinds.cycleProfile)} profile · ${formatKeys(settings().keybinds.follow)} ${tracking() ? "following" : "paused"}`,
   );
 </script>
 

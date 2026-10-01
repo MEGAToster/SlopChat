@@ -11,6 +11,10 @@ export type Keybinds = {
   scrollDown: string[];
   webToggle: string[];
   reasoning: string[];
+  settings: string[];
+  models: string[];
+  follow: string[];
+  focusSidebar: string[];
 };
 
 export type Provider = {

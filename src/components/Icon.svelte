@@ -48,5 +48,12 @@
     <path d="M8 10V7a4 4 0 0 1 8 0v3" />
   {:else if name === "attach"}
     <path d="M21 11.5 12.5 20a4.5 4.5 0 0 1-6.4-6.4l8.5-8.5a3 3 0 0 1 4.3 4.3l-8.5 8.5a1.5 1.5 0 0 1-2.2-2.2l7.8-7.8" />
+  {:else if name === "command"}
+    <path d="m5 6 6 6-6 6" />
+    <path d="M13 18h6" />
+  {:else if name === "follow"}
+    <path d="M12 4v11" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M5 20h14" />
   {/if}
 </svg>

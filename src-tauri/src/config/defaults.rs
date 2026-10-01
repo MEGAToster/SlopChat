@@ -118,6 +118,10 @@ impl Default for Keybinds {
             scroll_down: vec!["Ctrl+D".to_string()],
             web_toggle: vec!["Ctrl+W".to_string()],
             reasoning: vec!["Ctrl+R".to_string()],
+            settings: vec!["Ctrl+,".to_string()],
+            models: vec!["Ctrl+M".to_string()],
+            follow: vec!["Ctrl+L".to_string()],
+            focus_sidebar: vec!["Ctrl+S".to_string()],
         }
     }
 }

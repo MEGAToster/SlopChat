@@ -84,7 +84,13 @@ async function step(direction: number): Promise<void> {
     return;
   }
   const current = list.findIndex((chat) => chat.id === chatState.activeChatId);
-  const nextIndex = current === -1 ? list.length - 1 : current + direction;
+  if (current === -1) {
+    // On the blank chat: Up opens the newest; Down stays put.
+    if (direction < 0) await openChat(list[list.length - 1].id);
+    return;
+  }
+
+  const nextIndex = current + direction;
   if (nextIndex < 0) return;
   if (nextIndex >= list.length) {
     await newChat();

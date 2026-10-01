@@ -108,8 +108,6 @@ async fn run_turn(
         None
     };
 
-    let mut messages = build_messages(request);
-
     // Tool calling is opt-in per profile; web search follows the mode and
     // toggle, not the tools list, so it works even when no tools are listed.
     let tool_calling = request.tool_calling;
@@ -141,6 +139,9 @@ async fn run_turn(
             }
         }
     }
+
+    // The guidance only helps when tools are actually offered to the model.
+    let mut messages = build_messages(request, supports && !tool_names.is_empty());
 
     let mut search_cost = 0.0;
     let mut source_counter = 0u32;

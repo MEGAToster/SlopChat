@@ -137,10 +137,10 @@ export function orderedChats(): Chat[] {
   return chatGroups().flatMap((group) => group.chats);
 }
 
+// The last selectable row is the "New chat" entry (index === count).
 export function moveSelection(delta: number): void {
   const count = orderedChats().length;
-  if (count === 0) return;
-  store.selectedIndex = Math.min(Math.max(store.selectedIndex + delta, 0), count - 1);
+  store.selectedIndex = Math.min(Math.max(store.selectedIndex + delta, 0), count);
 }
 
 export function selectedChatId(): string | null {
@@ -148,13 +148,14 @@ export function selectedChatId(): string | null {
 }
 
 export function selectActive(): void {
+  const count = orderedChats().length;
   const index = orderedChats().findIndex((chat) => chat.id === activeChatId());
-  store.selectedIndex = index === -1 ? 0 : index;
+  store.selectedIndex = index === -1 ? count : index;
 }
 
 export function clampSelection(): void {
   const count = orderedChats().length;
-  store.selectedIndex = count === 0 ? 0 : Math.min(store.selectedIndex, count - 1);
+  store.selectedIndex = Math.min(store.selectedIndex, count);
 }
 
 export function activeProfile(): Profile | undefined {

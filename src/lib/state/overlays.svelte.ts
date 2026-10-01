@@ -7,6 +7,7 @@ import {
   close as paletteClose,
   isOpen as paletteIsOpen,
   open as paletteOpen,
+  openModels as paletteOpenModels,
 } from "./palette.svelte";
 import {
   closePanel as settingsPanelClose,
@@ -42,6 +43,13 @@ export function createOverlays() {
     if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
     setContext("palette");
     await paletteOpen();
+    await tick();
+  }
+
+  async function openModels(): Promise<void> {
+    if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
+    setContext("palette");
+    await paletteOpenModels();
     await tick();
   }
 
@@ -95,6 +103,7 @@ export function createOverlays() {
     void hidePanel();
   }
 
+  // Expand and focus the sidebar.
   function openSidebar(): void {
     void setMode("expanded");
     selectActive();
@@ -102,8 +111,17 @@ export function createOverlays() {
     setContext("sidebar");
   }
 
+  // Expand the sidebar but keep focus in the composer.
+  function expandSidebar(): void {
+    void setMode("expanded");
+    selectActive();
+    setFiltering(false);
+    setContext("composer");
+  }
+
   return {
     openPalette,
+    openModels,
     closePalette,
     closeSettings,
     closeFilter,
@@ -111,5 +129,6 @@ export function createOverlays() {
     cancelDelete,
     escChain,
     openSidebar,
+    expandSidebar,
   };
 }

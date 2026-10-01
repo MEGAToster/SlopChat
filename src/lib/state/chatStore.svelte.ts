@@ -56,11 +56,17 @@ export function webOverride(): WebOverride | null {
   return id ? (chatState.webOverrides[id] ?? null) : chatState.webDraft;
 }
 
-export function toggleWeb(): void {
-  const next: WebOverride = webOverride() === "off" ? "on" : "off";
+// Cycle forced on → off → auto (follow the model/profile default).
+export function cycleWeb(): void {
+  const current = webOverride();
+  const next: WebOverride | null = current === "on" ? "off" : current === "off" ? null : "on";
   const id = chatState.activeChatId;
-  if (id) chatState.webOverrides[id] = next;
-  else chatState.webDraft = next;
+  if (id) {
+    if (next === null) delete chatState.webOverrides[id];
+    else chatState.webOverrides[id] = next;
+  } else {
+    chatState.webDraft = next;
+  }
 }
 
 export function adoptWebDraft(chatId: string): void {

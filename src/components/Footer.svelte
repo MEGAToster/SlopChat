@@ -4,7 +4,7 @@
     isStreamingHere,
     lastUsage,
     messages,
-    toggleWeb,
+    cycleWeb,
     webOverride,
   } from "../lib/state/chatStore.svelte";
   import {
@@ -13,6 +13,7 @@
     reasoningInfo,
     reasoningOverride,
   } from "../lib/state/reasoning.svelte";
+  import { followOutput, tracking } from "../lib/state/view.svelte";
   import { effectiveWebMode } from "../lib/webSearch";
   import { settings } from "../lib/state/settings.svelte";
   import {
@@ -142,7 +143,16 @@
       {:else if isStreamingHere()}
         <span><Kbd binding={keybinds.stop?.[0]} /> Stop</span>
       {:else}
-        <span><Kbd binding={keybinds.palette?.[0]} /> Commands</span>
+        <button
+          type="button"
+          class="follow"
+          class:on={tracking()}
+          title="Follow output / jump to present"
+          onclick={followOutput}
+        >
+          <Icon name="follow" size={13} />
+          <Kbd binding={keybinds.follow?.[0]} />
+        </button>
       {/if}
 
       <button
@@ -157,16 +167,18 @@
       </button>
     </div>
 
-    <button
-      type="button"
-      class="web"
-      data-state={web}
-      title={webTitle}
-      disabled={config?.toolCalling === false}
-      onclick={toggleWeb}
-    >
-      {web === "off" ? "WEB OFF" : web === "on" ? "WEB ON" : "WEB"}
-    </button>
+    {#if !sidebar}
+      <button
+        type="button"
+        class="web"
+        data-state={web}
+        title={webTitle}
+        disabled={config?.toolCalling === false}
+        onclick={cycleWeb}
+      >
+        {web === "off" ? "WEB OFF" : web === "on" ? "WEB ON" : "WEB"}
+      </button>
+    {/if}
   </div>
 </footer>
 
@@ -290,6 +302,23 @@
   }
 
   .sticky.on {
+    color: var(--accent);
+  }
+
+  .follow {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    font: inherit;
+    font-size: var(--fs-sm);
+    cursor: default;
+  }
+
+  .follow.on {
     color: var(--accent);
   }
 </style>

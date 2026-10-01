@@ -5,9 +5,11 @@ import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import { regenerate, stop, submit } from "./chat.svelte";
 import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
-import { lastUserMessage, reportError, toggleWeb, webOverride } from "./chatStore.svelte";
+import { cycleWeb, lastUserMessage, reportError, webOverride } from "./chatStore.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
+import { openPanel } from "./settingsPanel.svelte";
+import { followOutput } from "./view.svelte";
 import { cycleReasoningFor, reasoningOverride } from "./reasoning.svelte";
 import { effectiveWebMode } from "../webSearch";
 import {
@@ -20,8 +22,10 @@ import {
   isExpanded,
   modelOverride,
   moveSelection,
+  newChatWithProfile,
   openChatWithProfile,
   schedulePreview,
+  selectActive,
   selectedChatId,
   setContext,
   setFiltering,
@@ -92,7 +96,7 @@ export function createActions(text: TextRef) {
       await tick();
       focusComposer();
     } else {
-      overlays.openSidebar();
+      overlays.expandSidebar();
     }
   }
 
@@ -104,6 +108,7 @@ export function createActions(text: TextRef) {
   async function openSelected(): Promise<void> {
     const id = selectedChatId();
     if (id) await openChatWithProfile(id);
+    else await newChatWithProfile();
     setFiltering(false);
     setContext("composer");
     await tick();
@@ -128,13 +133,25 @@ export function createActions(text: TextRef) {
         void toggleSticky();
         break;
       case "webToggle":
-        if (activeConfig()?.toolCalling !== false) toggleWeb();
+        if (activeConfig()?.toolCalling !== false) cycleWeb();
         break;
       case "reasoning": {
         const config = activeConfig();
         if (config) void cycleReasoningFor(config.model);
         break;
       }
+      case "settings":
+        openPanel();
+        break;
+      case "models":
+        void overlays.openModels();
+        break;
+      case "follow":
+        followOutput();
+        break;
+      case "focusSidebar":
+        overlays.openSidebar();
+        break;
       case "send":
         void handleSend();
         break;
@@ -150,12 +167,14 @@ export function createActions(text: TextRef) {
       case "prevChat":
         void prevChat().then(() => {
           syncProfileFromActive();
+          selectActive();
           endEdit();
         });
         break;
       case "nextChat":
         void nextChat().then(() => {
           syncProfileFromActive();
+          selectActive();
           endEdit();
         });
         break;

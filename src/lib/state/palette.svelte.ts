@@ -27,7 +27,7 @@ import {
 
 export type { PaletteGroup, PaletteItem } from "./paletteTypes";
 
-type Mode = "root" | "add";
+type Mode = "root" | "add" | "models";
 
 const state = $state({
   open: false,
@@ -63,17 +63,21 @@ export function loading(): boolean {
 }
 
 export function breadcrumb(): string {
-  return state.mode === "add" ? "Add model" : "Commands";
+  if (state.mode === "add") return "Add model";
+  if (state.mode === "models") return "Models";
+  return "Commands";
 }
 
 export function groups(): PaletteGroup[] {
   if (state.mode === "add") return addGroups(state.providerModels, state.query);
-  return rootGroups({
+  const all = rootGroups({
     settings: settings(),
     chats: state.chats,
     themes: themes(),
     query: state.query,
   });
+  if (state.mode === "models") return all.filter((group) => group.title === "Models");
+  return all;
 }
 
 export function items(): PaletteItem[] {
@@ -89,6 +93,14 @@ export async function open(): Promise<void> {
   await refreshChats("");
 }
 
+export function openModels(): void {
+  state.open = true;
+  state.mode = "models";
+  state.query = "";
+  state.index = 0;
+  clearTimeout(previewTimer);
+}
+
 export function close(): void {
   state.open = false;
   state.mode = "root";
@@ -101,7 +113,7 @@ export function setQuery(value: string): void {
   state.query = value;
   state.index = 0;
 
-  if (state.mode === "add") return;
+  if (state.mode !== "root") return;
 
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => void refreshChats(value), 120);

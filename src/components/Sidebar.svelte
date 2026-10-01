@@ -23,6 +23,7 @@
 
   let filterInput = $state<HTMLInputElement | null>(null);
   const groups = $derived(chatGroups());
+  const total = $derived(groups.reduce((sum, group) => sum + group.chats.length, 0));
   const keybinds = $derived(settings().keybinds);
 
   $effect(() => {
@@ -100,7 +101,14 @@
     {/each}
   </div>
 
-    <button type="button" class="new" disabled={isBlank()} onclick={() => void newChatWithProfile()}>
+    <button
+      type="button"
+      class="new"
+      class:selected={selectedIndex() === total}
+      disabled={isBlank()}
+      onmouseenter={() => setSelectedIndex(total)}
+      onclick={() => void newChatWithProfile()}
+    >
       <span class="plus">+</span> New chat
       <Kbd binding={keybinds.nextChat?.[0]} />
     </button>
@@ -248,8 +256,10 @@
     cursor: default;
   }
 
-  .new:hover:not(:disabled) {
-    background: var(--surface-hover);
+  .new:hover:not(:disabled),
+  .new.selected {
+    background: var(--selection);
+    color: var(--text);
   }
 
   .new:disabled {

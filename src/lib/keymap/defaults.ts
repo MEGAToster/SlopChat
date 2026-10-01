@@ -13,4 +13,8 @@ export const DEFAULT_KEYBINDS: Keybinds = {
   scrollDown: ["Ctrl+D"],
   webToggle: ["Ctrl+W"],
   reasoning: ["Ctrl+R"],
+  settings: ["Ctrl+,"],
+  models: ["Ctrl+M"],
+  follow: ["Ctrl+L"],
+  focusSidebar: ["Ctrl+S"],
 };

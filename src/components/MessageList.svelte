@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isStreamingHere, isThinking, messages } from "../lib/state/chatStore.svelte";
+  import { tracking } from "../lib/state/view.svelte";
   import Message from "./Message.svelte";
 
   let viewport = $state<HTMLDivElement | null>(null);
@@ -9,21 +10,25 @@
 
   let pinned = $state(true);
 
+  function updatePinned(): void {
+    if (viewport) {
+      pinned = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80;
+    }
+  }
+
   $effect.pre(() => {
     const last = all.at(-1);
     void last?.content;
     void all.length;
-    if (viewport) {
-      pinned = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80;
-    }
+    updatePinned();
   });
 
   $effect(() => {
-    if (pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
+    if (tracking() && pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
   });
 </script>
 
-<div class="messages column" bind:this={viewport}>
+<div class="messages column" bind:this={viewport} onscroll={updatePinned}>
   {#each all as message, index (index)}
     <Message
       {message}

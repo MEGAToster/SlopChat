@@ -145,6 +145,10 @@ pub struct Keybinds {
     pub scroll_down: Vec<String>,
     pub web_toggle: Vec<String>,
     pub reasoning: Vec<String>,
+    pub settings: Vec<String>,
+    pub models: Vec<String>,
+    pub follow: Vec<String>,
+    pub focus_sidebar: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

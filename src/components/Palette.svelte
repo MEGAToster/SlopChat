@@ -64,7 +64,11 @@
     <input
       bind:this={input}
       class="input"
-      placeholder={mode() === "add" ? "Search provider models…" : "Search actions, chats, models…"}
+      placeholder={mode() === "add"
+        ? "Search provider models…"
+        : mode() === "models"
+          ? "Search models…"
+          : "Search actions, chats, models…"}
       value={query()}
       oninput={(event) => setQuery(event.currentTarget.value)}
     />

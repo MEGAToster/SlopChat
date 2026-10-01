@@ -19,6 +19,10 @@ export type Action =
   | "scrollDown"
   | "webToggle"
   | "reasoning"
+  | "settings"
+  | "models"
+  | "follow"
+  | "focusSidebar"
   | "toggleSidebar"
   | "editLast"
   | "prevChat"
@@ -51,6 +55,10 @@ export function resolve(
   if (matchesAny(keybinds.sidebar, event)) return "toggleSidebar";
   if (matchesAny(keybinds.webToggle, event)) return "webToggle";
   if (matchesAny(keybinds.reasoning, event)) return "reasoning";
+  if (matchesAny(keybinds.settings, event)) return "settings";
+  if (matchesAny(keybinds.models, event)) return "models";
+  if (matchesAny(keybinds.follow, event)) return "follow";
+  if (matchesAny(keybinds.focusSidebar, event)) return "focusSidebar";
   if (state.streaming && matchesAny(keybinds.stop, event)) return "stop";
 
   if (context === "composer" || context === "sidebar") {
