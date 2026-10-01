@@ -56,15 +56,27 @@ On first launch, paste an OpenRouter API key (stored in the keychain). Add other
 
 ### macOS keychain prompts
 
-If the app is unsigned, macOS asks for keychain access on every chat send, Settings open, and rebuild, because each build has a different code signature. Fix it once with a stable self-signed identity:
+If the app is unsigned, macOS asks for keychain access on every chat send, Settings open, and rebuild — and each "Always Allow" asks for your password — because every build has a different code signature. Fix it once with a stable self-signed identity.
+
+> **Creating the certificate is not enough — you must TRUST it.** An untrusted certificate shows up as `CSSMERR_TP_NOT_TRUSTED`, `codesign` refuses it (`no identity found`), and the app silently builds unsigned, so the prompts keep coming. Trusting the cert is the step everyone misses.
 
 1. Keychain Access → Certificate Assistant → **Create a Certificate**.
    - Name: `SlopChat Local Code Signing`
    - Identity Type: Self Signed Root; Certificate Type: **Code Signing**
-2. Re-run `./scripts/install.sh` (it detects the certificate), or build with `APPLE_SIGNING_IDENTITY="SlopChat Local Code Signing" npm run tauri build`.
-3. On the first run after switching from an older build, click **Always Allow** (not just Allow) once per item.
-
-Note: `npm run tauri dev` builds are unsigned, so they will prompt on each rebuild — use the installed app for daily use.
+2. **Trust it (required).** Double-click the certificate in the **login** keychain → expand **Trust** → set *When using this certificate* to **Always Trust** → close the window and enter your password.
+   - Verify it worked — this must list `"SlopChat Local Code Signing"` **without** `CSSMERR_TP_NOT_TRUSTED`:
+     ```sh
+     security find-identity -v -p codesigning
+     ```
+   - Or trust it from a terminal (one password prompt):
+     ```sh
+     security find-certificate -c "SlopChat Local Code Signing" -p > ~/slopchat-cert.pem
+     security add-trusted-cert -r trustRoot -p codeSign \
+       -k ~/Library/Keychains/login.keychain-db ~/slopchat-cert.pem
+     ```
+3. Re-run `./scripts/install.sh` — it prints `Signing as: SlopChat Local Code Signing`. Or build with `APPLE_SIGNING_IDENTITY="SlopChat Local Code Signing" npm run tauri build`.
+4. On the first run after switching from an older build, click **Always Allow** (not just Allow) once per item; that one click asks for your password.
+5. Run the **installed** `/Applications/SlopChat.app`. `npm run tauri dev` and the raw build output are unsigned, so they always prompt.
 
 ### Linux
 

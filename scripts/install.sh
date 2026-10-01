@@ -21,15 +21,42 @@ npm install
 # A stable code-signing identity stops macOS from re-prompting for keychain
 # access after every rebuild.
 if [ "$(uname -s)" = "Darwin" ]; then
-  IDENTITY="${APPLE_SIGNING_IDENTITY:-${SLOPCHAT_SIGNING_IDENTITY:-}}"
-  if [ -z "$IDENTITY" ] && command -v security >/dev/null 2>&1; then
-    IDENTITY=$(security find-identity -p codesigning 2>/dev/null \
-      | grep -m1 'SlopChat Local Code Signing' \
+  CANDIDATE="${APPLE_SIGNING_IDENTITY:-${SLOPCHAT_SIGNING_IDENTITY:-}}"
+  # `security` may print a trailing status; strip it.
+  CANDIDATE="${CANDIDATE%% (CSSMERR*}"
+  IDENTITY=""
+  if [ -n "$CANDIDATE" ] \
+    && security find-identity -v -p codesigning 2>/dev/null | grep -Fq "\"$CANDIDATE\""; then
+    IDENTITY="$CANDIDATE"
+  elif [ -z "$CANDIDATE" ] && command -v security >/dev/null 2>&1; then
+    IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+      | grep -m1 '"SlopChat Local Code Signing"' \
       | sed -E 's/.*"(.*)"/\1/') || true
   fi
+
   if [ -n "$IDENTITY" ]; then
     export APPLE_SIGNING_IDENTITY="$IDENTITY"
     echo "==> Signing as: $IDENTITY"
+  elif security find-identity -p codesigning 2>/dev/null | grep -q '"SlopChat Local Code Signing"'; then
+    cat >&2 <<'WARN'
+====================================================================
+ WARNING: "SlopChat Local Code Signing" exists but is NOT TRUSTED,
+ so codesign cannot use it. Trust it once, then re-run:
+
+   Keychain Access -> login -> Certificates -> "SlopChat Local Code
+   Signing" -> double-click -> expand Trust -> set "When using this
+   certificate" to "Always Trust" -> close (enter your password).
+
+ Or in a terminal:
+   security find-certificate -c "SlopChat Local Code Signing" -p \
+     > ~/slopchat-cert.pem
+   security add-trusted-cert -r trustRoot -p codeSign \
+     -k ~/Library/Keychains/login.keychain-db ~/slopchat-cert.pem
+
+ Building unsigned for now, so macOS will keep asking for keychain
+ access on every chat send, Settings open, and rebuild.
+====================================================================
+WARN
   else
     cat >&2 <<'WARN'
 ====================================================================
@@ -42,7 +69,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
  Certificate.
    Name: SlopChat Local Code Signing
    Type: Code Signing
- Then re-run this script.
+ Then trust it (double-click -> Trust -> "Always Trust") and re-run.
 ====================================================================
 WARN
   fi
