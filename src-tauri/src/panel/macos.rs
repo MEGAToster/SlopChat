@@ -82,6 +82,10 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
             hide(&handle, false);
         }
     });
+    // `show_and_make_key` focuses the panel's content view, not the web view;
+    // give the web view first responder so keystrokes reach the DOM.
+    let focus_handle = app.clone();
+    handler.window_did_become_key(move |_| focus_webview(&focus_handle));
     panel.set_event_handler(Some(handler.as_ref()));
 
     Ok(())
@@ -100,7 +104,17 @@ pub fn show(app: &AppHandle) {
 
     remember_frontmost();
     panel.show_and_make_key();
+    focus_webview(app);
     let _ = app.emit("panel://shown", ());
+}
+
+// Make the WKWebView (not the panel's content view) the first responder, so
+// keyboard input reaches the page without activating the app.
+fn focus_webview(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(LABEL) {
+        let webview = window.as_ref();
+        let _ = webview.set_focus();
+    }
 }
 
 pub fn hide(app: &AppHandle, restore: bool) {

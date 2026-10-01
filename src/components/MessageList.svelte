@@ -1,19 +1,29 @@
 <script lang="ts">
-  import { isStreamingHere, isThinking, messages } from "../lib/state/chatStore.svelte";
+  import { tick } from "svelte";
+  import {
+    activeChatId,
+    isStreamingHere,
+    isThinking,
+    messages,
+  } from "../lib/state/chatStore.svelte";
   import { view } from "../lib/state/view.svelte";
   import Message from "./Message.svelte";
+
+  const THRESHOLD = 80;
 
   let viewport = $state<HTMLDivElement | null>(null);
   const all = $derived(messages());
   const streamingHere = $derived(isStreamingHere());
   const thinking = $derived(isThinking());
 
-  let pinned = $state(true);
+  function atBottom(): boolean {
+    if (!viewport) return true;
+    return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < THRESHOLD;
+  }
 
-  function updatePinned(): void {
-    if (viewport) {
-      pinned = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80;
-    }
+  function onScroll(): void {
+    // Scrolling away from the bottom pauses following; the indicator reflects it.
+    if (view.tracking && !atBottom()) view.tracking = false;
   }
 
   // Reads the last message's content so it re-runs on every streamed token,
@@ -22,11 +32,22 @@
     const last = all.at(-1);
     void last?.content;
     void all.length;
-    if (view.tracking && pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
+    const element = viewport;
+    if (view.tracking && element) element.scrollTop = element.scrollHeight;
+  });
+
+  // Opening a chat lands at the bottom and resumes following.
+  $effect(() => {
+    void activeChatId();
+    void tick().then(() => {
+      if (!viewport) return;
+      viewport.scrollTop = viewport.scrollHeight;
+      view.tracking = true;
+    });
   });
 </script>
 
-<div class="messages column" bind:this={viewport} onscroll={updatePinned}>
+<div class="messages column" bind:this={viewport} onscroll={onScroll}>
   {#each all as message, index (message.id ?? index)}
     <Message
       {message}
