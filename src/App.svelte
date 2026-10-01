@@ -43,6 +43,7 @@
     keyContext,
     notify,
     pendingDelete,
+    selectActive,
     setContext,
     uiNotice,
     uiNoticeKind,
@@ -145,7 +146,11 @@
     const subscriptions = [
       onPanelShown(() => {
         if (keyContext() === "composer") focusComposer();
-        void resumeOnShow({ hasDraft: text.trim().length > 0, streaming: isStreaming() });
+        void resumeOnShow({ hasDraft: text.trim().length > 0, streaming: isStreaming() }).then(
+          () => {
+            if (isExpanded()) selectActive();
+          },
+        );
       }),
       onStickyChanged((value) => (sticky = value)),
       onSearchUnavailable((message) => notify(message, "warning")),

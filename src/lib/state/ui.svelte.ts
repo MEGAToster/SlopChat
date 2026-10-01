@@ -92,8 +92,11 @@ export function setContext(context: Context): void {
 
 export function setFiltering(value: boolean): void {
   store.filtering = value;
-  if (!value) store.filterQuery = "";
-  store.selectedIndex = 0;
+  if (value) {
+    store.selectedIndex = 0;
+  } else {
+    store.filterQuery = "";
+  }
 }
 
 export function setFilterQuery(value: string): void {
@@ -151,11 +154,6 @@ export function selectActive(): void {
   const count = orderedChats().length;
   const index = orderedChats().findIndex((chat) => chat.id === activeChatId());
   store.selectedIndex = index === -1 ? count : index;
-}
-
-export function clampSelection(): void {
-  const count = orderedChats().length;
-  store.selectedIndex = Math.min(store.selectedIndex, count);
 }
 
 export function activeProfile(): Profile | undefined {
@@ -238,11 +236,13 @@ export async function previewChatWithProfile(chatId: string): Promise<void> {
 }
 
 export async function newChatWithProfile(): Promise<void> {
-  if (isBlank()) return;
-  await newChat();
-  store.modelOverride = null;
-  store.editingId = null;
-  store.context = "composer";
+  if (!isBlank()) {
+    await newChat();
+    store.modelOverride = null;
+    store.editingId = null;
+    store.context = "composer";
+  }
+  selectActive();
 }
 
 export function syncProfileFromActive(): void {

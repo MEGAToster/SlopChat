@@ -14,7 +14,6 @@ import {
   isOpen as settingsPanelIsOpen,
 } from "./settingsPanel.svelte";
 import {
-  clampSelection,
   endEdit,
   isExpanded,
   OVERLAY_HEIGHT,
@@ -80,6 +79,7 @@ export function createOverlays() {
 
   function closeFilter(): void {
     setFiltering(false);
+    selectActive();
     setContext("composer");
     focusComposer();
   }
@@ -89,7 +89,7 @@ export function createOverlays() {
     setPendingDelete(null);
     if (id) {
       void removeChat(id).then(() => {
-        clampSelection();
+        selectActive();
         endEdit();
       });
     }
@@ -106,16 +106,16 @@ export function createOverlays() {
   // Expand and focus the sidebar.
   function openSidebar(): void {
     void setMode("expanded");
-    selectActive();
     setFiltering(false);
+    selectActive();
     setContext("sidebar");
   }
 
   // Expand the sidebar but keep focus in the composer.
   function expandSidebar(): void {
     void setMode("expanded");
-    selectActive();
     setFiltering(false);
+    selectActive();
     setContext("composer");
   }
 
