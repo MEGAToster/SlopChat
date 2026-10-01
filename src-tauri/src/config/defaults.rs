@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    Advanced, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides, Provider,
-    SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
+    Advanced, Debug, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides,
+    Provider, SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
 };
 
 impl Default for Advanced {
@@ -10,7 +10,7 @@ impl Default for Advanced {
         Self {
             max_searches: 5,
             max_fetches: 50,
-            max_rounds: 4,
+            max_rounds: 6,
         }
     }
 }
@@ -38,6 +38,7 @@ impl Default for SearchSettings {
             limits: default_search_limits(),
             exa: ExaSettings::default(),
             reader_fallback: true,
+            snippet_chars: 1500,
         }
     }
 }
@@ -110,6 +111,7 @@ impl Default for Settings {
             font: None,
             search: SearchSettings::default(),
             advanced: Advanced::default(),
+            debug: Debug::default(),
             window: WindowConfig::default(),
         }
     }

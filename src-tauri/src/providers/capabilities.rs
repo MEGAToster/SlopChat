@@ -95,10 +95,6 @@ async fn openrouter_reasoning(
 }
 
 pub async fn supports(kind: Kind, model: &str, settings: &Settings, key: Option<&str>) -> bool {
-    if kind == Kind::Gemini {
-        return true;
-    }
-
     let cache_key = format!("{}:{model}", kind.name());
     if let Some(value) = cache().lock().expect("capability cache").get(&cache_key) {
         return *value;

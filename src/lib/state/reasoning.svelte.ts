@@ -25,7 +25,7 @@ export async function loadReasoning(model: string): Promise<void> {
   state.info[model] = await modelReasoning(model).catch(() => null);
 }
 
-export function cycleReasoning(model: string): void {
+function cycleReasoning(model: string): void {
   const info = state.info[model];
   const efforts = info?.supportedEfforts ?? [];
   const levels: Override[] = [null, ...efforts];

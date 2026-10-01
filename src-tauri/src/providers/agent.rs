@@ -9,7 +9,7 @@ use crate::config::{ConfigState, WebSearchMode};
 use crate::tools;
 
 mod exec;
-use exec::{execute_tool, run_web_search};
+use exec::{execute_tool, run_web_search, ToolOutcome};
 
 const STOP_HINT: &str =
     "web_search is used up for this turn — you may still call web_fetch, or answer now using the results above";
@@ -27,27 +27,26 @@ pub async fn run(
     request: super::ChatRequest,
     channel: Channel<StreamEvent>,
     cancel: Cancel,
-) -> Result<(), String> {
-    let model = ModelRef::parse(&request.model)?;
+) {
+    let model = match ModelRef::parse(&request.model) {
+        Ok(model) => model,
+        Err(error) => return emit_error(&channel, error),
+    };
 
     match run_turn(app, &request, &channel, &cancel, &model).await {
-        Ok(()) => Ok(()),
+        Ok(()) => {}
         Err(TurnError::Unavailable(message)) => {
             let fallback = request
                 .fallback
                 .as_deref()
                 .filter(|value| !value.is_empty());
             let Some(fallback) = fallback else {
-                let _ = channel.send(StreamEvent::Error { message });
-                return Ok(());
+                return emit_error(&channel, message);
             };
 
             let fallback_model = match ModelRef::parse(fallback) {
                 Ok(model) => model,
-                Err(error) => {
-                    let _ = channel.send(StreamEvent::Error { message: error });
-                    return Ok(());
-                }
+                Err(error) => return emit_error(&channel, error),
             };
 
             let _ = app.emit(
@@ -55,21 +54,16 @@ pub async fn run(
                 format!("{} unavailable — using {fallback}", request.model),
             );
 
-            match run_turn(app, &request, &channel, &cancel, &fallback_model).await {
-                Ok(()) => Ok(()),
-                Err(error) => {
-                    let _ = channel.send(StreamEvent::Error {
-                        message: error.message(),
-                    });
-                    Ok(())
-                }
+            if let Err(error) = run_turn(app, &request, &channel, &cancel, &fallback_model).await {
+                emit_error(&channel, error.message());
             }
         }
-        Err(TurnError::Failed(message)) => {
-            let _ = channel.send(StreamEvent::Error { message });
-            Ok(())
-        }
+        Err(TurnError::Failed(message)) => emit_error(&channel, message),
     }
+}
+
+fn emit_error(channel: &Channel<StreamEvent>, message: String) {
+    let _ = channel.send(StreamEvent::Error { message });
 }
 
 enum TurnError {
@@ -92,10 +86,10 @@ async fn run_turn(
     cancel: &Cancel,
     model: &ModelRef,
 ) -> Result<(), TurnError> {
-    let kind = Kind::from_name(&model.provider).ok_or_else(|| {
-        TurnError::Failed(format!("provider {:?} is not supported", model.provider))
-    })?;
+    let kind = Kind::resolve(&model.provider).map_err(TurnError::Failed)?;
     let settings = app.state::<ConfigState>().get();
+    let tracing = settings.debug.agent_log;
+    let turn_id = format!("{}-{}", request.chat_id, now_millis());
 
     // Clamp so a bad setting can't stall or unbound the turn.
     let max_rounds = settings.advanced.max_rounds.clamp(1, 10) as usize;
@@ -171,11 +165,17 @@ async fn run_turn(
         Some(json!(schemas))
     };
 
+    // Multi-step research drifts at high temperature; only default it once
+    // tools are in play, and never override a profile's own value.
+    let temperature = request
+        .temperature
+        .or_else(|| (!tool_names.is_empty()).then_some(0.3));
+
     let turn = Turn {
         kind,
         settings: &settings,
         model: model.model.as_str(),
-        temperature: request.temperature,
+        temperature,
         reasoning: request.reasoning.as_deref(),
         key: key.as_deref(),
     };
@@ -188,11 +188,14 @@ async fn run_turn(
     let mut wrap_up = false;
     let mut searches = 0usize;
     let mut fetches = 0usize;
+    let mut round = 0u32;
 
     for _ in 0..max_rounds {
+        round += 1;
         let can_search = tool_names.iter().any(|name| name == "web_search");
         // Tools stay available after the wrap-up so web_fetch keeps working;
         // further searches are refused per call instead.
+        // The user asked for the web, so make the first call a search.
         let tool_choice = if first && forced && can_search {
             json!({ "type": "function", "function": { "name": "web_search" } })
         } else if tools_value.is_some() {
@@ -201,8 +204,15 @@ async fn run_turn(
             json!("none")
         };
 
+        if tracing {
+            super::trace::append(&json!({
+                "turn": turn_id, "round": round, "model": model.model,
+                "provider": kind.name(), "toolChoice": tool_choice, "tools": tool_names,
+            }));
+        }
+
         let outcome = match turn
-            .step(&messages, tools_value.as_ref(), &tool_choice, channel, cancel)
+            .step(&messages, tools_value.as_ref(), &tool_choice, round, channel, cancel)
             .await
         {
             Ok(outcome) => outcome,
@@ -213,11 +223,22 @@ async fn run_turn(
                 return Err(TurnError::Unavailable(message));
             }
             Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
-                let _ = channel.send(StreamEvent::Error { message });
+                emit_error(channel, message);
                 return Ok(());
             }
         };
         accumulate(&outcome, kind, &mut tokens_in, &mut tokens_out, &mut cost, &mut provider);
+
+        if tracing {
+            super::trace::append(&json!({
+                "turn": turn_id, "round": round,
+                "finish": if outcome.tool_calls.is_empty() { "stop" } else { "tool_calls" },
+                "usage": outcome.usage.as_ref().map(|usage| json!({
+                    "in": usage.prompt_tokens, "out": usage.completion_tokens,
+                })),
+                "provider": outcome.provider,
+            }));
+        }
 
         let leaked = leak::has(&outcome.content);
 
@@ -231,6 +252,7 @@ async fn run_turn(
             if leaked {
                 let _ = channel.send(StreamEvent::Delta {
                     content: LEAK_NOTE.to_string(),
+                    round,
                 });
             }
             finished = true;
@@ -246,52 +268,100 @@ async fn run_turn(
         messages.push(assistant_tool_message(&leak::strip(&outcome.content), &calls));
 
         let mut hit_limit = false;
-        for call in &calls {
-            let search = call.name == "web_search";
-            let fetch = call.name == "web_fetch" || call.name == "fetch_url";
-            let allowed = (!search || searches < max_searches) && (!fetch || fetches < max_fetches);
 
-            if !allowed {
-                // Our own budget, not a provider failure: tell the model, but
-                // keep it off the UI so it isn't shown as a failed step.
-                hit_limit = true;
+        // A research round is usually one search or a batch of page fetches;
+        // fetches are independent, so run them together (max 3 in flight).
+        if calls.len() > 1 && calls.iter().all(is_fetch) {
+            for chunk in calls.chunks(3) {
+                let mut handles = Vec::new();
+                for call in chunk {
+                    if fetches >= max_fetches {
+                        hit_limit = true;
+                        emit_call(channel, call, true);
+                        messages.push(json!({
+                            "role": "tool", "tool_call_id": call.id,
+                            "content": format!("error: {STOP_HINT}"),
+                        }));
+                        continue;
+                    }
+                    fetches += 1;
+                    emit_call(channel, call, false);
+                    let worker = app.clone();
+                    let owned = call.clone();
+                    let inner = channel.clone();
+                    let stop = cancel.clone();
+                    handles.push((
+                        call.name.clone(),
+                        call.id.clone(),
+                        tauri::async_runtime::spawn(async move {
+                            execute_tool(&worker, &owned, 0, &inner, &stop).await
+                        }),
+                    ));
+                }
+
+                for (name, id, handle) in handles {
+                    let result = handle.await.unwrap_or_else(|_| ToolOutcome {
+                        content: "error: cancelled".to_string(),
+                        summary: "cancelled".to_string(),
+                        sources: Vec::new(),
+                        cost: 0.0,
+                    });
+                    search_cost += result.cost;
+                    if tracing {
+                        trace_result(&turn_id, round, &name, &result);
+                    }
+                    send_result(channel, &id, &result);
+                    messages.push(json!({
+                        "role": "tool", "tool_call_id": id, "content": result.content,
+                    }));
+                }
+            }
+        } else {
+            for call in &calls {
+                let search = call.name == "web_search";
+                let fetch = is_fetch(call);
+                let allowed = (!search || searches < max_searches) && (!fetch || fetches < max_fetches);
+
+                if !allowed {
+                    hit_limit = true;
+                    emit_call(channel, call, true);
+                    messages.push(json!({
+                        "role": "tool",
+                        "tool_call_id": call.id,
+                        "content": format!("error: {STOP_HINT}"),
+                    }));
+                    continue;
+                }
+
+                if search {
+                    searches += 1;
+                }
+                if fetch {
+                    fetches += 1;
+                }
+
+                emit_call(channel, call, false);
+                if tracing {
+                    super::trace::append(&json!({
+                        "turn": turn_id, "round": round,
+                        "call": { "name": call.name, "args": parse_args(&call.arguments) },
+                    }));
+                }
+
+                let result = execute_tool(app, call, source_counter, channel, cancel).await;
+                search_cost += result.cost;
+                source_counter += result.sources.len() as u32;
+                if tracing {
+                    trace_result(&turn_id, round, &call.name, &result);
+                }
+
+                send_result(channel, &call.id, &result);
                 messages.push(json!({
                     "role": "tool",
                     "tool_call_id": call.id,
-                    "content": format!("error: {STOP_HINT}"),
+                    "content": result.content,
                 }));
-                continue;
             }
-
-            if search {
-                searches += 1;
-            }
-            if fetch {
-                fetches += 1;
-            }
-
-            let _ = channel.send(StreamEvent::ToolCall {
-                id: call.id.clone(),
-                name: call.name.clone(),
-                args: parse_args(&call.arguments),
-            });
-
-            let result = execute_tool(app, call, source_counter, channel, cancel).await;
-            search_cost += result.cost;
-            source_counter += result.sources.len() as u32;
-
-            let _ = channel.send(StreamEvent::ToolResult {
-                id: call.id.clone(),
-                ok: !result.content.starts_with("error:"),
-                summary: result.summary,
-                sources: result.sources,
-            });
-
-            messages.push(json!({
-                "role": "tool",
-                "tool_call_id": call.id,
-                "content": result.content,
-            }));
         }
 
         if hit_limit && !wrap_up {
@@ -305,11 +375,12 @@ async fn run_turn(
     // The round cap was hit mid tool-loop; ask once more for prose with tools
     // still defined (some models ignore a missing tool list and leak markup).
     if !finished {
+        round += 1;
         if !wrap_up {
             messages.push(wrap_up_message());
         }
         match turn
-            .step(&messages, tools_value.as_ref(), &json!("none"), channel, cancel)
+            .step(&messages, tools_value.as_ref(), &json!("none"), round, channel, cancel)
             .await
         {
             Ok(outcome) => {
@@ -317,22 +388,26 @@ async fn run_turn(
                 if leak::has(&outcome.content) {
                     let _ = channel.send(StreamEvent::Delta {
                         content: LEAK_NOTE.to_string(),
+                        round,
                     });
                 }
             }
             Err(StreamError::Cancelled) => return Ok(()),
             Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
-                let _ = channel.send(StreamEvent::Error { message });
+                emit_error(channel, message);
                 return Ok(());
             }
         }
     }
 
-    let total_cost = if kind.zero_cost() && search_cost == 0.0 {
-        Some(0.0)
-    } else {
-        Some(cost + search_cost)
-    };
+    let total_cost = Some(cost + search_cost);
+
+    if tracing {
+        super::trace::append(&json!({
+            "turn": turn_id, "done": true, "tokensIn": tokens_in, "tokensOut": tokens_out,
+            "cost": total_cost, "searches": searches, "fetches": fetches,
+        }));
+    }
 
     let _ = channel.send(StreamEvent::Usage {
         tokens_in,
@@ -342,6 +417,57 @@ async fn run_turn(
     });
     let _ = channel.send(StreamEvent::Done);
     Ok(())
+}
+
+fn is_fetch(call: &ToolCall) -> bool {
+    call.name == "web_fetch" || call.name == "fetch_url"
+}
+
+fn emit_call(channel: &Channel<StreamEvent>, call: &ToolCall, skipped: bool) {
+    let _ = channel.send(StreamEvent::ToolCall {
+        id: call.id.clone(),
+        name: call.name.clone(),
+        args: parse_args(&call.arguments),
+    });
+    if skipped {
+        let _ = channel.send(StreamEvent::ToolResult {
+            id: call.id.clone(),
+            ok: false,
+            skipped: true,
+            summary: "skipped (limit)".to_string(),
+            sources: Vec::new(),
+        });
+    }
+}
+
+fn send_result(channel: &Channel<StreamEvent>, id: &str, result: &ToolOutcome) {
+    let _ = channel.send(StreamEvent::ToolResult {
+        id: id.to_string(),
+        ok: !result.content.starts_with("error:"),
+        skipped: false,
+        summary: result.summary.clone(),
+        sources: result.sources.clone(),
+    });
+}
+
+fn trace_result(turn: &str, round: u32, name: &str, result: &ToolOutcome) {
+    super::trace::append(&json!({
+        "turn": turn, "round": round,
+        "result": {
+            "name": name,
+            "ok": !result.content.starts_with("error:"),
+            "summary": result.summary,
+            "bytes": result.content.len(),
+            "head": result.content.chars().take(300).collect::<String>(),
+        },
+    }));
+}
+
+fn now_millis() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis())
+        .unwrap_or(0)
 }
 
 struct Turn<'a> {
@@ -359,6 +485,7 @@ impl Turn<'_> {
         messages: &[Value],
         tools: Option<&Value>,
         tool_choice: &Value,
+        round: u32,
         channel: &Channel<StreamEvent>,
         cancel: &Cancel,
     ) -> Result<StepOutcome, StreamError> {
@@ -366,15 +493,15 @@ impl Turn<'_> {
             endpoint: self.kind.endpoint(self.settings),
             body: self.kind.body(
                 self.model,
-                &Value::Array(messages.to_vec()),
+                messages,
                 self.temperature,
                 self.reasoning,
                 tools,
                 tool_choice,
             ),
-            key: self.key.map(str::to_string),
+            key: self.key,
         };
-        stream::run_step(&plan, channel, cancel).await
+        stream::run_step(&plan, round, channel, cancel).await
     }
 }
 
@@ -397,5 +524,3 @@ fn accumulate(
         *provider = outcome.provider.clone();
     }
 }
-
-

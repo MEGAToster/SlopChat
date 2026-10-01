@@ -7,6 +7,7 @@ mod leak;
 mod prompt;
 mod sse;
 mod stream;
+pub mod trace;
 
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -107,6 +108,7 @@ pub struct Source {
 pub enum StreamEvent {
     Delta {
         content: String,
+        round: u32,
     },
     Reasoning,
     ToolCall {
@@ -117,6 +119,8 @@ pub enum StreamEvent {
     ToolResult {
         id: String,
         ok: bool,
+        #[serde(default)]
+        skipped: bool,
         summary: String,
         sources: Vec<Source>,
     },
@@ -241,8 +245,9 @@ mod tests {
 
         let delta = serde_json::to_string(&StreamEvent::Delta {
             content: "hi".to_string(),
+            round: 1,
         })
         .unwrap();
-        assert_eq!(delta, r#"{"type":"delta","content":"hi"}"#);
+        assert_eq!(delta, r#"{"type":"delta","content":"hi","round":1}"#);
     }
 }

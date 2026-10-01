@@ -1,4 +1,4 @@
-export type FuzzyMatch = {
+type FuzzyMatch = {
   score: number;
   positions: number[];
 };
@@ -28,7 +28,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
   return { score: score - (haystack.length - needle.length) * 0.01, positions };
 }
 
-export type Highlight = { text: string; match: boolean };
+type Highlight = { text: string; match: boolean };
 
 export function highlight(query: string, text: string): Highlight[] {
   const match = fuzzyMatch(query, text);

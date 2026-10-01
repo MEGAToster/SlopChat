@@ -1,6 +1,7 @@
 import {
   listChats,
   listModels,
+  openAgentLog,
   openSettingsFile,
   reloadConfig,
   searchChats,
@@ -80,7 +81,7 @@ export function groups(): PaletteGroup[] {
   return all;
 }
 
-export function items(): PaletteItem[] {
+function items(): PaletteItem[] {
   return groups().flatMap((group) => group.items);
 }
 
@@ -258,6 +259,9 @@ async function runAction(id: string): Promise<void> {
       break;
     case "config-file":
       await openSettingsFile();
+      break;
+    case "agent-log":
+      await openAgentLog();
       break;
     case "reload":
       await reloadConfig();

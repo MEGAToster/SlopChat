@@ -2,7 +2,7 @@ import { DEFAULT_KEYBINDS } from "../keymap/defaults";
 import { getConfigError, getSettings, onConfigChanged, onConfigError } from "../ipc";
 import type { Settings } from "../types";
 
-export const DEFAULT_SETTINGS: Settings = {
+const DEFAULT_SETTINGS: Settings = {
   keybinds: DEFAULT_KEYBINDS,
   providers: {},
   profiles: [],
@@ -12,7 +12,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "default-dark",
   style: "auto",
   search: { readerFallback: true },
-  advanced: { maxSearches: 5, maxFetches: 50, maxRounds: 4 },
+  advanced: { maxSearches: 5, maxFetches: 50, maxRounds: 6 },
+  debug: { agentLog: false },
   window: { compactWidth: 680, expandedScreenRatio: 0.7 },
 };
 
@@ -29,7 +30,7 @@ export function configError(): string | null {
   return store.error;
 }
 
-export function setSettings(next: Settings): void {
+function setSettings(next: Settings): void {
   store.value = next;
 }
 

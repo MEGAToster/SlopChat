@@ -1,4 +1,4 @@
-import type { Attachment, Chat, Source, ToolStep, Usage } from "../types";
+import type { Attachment, Chat, SendRequest, Source, ToolStep, Usage, WebOverride } from "../types";
 
 export type ChatMessage = {
   id?: string;
@@ -10,21 +10,7 @@ export type ChatMessage = {
   sources?: Source[];
 };
 
-export type SendOptions = {
-  profileName: string;
-  model: string;
-  system?: string;
-  temperature?: number;
-  useContext?: boolean;
-  tools?: string[];
-  toolCalling?: boolean;
-  webSearch?: "auto" | "always" | "off";
-  webToggle?: boolean;
-  reasoning?: string;
-  fallback?: string;
-};
-
-export type WebOverride = "on" | "off";
+export type SendOptions = { profileName: string } & Omit<SendRequest, "chatId" | "messages">;
 
 export const chatState = $state<{
   chats: Chat[];

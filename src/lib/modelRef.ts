@@ -1,8 +1,8 @@
 // OpenRouter routing variants appended to a base model id.
-export const VARIANT_PATTERN = /:(floor|nitro|online|free|thinking)$/;
+const VARIANT_PATTERN = /:(floor|nitro|online|free|thinking)$/;
 export const MODEL_TAGS = ["", ":floor", ":nitro", ":online", ":free", ":thinking"];
 
-export type ModelRefParts = { provider: string; modelId: string; tag: string };
+type ModelRefParts = { provider: string; modelId: string; tag: string };
 
 export function splitModelRef(ref: string): ModelRefParts {
   const slash = ref.indexOf("/");

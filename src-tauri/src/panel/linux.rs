@@ -60,5 +60,3 @@ pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
         let _ = window.set_size(Size::Logical(LogicalSize::new(width, height)));
     }
 }
-
-

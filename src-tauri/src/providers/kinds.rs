@@ -11,10 +11,14 @@ pub enum Kind {
 }
 
 impl Kind {
-    const ALL: [Kind; 3] = [Kind::OpenRouter, Kind::Ollama, Kind::Gemini];
-
     pub fn from_name(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|kind| kind.name() == name)
+        [Kind::OpenRouter, Kind::Ollama, Kind::Gemini]
+            .into_iter()
+            .find(|kind| kind.name() == name)
+    }
+
+    pub fn resolve(provider: &str) -> Result<Self, String> {
+        Self::from_name(provider).ok_or_else(|| format!("provider {provider:?} is not supported"))
     }
 
     pub fn name(self) -> &'static str {
@@ -59,7 +63,7 @@ impl Kind {
     pub fn body(
         self,
         model: &str,
-        messages: &Value,
+        messages: &[Value],
         temperature: Option<f32>,
         reasoning: Option<&str>,
         tools: Option<&Value>,
@@ -142,36 +146,6 @@ impl Kind {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn openrouter_requires_tool_capable_providers_when_tools_are_sent() {
-        let tools = json!([{ "type": "function" }]);
-        let body = Kind::OpenRouter.body("m", &json!([]), None, None, Some(&tools), &json!("auto"));
-        assert_eq!(body["provider"]["require_parameters"], json!(true));
-    }
-
-    #[test]
-    fn no_provider_hint_without_tools() {
-        let body = Kind::OpenRouter.body("m", &json!([]), None, None, None, &json!("none"));
-        assert!(body.get("provider").is_none());
-    }
-
-    #[test]
-    fn openrouter_sends_reasoning_effort() {
-        let body = Kind::OpenRouter.body("m", &json!([]), None, Some("high"), None, &json!("none"));
-        assert_eq!(body["reasoning"]["effort"], json!("high"));
-    }
-
-    #[test]
-    fn other_kinds_ignore_reasoning_effort() {
-        let body = Kind::Ollama.body("m", &json!([]), None, Some("high"), None, &json!("none"));
-        assert!(body.get("reasoning").is_none());
-    }
-}
-
 fn parse_openai(body: &Value, provider: &str) -> Vec<ProviderModel> {
     body.get("data")
         .and_then(Value::as_array)
@@ -216,4 +190,34 @@ fn parse_ollama(body: &Value, provider: &str) -> Vec<ProviderModel> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openrouter_requires_tool_capable_providers_when_tools_are_sent() {
+        let tools = json!([{ "type": "function" }]);
+        let body = Kind::OpenRouter.body("m", &[], None, None, Some(&tools), &json!("auto"));
+        assert_eq!(body["provider"]["require_parameters"], json!(true));
+    }
+
+    #[test]
+    fn no_provider_hint_without_tools() {
+        let body = Kind::OpenRouter.body("m", &[], None, None, None, &json!("none"));
+        assert!(body.get("provider").is_none());
+    }
+
+    #[test]
+    fn openrouter_sends_reasoning_effort() {
+        let body = Kind::OpenRouter.body("m", &[], None, Some("high"), None, &json!("none"));
+        assert_eq!(body["reasoning"]["effort"], json!("high"));
+    }
+
+    #[test]
+    fn other_kinds_ignore_reasoning_effort() {
+        let body = Kind::Ollama.body("m", &[], None, Some("high"), None, &json!("none"));
+        assert!(body.get("reasoning").is_none());
+    }
 }

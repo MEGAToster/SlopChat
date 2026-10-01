@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection};
 
 use super::chats::{self, Chat};
+use super::db_err;
 
 pub fn chats(conn: &Connection, query: &str, limit: i64) -> Result<Vec<Chat>, String> {
     let Some(match_query) = match_query(query) else {
@@ -18,13 +19,13 @@ pub fn chats(conn: &Connection, query: &str, limit: i64) -> Result<Vec<Chat>, St
              ORDER BY rank
              LIMIT ?2",
         )
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
 
     let chats = statement
         .query_map(params![match_query, limit], chats::row_to_chat)
-        .map_err(|error| error.to_string())?
+        .map_err(db_err)?
         .collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
 
     Ok(chats)
 }

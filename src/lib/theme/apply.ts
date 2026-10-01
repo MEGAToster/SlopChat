@@ -1,6 +1,6 @@
 import type { Theme, ThemeStyles } from "../types";
 
-export type ResolvedTheme = {
+type ResolvedTheme = {
   name: string;
   scheme: "dark" | "light";
   style?: ThemeStyles;
@@ -13,6 +13,7 @@ export type ResolvedTheme = {
 };
 
 export function resolveTheme(themes: Map<string, Theme>, name: string): ResolvedTheme {
+  // Walk the `extends` chain so a theme only overrides the tokens it names.
   const chain: Theme[] = [];
   const seen = new Set<string>();
   let current: string | undefined = name;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { flatIndex } from "../lib/flat";
   import { highlight } from "../lib/fuzzy";
   import {
     breadcrumb,
@@ -9,7 +10,6 @@
     mode,
     query,
     setQuery,
-    type PaletteItem,
   } from "../lib/state/palette.svelte";
   import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
@@ -20,6 +20,7 @@
   let input = $state<HTMLInputElement | null>(null);
   let list = $state<HTMLDivElement | null>(null);
   const sections = $derived(groups());
+  const counts = $derived(sections.map((section) => section.items.length));
 
   $effect(() => {
     void index();
@@ -39,14 +40,8 @@
     if (list) list.scrollTop = 0;
   });
 
-  function flatIndex(sectionIndex: number, itemIndex: number): number {
-    let offset = 0;
-    for (let i = 0; i < sectionIndex; i += 1) offset += sections[i].items.length;
-    return offset + itemIndex;
-  }
-
-  function iconFor(item: PaletteItem): string {
-    return item.kind;
+  function flat(sectionIndex: number, itemIndex: number): number {
+    return flatIndex(counts, sectionIndex, itemIndex);
   }
 
   onMount(() => input?.focus());
@@ -84,10 +79,10 @@
           <button
             type="button"
             class="row"
-            class:selected={flatIndex(sectionIndex, itemIndex) === index()}
-            onclick={() => onactivate(flatIndex(sectionIndex, itemIndex))}
+            class:selected={flat(sectionIndex, itemIndex) === index()}
+            onclick={() => onactivate(flat(sectionIndex, itemIndex))}
           >
-            <span class="icon"><Icon name={iconFor(item)} /></span>
+            <span class="icon"><Icon name={item.kind} /></span>
             <span class="label">
               {#each highlight(query(), item.label) as segment}
                 <span class:matched={segment.match}>{segment.text}</span>

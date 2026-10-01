@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use super::stream::ToolCall;
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Usage {
     #[serde(default)]
     pub prompt_tokens: u32,
@@ -29,6 +29,7 @@ pub struct Parsed {
 }
 
 pub fn merge_call(calls: &mut Vec<ToolCall>, incoming: PartialCall) {
+    // Providers may send sparse indices; back-fill so `calls[index]` is safe.
     let index = incoming.index as usize;
     while calls.len() <= index {
         calls.push(ToolCall {

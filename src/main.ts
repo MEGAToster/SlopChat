@@ -5,6 +5,7 @@ import { applyTheme, resolveTheme } from "./lib/theme/apply";
 import { BUILTIN_THEMES } from "./lib/theme/builtin";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/editor.css";
 import "./styles/markdown.css";
 import "./styles/syntax.css";
 import "./styles/tui.css";

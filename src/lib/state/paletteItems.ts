@@ -2,7 +2,7 @@ import { fuzzyMatch } from "../fuzzy";
 import type { Chat, ProviderModel, Settings, ThemeInfo } from "../types";
 import type { PaletteGroup, PaletteItem } from "./paletteTypes";
 
-export function narrow(items: PaletteItem[], query: string): PaletteItem[] {
+function narrow(items: PaletteItem[], query: string): PaletteItem[] {
   if (!query) return items;
   return items
     .map((item) => ({ item, match: fuzzyMatch(query, item.label) }))
@@ -61,6 +61,7 @@ function actionItems(settings: Settings): PaletteItem[] {
     { id: "add-models", label: "Add models…" },
     { id: "settings-panel", label: "Settings" },
     { id: "config-file", label: "Edit config file" },
+    { id: "agent-log", label: "Open agent log" },
     { id: "reload", label: "Reload config" },
   ];
   return actions.map((action) => ({ kind: "action", ...action }));

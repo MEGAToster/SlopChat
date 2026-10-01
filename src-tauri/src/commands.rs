@@ -238,8 +238,7 @@ pub async fn model_reasoning(
     model: String,
 ) -> Result<Option<providers::capabilities::ReasoningInfo>, String> {
     let reference = providers::ModelRef::parse(&model)?;
-    let kind = Kind::from_name(&reference.provider)
-        .ok_or_else(|| format!("provider {:?} is not supported", reference.provider))?;
+    let kind = Kind::resolve(&reference.provider)?;
     let settings = app.state::<ConfigState>().get();
     let key = providers::api_key(&settings, kind.name())?;
     Ok(providers::capabilities::reasoning(kind, &reference.model, &settings, key.as_deref()).await)
@@ -273,6 +272,17 @@ pub fn set_resume_within(app: AppHandle, minutes: u64) -> Result<(), String> {
 #[tauri::command(async)]
 pub fn set_reader_fallback(app: AppHandle, enabled: bool) -> Result<(), String> {
     config::set_reader_fallback(&app, enabled)
+}
+
+#[tauri::command(async)]
+pub fn set_agent_log(app: AppHandle, enabled: bool) -> Result<(), String> {
+    config::set_agent_log(&app, enabled)
+}
+
+#[tauri::command(async)]
+pub fn open_agent_log() -> Result<(), String> {
+    providers::trace::ensure()?;
+    crate::platform::open_path(&providers::trace::path())
 }
 
 #[tauri::command(async)]

@@ -69,7 +69,7 @@
   }
 </script>
 
-<div class="body">
+<div class="editor">
   <div class="section-title">{previous ? "Edit model" : "Add model"}</div>
 
   <label class="row">
@@ -160,84 +160,15 @@
 
   <div class="actions">
     {#if onremove}
-      <button type="button" class="danger" onclick={onremove}>Delete</button>
+      <button type="button" class="btn danger" onclick={onremove}>Delete</button>
     {/if}
     <span class="spacer"></span>
-    <button type="button" class="ghost" onclick={oncancel}>Cancel</button>
-    <button type="button" class="primary" disabled={!composed} onclick={save}>Save</button>
+    <button type="button" class="btn" onclick={oncancel}>Cancel</button>
+    <button type="button" class="btn primary" disabled={!composed} onclick={save}>Save</button>
   </div>
 </div>
 
 <style>
-  .body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .section-title {
-    height: 28px;
-    display: flex;
-    align-items: center;
-    padding: 0 var(--sp-2);
-    color: var(--text-tertiary);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-3);
-    min-height: 40px;
-    padding: 0 var(--sp-2);
-  }
-
-  .row.block {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--sp-1);
-    padding-block: var(--sp-1);
-  }
-
-  .label {
-    color: var(--text-secondary);
-    font-size: var(--fs-md);
-  }
-
-  .control {
-    width: 60%;
-    height: 28px;
-    padding: 0 var(--sp-2);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    outline: none;
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--fs-md);
-  }
-
-  .control:focus,
-  .area:focus {
-    border-color: var(--accent);
-  }
-
-  .area {
-    width: 100%;
-    padding: var(--sp-2);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    outline: none;
-    resize: vertical;
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--fs-sm);
-  }
-
   .preview {
     overflow: hidden;
     color: var(--accent);
@@ -245,99 +176,5 @@
     font-size: var(--fs-sm);
     white-space: nowrap;
     text-overflow: ellipsis;
-  }
-
-  .checks {
-    display: inline-flex;
-    gap: var(--sp-3);
-    color: var(--text-secondary);
-    font-size: var(--fs-sm);
-  }
-
-  .check {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-secondary);
-    font-size: var(--fs-sm);
-    cursor: default;
-  }
-
-  .check input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-  }
-
-  .check .box {
-    position: relative;
-    flex: none;
-    width: 16px;
-    height: 16px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-  }
-
-  .check input:checked + .box {
-    border-color: var(--accent);
-    background: var(--accent);
-  }
-
-  .check input:checked + .box::after {
-    content: "";
-    position: absolute;
-    left: 5px;
-    top: 2px;
-    width: 4px;
-    height: 8px;
-    border: solid var(--accent-contrast);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-
-  .check input:focus-visible + .box {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-2);
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .primary,
-  .ghost,
-  .danger {
-    padding: 6px var(--sp-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--fs-sm);
-    cursor: pointer;
-  }
-
-  .primary {
-    border-color: transparent;
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-weight: 600;
-  }
-
-  .primary:disabled {
-    opacity: 0.4;
-  }
-
-  .danger {
-    color: var(--danger);
   }
 </style>

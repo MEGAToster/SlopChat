@@ -195,6 +195,14 @@ pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String>
     })
 }
 
+pub fn set_agent_log(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    patch(app, move |value| {
+        if let Some(debug) = value.get_mut("debug").and_then(Value::as_object_mut) {
+            debug.insert("agentLog".to_string(), json!(enabled));
+        }
+    })
+}
+
 fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
     let parent = path
         .parent()

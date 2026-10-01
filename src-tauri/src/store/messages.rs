@@ -2,6 +2,7 @@ use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
 
 use super::attachments::{Attachment, NewAttachment};
+use super::db_err;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,12 +67,12 @@ pub fn list(conn: &Connection, chat_id: &str) -> Result<Vec<Message>, String> {
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM messages WHERE chat_id = ?1 ORDER BY created_at ASC, rowid ASC"
             ))
-            .map_err(|error| error.to_string())?;
+            .map_err(db_err)?;
         let rows = statement
             .query_map(params![chat_id], row_to_message)
-            .map_err(|error| error.to_string())?;
+            .map_err(db_err)?;
         rows.collect::<rusqlite::Result<Vec<_>>>()
-            .map_err(|error| error.to_string())?
+            .map_err(db_err)?
     };
 
     for message in &mut messages {
@@ -114,7 +115,7 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
             sources_json,
         ],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
 
     for attachment in &new.attachments {
         super::attachments::insert(conn, &message.id, attachment)?;
@@ -148,7 +149,7 @@ pub fn rewind(
         "UPDATE messages SET content = ?1 WHERE id = ?2 AND chat_id = ?3",
         params![content, message_id, chat_id],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
 
     conn.execute(
         "DELETE FROM messages
@@ -156,7 +157,7 @@ pub fn rewind(
            AND rowid > (SELECT rowid FROM messages WHERE id = ?2)",
         params![chat_id, message_id],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
 
     super::chats::touch(conn, chat_id, super::now_millis())?;
     Ok(())

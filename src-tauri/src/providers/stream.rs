@@ -36,12 +36,13 @@ impl Cancel {
     }
 }
 
-pub struct RequestPlan {
+pub struct RequestPlan<'a> {
     pub endpoint: String,
     pub body: serde_json::Value,
-    pub key: Option<String>,
+    pub key: Option<&'a str>,
 }
 
+#[derive(Clone)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
@@ -69,12 +70,13 @@ fn unavailable(status: u16) -> bool {
 }
 
 pub async fn run_step(
-    plan: &RequestPlan,
+    plan: &RequestPlan<'_>,
+    round: u32,
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
 ) -> Result<StepOutcome, StreamError> {
     let mut builder = super::client().post(&plan.endpoint).json(&plan.body);
-    if let Some(key) = plan.key.as_deref() {
+    if let Some(key) = plan.key {
         builder = builder.bearer_auth(key);
     }
 
@@ -133,7 +135,7 @@ pub async fn run_step(
             if let Some(part) = parsed.content {
                 content.push_str(&part);
                 if !leaked {
-                    forward(&content, &mut forwarded, &mut leaked, channel);
+                    forward(&content, &mut forwarded, &mut leaked, round, channel);
                 }
             }
             if parsed.reasoning && !reasoned {
@@ -159,6 +161,7 @@ pub async fn run_step(
     if !leaked && forwarded < content.len() {
         let _ = channel.send(StreamEvent::Delta {
             content: content[forwarded..].to_string(),
+            round,
         });
     }
 
@@ -172,12 +175,19 @@ pub async fn run_step(
 
 // Streams the text up to a leak marker, holding back a tail so a marker split
 // across two deltas is still caught. Once a marker is seen, markup is dropped.
-fn forward(content: &str, forwarded: &mut usize, leaked: &mut bool, channel: &Channel<StreamEvent>) {
+fn forward(
+    content: &str,
+    forwarded: &mut usize,
+    leaked: &mut bool,
+    round: u32,
+    channel: &Channel<StreamEvent>,
+) {
     if let Some(index) = leak::find(content) {
         *leaked = true;
         if index > *forwarded {
             let _ = channel.send(StreamEvent::Delta {
                 content: content[*forwarded..index].to_string(),
+                round,
             });
         }
         *forwarded = index;
@@ -191,6 +201,7 @@ fn forward(content: &str, forwarded: &mut usize, leaked: &mut bool, channel: &Ch
     if safe > *forwarded {
         let _ = channel.send(StreamEvent::Delta {
             content: content[*forwarded..safe].to_string(),
+            round,
         });
         *forwarded = safe;
     }

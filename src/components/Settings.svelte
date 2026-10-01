@@ -7,6 +7,7 @@
     saveModel,
     saveProfile,
     searchUsage,
+    setAgentLog,
     setReaderFallback,
     setResumeWithin,
     setStartup,
@@ -247,6 +248,21 @@
           </div>
 
           <div class="adv-row">
+            <span class="adv-label">
+              Agent log
+              <span class="adv-unit">(JSONL under data dir)</span>
+            </span>
+            <input
+              class="check"
+              type="checkbox"
+              title="Write every agent round, tool call and result to the log file"
+              checked={settings().debug.agentLog}
+              onchange={(event) =>
+                void setAgentLog((event.currentTarget as HTMLInputElement).checked)}
+            />
+          </div>
+
+          <div class="adv-row">
             <span class="adv-label">Max web searches / reply</span>
             <input
               class="control"
@@ -328,18 +344,6 @@
     align-items: center;
     justify-content: space-between;
     padding-right: var(--sp-2);
-  }
-
-  .section-title {
-    height: 28px;
-    display: flex;
-    align-items: center;
-    padding: 0 var(--sp-2);
-    color: var(--text-tertiary);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
   }
 
   .item {

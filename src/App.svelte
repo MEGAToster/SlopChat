@@ -26,7 +26,6 @@
     mode as paletteMode,
     move as paletteMove,
     select as paletteSelect,
-    activate as paletteActivate,
   } from "./lib/state/palette.svelte";
   import { configError, initSettings, setConfigError, settings } from "./lib/state/settings.svelte";
   import { measurePanel } from "./lib/state/overlays.svelte";
@@ -60,26 +59,11 @@
 
   const persistentError = $derived(configError());
   const uiNoticeText = $derived(uiNotice());
-  let notice = $state<string | null>(null);
-  let lastError: string | null = null;
   let wasStreaming = false;
 
   $effect(() => {
     const error = chatError();
-    if (error === null) {
-      lastError = null;
-      return;
-    }
-    if (error !== lastError) {
-      lastError = error;
-      notice = error;
-    }
-  });
-
-  $effect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => (notice = null), 5000);
-    return () => clearTimeout(timer);
+    if (error) notify(error);
   });
 
   $effect(() => {
@@ -92,6 +76,7 @@
     applyThemeFor(settings().theme);
   });
 
+  // Compact panel follows the thread height after each change.
   $effect(() => {
     void messages().length;
     requestAnimationFrame(measurePanel);
@@ -191,13 +176,7 @@
     actions: {
       perform: actions.perform,
       paletteMove,
-      paletteActivate: () => {
-        void paletteActivate()
-          .then((shouldClose) => {
-            if (shouldClose) actions.closePalette();
-          })
-          .catch(actions.closePalette);
-      },
+      paletteActivate: actions.paletteActivateAndClose,
       paletteBack,
       paletteClose: actions.closePalette,
       closeSettings: actions.closeSettings,
@@ -246,8 +225,6 @@
 
       {#if persistentError}
         <Toast message={persistentError} kind="warning" />
-      {:else if notice}
-        <Toast message={notice} />
       {:else if uiNoticeText}
         <Toast message={uiNoticeText} kind={uiNoticeKind()} />
       {/if}
@@ -258,11 +235,7 @@
     <Palette
       onactivate={(selected) => {
         paletteSelect(selected);
-        void paletteActivate()
-          .then((shouldClose) => {
-            if (shouldClose) actions.closePalette();
-          })
-          .catch(actions.closePalette);
+        actions.paletteActivateAndClose();
       }}
     />
   {/if}

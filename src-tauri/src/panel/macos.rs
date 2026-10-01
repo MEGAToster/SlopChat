@@ -158,5 +158,3 @@ pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
         panel.set_content_size(width, height);
     }
 }
-
-

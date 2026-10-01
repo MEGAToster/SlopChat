@@ -21,6 +21,7 @@
 
   const rendered = $derived(applyCitations(html, message.sources ?? []));
 
+  // `mathState.ready` re-renders once KaTeX finishes lazy-loading.
   $effect(() => {
     void mathState.ready;
     html = streaming ? stream.update(message.content) : renderMarkdown(message.content);
@@ -73,7 +74,9 @@
         {#each message.steps as step (step.id)}
           <div class="step" class:failed={step.status === "error"}>
             <span class="glyph">{isFetch(step) ? "↓" : "⌕"}</span>
-            {#if isFetch(step)}
+            {#if step.status === "skipped"}
+              {isFetch(step) ? "fetch" : "search"} {step.summary}
+            {:else if isFetch(step)}
               {#if step.status === "running"}
                 fetching {domain(target(step))}…
               {:else if step.status === "error"}
@@ -88,6 +91,7 @@
             {:else}
               searched “{query(step)}” · {step.summary}
             {/if}
+            {#if step.note}<span class="note">{step.note}</span>{/if}
           </div>
         {/each}
       </div>
@@ -165,6 +169,12 @@
 
   .step.failed {
     color: var(--danger);
+  }
+
+  .note {
+    display: block;
+    margin-left: 16px;
+    color: var(--text-tertiary);
   }
 
   .glyph {

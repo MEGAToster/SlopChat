@@ -96,6 +96,18 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
     (if month <= 2 { year + 1 } else { year }, month, day)
 }
 
+pub fn last_user_text(request: &ChatRequest) -> String {
+    for message in request.messages.iter().rev() {
+        if message.role == "user" {
+            return match &message.content {
+                Value::String(text) => text.clone(),
+                other => other.to_string(),
+            };
+        }
+    }
+    String::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,16 +154,4 @@ mod tests {
         assert_eq!(civil_from_days(0), (1970, 1, 1));
         assert_eq!(civil_from_days(11_016), (2000, 2, 29));
     }
-}
-
-pub fn last_user_text(request: &ChatRequest) -> String {
-    for message in request.messages.iter().rev() {
-        if message.role == "user" {
-            return match &message.content {
-                Value::String(text) => text.clone(),
-                other => other.to_string(),
-            };
-        }
-    }
-    String::new()
 }

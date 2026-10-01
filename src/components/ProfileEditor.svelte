@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import type { ModelConfig, Profile, ProfileOverrides, WebSearchMode } from "../lib/types";
+  import { PROFILE_COLORS } from "../lib/profileColor";
   import { REASONING_LEVELS } from "../lib/reasoningLevels";
+  import type { ModelConfig, Profile, ProfileOverrides, WebSearchMode } from "../lib/types";
 
   let {
     models,
@@ -20,7 +21,7 @@
     onremove?: () => void;
   } = $props();
 
-  const COLORS = ["", "purple", "blue", "green", "orange", "pink", "cyan", "yellow", "red"];
+  const COLORS = ["", ...PROFILE_COLORS];
   const INHERIT = "(inherit)";
 
   const defaultModel = untrack(() => models[0]?.model ?? "");
@@ -64,7 +65,7 @@
   }
 </script>
 
-<div class="body">
+<div class="editor">
   <div class="section-title">{previous ? "Edit rotation entry" : "Add to rotation"}</div>
 
   <label class="row">
@@ -161,63 +162,15 @@
 
   <div class="actions">
     {#if onremove}
-      <button type="button" class="danger" onclick={onremove}>Delete</button>
+      <button type="button" class="btn danger" onclick={onremove}>Delete</button>
     {/if}
     <span class="spacer"></span>
-    <button type="button" class="ghost" onclick={oncancel}>Cancel</button>
-    <button type="button" class="primary" disabled={!name.trim() || !model} onclick={save}>Save</button>
+    <button type="button" class="btn" onclick={oncancel}>Cancel</button>
+    <button type="button" class="btn primary" disabled={!name.trim() || !model} onclick={save}>Save</button>
   </div>
 </div>
 
 <style>
-  .body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .section-title {
-    height: 28px;
-    display: flex;
-    align-items: center;
-    padding: 0 var(--sp-2);
-    color: var(--text-tertiary);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-3);
-    min-height: 40px;
-    padding: 0 var(--sp-2);
-  }
-
-  .label {
-    color: var(--text-secondary);
-    font-size: var(--fs-md);
-  }
-
-  .control {
-    width: 60%;
-    height: 28px;
-    padding: 0 var(--sp-2);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    outline: none;
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--fs-md);
-  }
-
-  .control:focus {
-    border-color: var(--accent);
-  }
-
   .fallback > summary {
     display: flex;
     align-items: center;
@@ -240,44 +193,5 @@
     font-size: var(--fs-sm);
     white-space: nowrap;
     text-overflow: ellipsis;
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-2);
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .primary,
-  .ghost,
-  .danger {
-    padding: 6px var(--sp-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--fs-sm);
-    cursor: pointer;
-  }
-
-  .primary {
-    border-color: transparent;
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-weight: 600;
-  }
-
-  .primary:disabled {
-    opacity: 0.4;
-  }
-
-  .danger {
-    color: var(--danger);
   }
 </style>

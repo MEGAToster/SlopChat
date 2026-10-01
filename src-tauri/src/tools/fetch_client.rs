@@ -165,6 +165,7 @@ fn build_client(host: &str, addr: SocketAddr) -> reqwest::Client {
         .expect("fetch client")
 }
 
+// Re-runs the SSRF guard on every redirect hop, not just the first URL.
 fn policy() -> Policy {
     Policy::custom(|attempt| {
         if attempt.previous().len() >= MAX_REDIRECTS

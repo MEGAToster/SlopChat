@@ -93,6 +93,7 @@ pub(super) async fn run_web_search(
             let _ = channel.send(StreamEvent::ToolResult {
                 id,
                 ok: true,
+                skipped: false,
                 summary: output.summary,
                 sources: output.sources,
             });
@@ -102,6 +103,7 @@ pub(super) async fn run_web_search(
             let _ = channel.send(StreamEvent::ToolResult {
                 id,
                 ok: false,
+                skipped: false,
                 summary: error.clone(),
                 sources: Vec::new(),
             });

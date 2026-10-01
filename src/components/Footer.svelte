@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { splitModelRef } from "../lib/modelRef";
   import { profileColor } from "../lib/profileColor";
   import {
     isStreamingHere,
@@ -33,9 +34,10 @@
   const config = $derived(activeConfig());
   const color = $derived(profileColor(profile, activeProfileIndex()));
   const fullModel = $derived(config?.model ?? "");
-  const model = $derived(fullModel.split("/").pop() ?? "");
+  const ref = $derived(splitModelRef(fullModel));
+  const model = $derived(ref.modelId.split("/").pop() ?? "");
   const usage = $derived(lastUsage());
-  const provider = $derived(usage?.provider ?? fullModel.split("/")[0] ?? "");
+  const provider = $derived(usage?.provider ?? ref.provider);
   const keybinds = $derived(settings().keybinds);
   const sidebar = $derived(keyContext() === "sidebar");
   const editing = $derived(editingId() !== null);

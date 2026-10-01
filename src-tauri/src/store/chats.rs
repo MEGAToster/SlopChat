@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection, Row};
 use serde::Serialize;
 
-use super::Message;
+use super::{db_err, Message};
 use crate::config::Startup;
 
 #[derive(Debug, Clone, Serialize)]
@@ -40,52 +40,46 @@ pub fn list(conn: &Connection) -> Result<Vec<Chat>, String> {
         .prepare(&format!(
             "SELECT {COLUMNS} FROM chats ORDER BY created_at ASC"
         ))
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
     let chats = statement
         .query_map([], row_to_chat)
-        .map_err(|error| error.to_string())?
+        .map_err(db_err)?
         .collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
     Ok(chats)
 }
 
 pub fn get(conn: &Connection, id: &str) -> Result<Option<Chat>, String> {
-    conn.query_row(
-        &format!("SELECT {COLUMNS} FROM chats WHERE id = ?1"),
-        params![id],
-        row_to_chat,
-    )
-    .map(Some)
-    .or_else(|error| match error {
-        rusqlite::Error::QueryReturnedNoRows => Ok(None),
-        other => Err(other.to_string()),
-    })
+    optional(conn, &format!("SELECT {COLUMNS} FROM chats WHERE id = ?1"), params![id])
 }
 
 pub fn most_recent(conn: &Connection) -> Result<Option<Chat>, String> {
-    conn.query_row(
+    optional(
+        conn,
         &format!("SELECT {COLUMNS} FROM chats ORDER BY updated_at DESC LIMIT 1"),
         [],
-        row_to_chat,
     )
-    .map(Some)
-    .or_else(|error| match error {
-        rusqlite::Error::QueryReturnedNoRows => Ok(None),
-        other => Err(other.to_string()),
-    })
 }
 
 pub fn pinned(conn: &Connection) -> Result<Option<Chat>, String> {
-    conn.query_row(
+    optional(
+        conn,
         &format!("SELECT {COLUMNS} FROM chats WHERE pinned = 1 LIMIT 1"),
         [],
-        row_to_chat,
     )
-    .map(Some)
-    .or_else(|error| match error {
-        rusqlite::Error::QueryReturnedNoRows => Ok(None),
-        other => Err(other.to_string()),
-    })
+}
+
+fn optional<P: rusqlite::Params>(
+    conn: &Connection,
+    sql: &str,
+    params: P,
+) -> Result<Option<Chat>, String> {
+    conn.query_row(sql, params, row_to_chat)
+        .map(Some)
+        .or_else(|error| match error {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            other => Err(db_err(other)),
+        })
 }
 
 pub fn view(conn: &Connection, chat: Chat) -> Result<ChatView, String> {
@@ -134,13 +128,13 @@ pub fn create(conn: &Connection, profile: &str) -> Result<Chat, String> {
          VALUES (?1, ?2, ?3, 0, ?4, ?5)",
         params![chat.id, chat.title, chat.profile, chat.created_at, chat.updated_at],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
     Ok(chat)
 }
 
 pub fn delete(conn: &Connection, id: &str) -> Result<(), String> {
     conn.execute("DELETE FROM chats WHERE id = ?1", params![id])
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
     Ok(())
 }
 
@@ -149,7 +143,7 @@ pub fn set_profile(conn: &Connection, id: &str, profile: &str) -> Result<(), Str
         "UPDATE chats SET profile = ?1 WHERE id = ?2",
         params![profile, id],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
     Ok(())
 }
 
@@ -158,10 +152,10 @@ pub fn toggle_pin(conn: &Connection, id: &str) -> Result<Chat, String> {
     let pinned = !chat.pinned;
 
     conn.execute("UPDATE chats SET pinned = 0", [])
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
     if pinned {
         conn.execute("UPDATE chats SET pinned = 1 WHERE id = ?1", params![id])
-            .map_err(|error| error.to_string())?;
+            .map_err(db_err)?;
     }
 
     get(conn, id)?.ok_or_else(|| format!("chat {id} not found"))
@@ -172,7 +166,7 @@ pub(super) fn touch(conn: &Connection, id: &str, updated_at: i64) -> Result<(), 
         "UPDATE chats SET updated_at = ?1 WHERE id = ?2",
         params![updated_at, id],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
     Ok(())
 }
 
@@ -181,6 +175,6 @@ pub(super) fn set_title_if_empty(conn: &Connection, id: &str, title: &str) -> Re
         "UPDATE chats SET title = ?1 WHERE id = ?2 AND title = ''",
         params![title, id],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
     Ok(())
 }

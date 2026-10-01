@@ -163,6 +163,14 @@ export function setReaderFallback(enabled: boolean): Promise<void> {
   return invoke("set_reader_fallback", { enabled });
 }
 
+export function setAgentLog(enabled: boolean): Promise<void> {
+  return invoke("set_agent_log", { enabled });
+}
+
+export function openAgentLog(): Promise<void> {
+  return invoke("open_agent_log");
+}
+
 export function loadUserThemes(): Promise<ThemeInfo[]> {
   return invoke("load_user_themes");
 }

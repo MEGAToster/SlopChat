@@ -17,7 +17,7 @@ export type Keybinds = {
   focusSidebar: string[];
 };
 
-export type Provider = {
+type Provider = {
   baseUrl: string;
   apiKey?: string;
 };
@@ -63,11 +63,17 @@ export type Advanced = {
   maxRounds: number;
 };
 
-export type SearchSettings = {
+type SearchSettings = {
   readerFallback: boolean;
 };
 
-export type WindowConfig = {
+type Debug = {
+  agentLog: boolean;
+};
+
+export type WebOverride = "on" | "off";
+
+type WindowConfig = {
   compactWidth: number;
   expandedScreenRatio: number;
 };
@@ -84,6 +90,7 @@ export type Settings = {
   font?: FontSettings;
   search: SearchSettings;
   advanced: Advanced;
+  debug: Debug;
   window: WindowConfig;
 };
 
@@ -104,17 +111,25 @@ export type ToolStep = {
   id: string;
   name: string;
   args: Record<string, unknown>;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "skipped";
   summary: string;
+  note?: string;
 };
 
 export type WebSearchMode = "auto" | "always" | "off";
 
 export type StreamEvent =
-  | { type: "delta"; content: string }
+  | { type: "delta"; content: string; round: number }
   | { type: "reasoning" }
   | { type: "toolCall"; id: string; name: string; args: Record<string, unknown> }
-  | { type: "toolResult"; id: string; ok: boolean; summary: string; sources: Source[] }
+  | {
+      type: "toolResult";
+      id: string;
+      ok: boolean;
+      skipped?: boolean;
+      summary: string;
+      sources: Source[];
+    }
   | { type: "usage"; tokensIn: number; tokensOut: number; cost: number | null; provider: string | null }
   | { type: "done" }
   | { type: "error"; message: string };
@@ -166,10 +181,10 @@ export type Theme = {
   colors?: Record<string, string>;
   syntax?: Record<string, string>;
   palette?: Record<string, string>;
-  font?: { ui?: string; mono?: string; size?: number };
+  font?: FontSettings;
 };
 
-export type FontSettings = { ui?: string; mono?: string; size?: number };
+type FontSettings = { ui?: string; mono?: string; size?: number };
 
 export type ThemeInfo = {
   name: string;
@@ -222,7 +237,7 @@ export type ProviderModel = {
   name?: string | null;
 };
 
-export type SearchLimit = {
+type SearchLimit = {
   monthly?: number;
   monthlyUsd?: number;
   total?: number;

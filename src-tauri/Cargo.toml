@@ -2,6 +2,7 @@
 name = "slopchat"
 version = "0.1.0"
 description = "Keyboard-first lightweight chat client"
+license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.84"
 

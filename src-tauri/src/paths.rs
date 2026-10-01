@@ -38,3 +38,7 @@ pub fn chats_db_path() -> PathBuf {
 pub fn attachments_dir() -> PathBuf {
     data_dir().join("history").join("attachments")
 }
+
+pub fn agent_log_path() -> PathBuf {
+    data_dir().join("logs").join("agent.jsonl")
+}

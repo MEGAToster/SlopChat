@@ -29,7 +29,7 @@
 </script>
 
 <div class="messages column" bind:this={viewport} onscroll={updatePinned}>
-  {#each all as message, index (index)}
+  {#each all as message, index (message.id ?? index)}
     <Message
       {message}
       streaming={streamingHere && index === all.length - 1 && message.role === "assistant"}

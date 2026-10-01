@@ -52,7 +52,7 @@ pub async fn stream(
     let chat_id = request.chat_id.clone();
     let streams = app.state::<Streams>();
     let cancel = streams.start(&chat_id);
-    let result = agent::run(app, request, channel, cancel.clone()).await;
+    agent::run(app, request, channel, cancel.clone()).await;
     streams.finish(&chat_id, &cancel);
-    result
+    Ok(())
 }

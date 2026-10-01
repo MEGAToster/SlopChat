@@ -125,7 +125,7 @@ export async function setMode(mode: PanelMode): Promise<void> {
   await setPanelExpanded(mode === "expanded");
 }
 
-export function visibleChats(): Chat[] {
+function visibleChats(): Chat[] {
   const query = store.filterQuery.trim().toLowerCase();
   const all = chats();
   if (!query) return all;
@@ -136,7 +136,7 @@ export function chatGroups(): ChatGroup[] {
   return groupChats(visibleChats());
 }
 
-export function orderedChats(): Chat[] {
+function orderedChats(): Chat[] {
   return chatGroups().flatMap((group) => group.chats);
 }
 
@@ -228,7 +228,7 @@ export function schedulePreview(): void {
   }, 60);
 }
 
-export async function previewChatWithProfile(chatId: string): Promise<void> {
+async function previewChatWithProfile(chatId: string): Promise<void> {
   if (activeChatId() === chatId) return;
   await openChat(chatId);
   syncProfileFromActive();

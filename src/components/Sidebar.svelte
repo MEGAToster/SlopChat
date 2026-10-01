@@ -1,5 +1,6 @@
 <script lang="ts">
   import { focusComposer } from "../lib/dom";
+  import { flatIndex } from "../lib/flat";
   import { activeChatId, isBlank } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import {
@@ -23,17 +24,16 @@
 
   let filterInput = $state<HTMLInputElement | null>(null);
   const groups = $derived(chatGroups());
-  const total = $derived(groups.reduce((sum, group) => sum + group.chats.length, 0));
+  const counts = $derived(groups.map((group) => group.chats.length));
+  const total = $derived(counts.reduce((sum, count) => sum + count, 0));
   const keybinds = $derived(settings().keybinds);
 
   $effect(() => {
     if (filtering()) filterInput?.focus();
   });
 
-  function flatIndex(groupIndex: number, chatIndex: number): number {
-    let offset = 0;
-    for (let i = 0; i < groupIndex; i += 1) offset += groups[i].chats.length;
-    return offset + chatIndex;
+  function flat(groupIndex: number, chatIndex: number): number {
+    return flatIndex(counts, groupIndex, chatIndex);
   }
 
   function startFilter() {
@@ -53,7 +53,7 @@
     title="chats"
     hint="↵ open · p pin · d delete"
     focused={keyContext() === "sidebar"}
-    count={`${groups.reduce((total, group) => total + group.chats.length, 0)}`}
+    count={`${total}`}
   >
     {#if filtering()}
     <input
@@ -75,18 +75,18 @@
     {#each groups as group, groupIndex (group.title)}
       <div class="section">{group.title}</div>
       {#each group.chats as chat, chatIndex (chat.id)}
-        {@const flat = flatIndex(groupIndex, chatIndex)}
+        {@const row = flat(groupIndex, chatIndex)}
         <button
           type="button"
           class="chat"
-          class:selected={flat === selectedIndex()}
+          class:selected={row === selectedIndex()}
           class:active={chat.id === activeChatId()}
           class:confirming={pendingDelete() === chat.id}
           onmouseenter={() => {
-            setSelectedIndex(flat);
+            setSelectedIndex(row);
             schedulePreview();
           }}
-          onclick={() => void open(flat, chat.id)}
+          onclick={() => void open(row, chat.id)}
         >
           {#if chat.id === activeChatId()}<span class="active-bar"></span>{/if}
           {#if pendingDelete() === chat.id}

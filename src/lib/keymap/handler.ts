@@ -1,7 +1,7 @@
 import type { Keybinds } from "../types";
 import { resolve, type Action, type Context, type KeymapState } from "./dispatch";
 
-export type KeyHandlerActions = {
+type KeyHandlerActions = {
   perform: (action: Action) => void;
   paletteMove: (delta: number) => void;
   paletteActivate: () => void;
@@ -15,7 +15,7 @@ export type KeyHandlerActions = {
   escChain: () => void;
 };
 
-export type KeyHandlerDeps = {
+type KeyHandlerDeps = {
   keybinds: () => Keybinds;
   state: () => KeymapState;
   context: () => Context;

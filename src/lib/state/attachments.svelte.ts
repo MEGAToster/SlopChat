@@ -1,4 +1,4 @@
-export type PendingAttachment = {
+type PendingAttachment = {
   id: string;
   name: string;
   mime: string;

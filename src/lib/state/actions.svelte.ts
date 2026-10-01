@@ -34,7 +34,7 @@ import {
   syncProfileFromActive,
 } from "./ui.svelte";
 
-export type TextRef = {
+type TextRef = {
   get: () => string;
   set: (value: string) => void;
 };

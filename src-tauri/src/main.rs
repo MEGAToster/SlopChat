@@ -84,6 +84,8 @@ fn main() {
             commands::set_startup,
             commands::set_resume_within,
             commands::set_reader_fallback,
+            commands::set_agent_log,
+            commands::open_agent_log,
             commands::load_user_themes,
             commands::open_url,
             commands::search_usage,

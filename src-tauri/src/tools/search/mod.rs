@@ -178,7 +178,7 @@ fn format_output(
 ) -> ToolOutput {
     let mut content = String::new();
     let mut sources = Vec::new();
-    let cap = search.exa.max_characters as usize;
+    let cap = search.snippet_chars as usize;
 
     for (index, hit) in batch.hits.iter().enumerate() {
         let n = context.start_index + index as u32 + 1;

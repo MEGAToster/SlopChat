@@ -140,6 +140,10 @@ pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String>
     write::set_reader_fallback(app, enabled)
 }
 
+pub fn set_agent_log(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    write::set_agent_log(app, enabled)
+}
+
 pub fn load_user_themes() -> Vec<UserTheme> {
     themes::load_user()
 }

@@ -1,4 +1,4 @@
-export type PaletteKind = "action" | "chat" | "model" | "provider" | "profile" | "theme";
+type PaletteKind = "action" | "chat" | "model" | "provider" | "profile" | "theme";
 
 export type PaletteItem = {
   kind: PaletteKind;

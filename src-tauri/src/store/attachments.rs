@@ -2,6 +2,8 @@ use base64::Engine;
 use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
 
+use super::db_err;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
@@ -32,9 +34,9 @@ pub fn save(name: &str, mime: &str, data: &str) -> Result<Attachment, String> {
         .unwrap_or_default();
 
     let dir = crate::paths::attachments_dir();
-    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(db_err)?;
     let path = dir.join(format!("{id}{extension}"));
-    std::fs::write(&path, bytes).map_err(|error| error.to_string())?;
+    std::fs::write(&path, bytes).map_err(db_err)?;
 
     Ok(Attachment {
         id,
@@ -45,13 +47,13 @@ pub fn save(name: &str, mime: &str, data: &str) -> Result<Attachment, String> {
 
 pub fn read(path: &str) -> Result<String, String> {
     let dir = crate::paths::attachments_dir();
-    let canonical = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
+    let canonical = std::fs::canonicalize(path).map_err(db_err)?;
     let root = std::fs::canonicalize(&dir).unwrap_or(dir);
     if !canonical.starts_with(&root) {
         return Err("attachment path is outside the attachments directory".to_string());
     }
 
-    let bytes = std::fs::read(&canonical).map_err(|error| error.to_string())?;
+    let bytes = std::fs::read(&canonical).map_err(db_err)?;
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
@@ -73,18 +75,18 @@ pub fn insert(conn: &Connection, message_id: &str, attachment: &NewAttachment) -
             attachment.mime
         ],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(db_err)?;
     Ok(())
 }
 
 pub fn list_for_message(conn: &Connection, message_id: &str) -> Result<Vec<Attachment>, String> {
     let mut statement = conn
         .prepare("SELECT id, path, mime FROM attachments WHERE message_id = ?1")
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
     let attachments = statement
         .query_map(params![message_id], row_to_attachment)
-        .map_err(|error| error.to_string())?
+        .map_err(db_err)?
         .collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(|error| error.to_string())?;
+        .map_err(db_err)?;
     Ok(attachments)
 }

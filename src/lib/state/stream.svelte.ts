@@ -2,23 +2,11 @@ import { Channel } from "@tauri-apps/api/core";
 
 import { send as sendRequest, stop as stopStream } from "../ipc";
 import { stripControlTokens } from "../markdown/clean";
-import type { RequestMessage, Source, StreamEvent, ToolStep, Usage } from "../types";
+import type { SendRequest, Source, StreamEvent, ToolStep, Usage } from "../types";
 
-export type StreamRequest = {
-  model: string;
-  system?: string;
-  temperature?: number;
-  useContext?: boolean;
-  tools?: string[];
-  toolCalling?: boolean;
-  webSearch?: "auto" | "always" | "off";
-  webToggle?: boolean;
-  reasoning?: string;
-  fallback?: string;
-  messages: RequestMessage[];
-};
+type StreamRequest = Omit<SendRequest, "chatId">;
 
-export type StreamCallbacks = {
+type StreamCallbacks = {
   onUpdate: (content: string) => void;
   onReasoning: () => void;
   onUsage: (usage: Usage) => void;
@@ -26,7 +14,7 @@ export type StreamCallbacks = {
   onSources: (sources: Source[]) => void;
 };
 
-export type StreamOutcome = {
+type StreamOutcome = {
   content: string;
   usage?: Usage;
   error?: string;
@@ -40,7 +28,11 @@ export async function run(
   request: StreamRequest,
   callbacks: StreamCallbacks,
 ): Promise<StreamOutcome> {
-  let content = "";
+  // Text is buffered per round: a round that ends in tool calls is narration,
+  // the final round is the answer.
+  let answer = "";
+  let round = -1;
+  let notePending = false;
   let usage: Usage | undefined;
   let error: string | undefined;
   let reasoning = false;
@@ -51,27 +43,40 @@ export async function run(
   channel.onmessage = (event) => {
     switch (event.type) {
       case "delta":
-        content += event.content;
-        callbacks.onUpdate(content);
+        if (event.round !== round) {
+          round = event.round;
+          answer = "";
+          notePending = true;
+        }
+        answer += event.content;
+        callbacks.onUpdate(answer);
         break;
       case "reasoning":
         reasoning = true;
         callbacks.onReasoning();
         break;
-      case "toolCall":
+      case "toolCall": {
+        const note = notePending && answer.trim() ? answer.trim() : undefined;
+        if (note) {
+          answer = "";
+          callbacks.onUpdate(answer);
+        }
+        notePending = false;
         steps.push({
           id: event.id,
           name: event.name,
           args: event.args,
           status: "running",
           summary: "",
+          note,
         });
         callbacks.onSteps([...steps]);
         break;
+      }
       case "toolResult": {
         const step = steps.find((entry) => entry.id === event.id);
         if (step) {
-          step.status = event.ok ? "done" : "error";
+          step.status = event.skipped ? "skipped" : event.ok ? "done" : "error";
           step.summary = event.summary;
         }
         sources.push(...event.sources);
@@ -100,7 +105,7 @@ export async function run(
     error = String(cause);
   }
 
-  return { content: stripControlTokens(content), usage, error, reasoning, steps, sources };
+  return { content: stripControlTokens(answer), usage, error, reasoning, steps, sources };
 }
 
 export async function stop(chatId: string): Promise<void> {

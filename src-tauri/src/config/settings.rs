@@ -21,6 +21,7 @@ pub struct Settings {
     pub font: Option<Font>,
     pub search: SearchSettings,
     pub advanced: Advanced,
+    pub debug: Debug,
     pub window: WindowConfig,
 }
 
@@ -32,6 +33,12 @@ pub struct Advanced {
     pub max_rounds: u32,
 }
 
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Debug {
+    pub agent_log: bool,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", from = "RawSearchSettings")]
 pub struct SearchSettings {
@@ -40,6 +47,7 @@ pub struct SearchSettings {
     pub limits: BTreeMap<String, Limit>,
     pub exa: ExaSettings,
     pub reader_fallback: bool,
+    pub snippet_chars: u32,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -70,6 +78,7 @@ struct RawSearchSettings {
     limits: BTreeMap<String, Limit>,
     exa: Option<ExaSettings>,
     reader_fallback: bool,
+    snippet_chars: u32,
     provider: Option<String>,
     monthly_budget: Option<f64>,
     #[serde(rename = "type")]
@@ -86,6 +95,7 @@ impl Default for RawSearchSettings {
             limits: BTreeMap::new(),
             exa: None,
             reader_fallback: true,
+            snippet_chars: 1500,
             provider: None,
             monthly_budget: None,
             search_type: None,
@@ -123,6 +133,7 @@ impl From<RawSearchSettings> for SearchSettings {
             limits,
             exa,
             reader_fallback: raw.reader_fallback,
+            snippet_chars: raw.snippet_chars,
         }
     }
 }
@@ -373,8 +384,9 @@ mod tests {
         let settings: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(settings.advanced.max_searches, 5);
         assert_eq!(settings.advanced.max_fetches, 50);
-        assert_eq!(settings.advanced.max_rounds, 4);
+        assert_eq!(settings.advanced.max_rounds, 6);
         assert_eq!(settings.startup, Startup::Latest);
+        assert!(!settings.debug.agent_log);
     }
 
     #[test]

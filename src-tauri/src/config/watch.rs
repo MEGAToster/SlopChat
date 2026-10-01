@@ -26,6 +26,8 @@ pub fn start(app: AppHandle) -> notify::Result<()> {
             if !touches_settings(&event) {
                 continue;
             }
+            // Editors write in several steps; debounce and drop the queued
+            // events so a single save reloads the config once.
             std::thread::sleep(DEBOUNCE);
             while rx.try_recv().is_ok() {}
             reload(&app);
