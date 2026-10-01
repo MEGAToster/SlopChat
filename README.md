@@ -1,5 +1,7 @@
 # SlopChat
 
+DISCLAIMER: This project has been written by AI and only had a human guiding it and testing the product. This is made by slop to better prompt more slop.
+
 A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Raycast panel layer and expands into a full chat window. Linux support is planned (`LINUX_PLAN.md`).
 
 ## Features
