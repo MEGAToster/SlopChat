@@ -3,7 +3,6 @@ set -eu
 
 # Build-from-source installer for SlopChat.
 # macOS: signs (when possible) and copies the app to /Applications.
-# Linux: installs the .deb, or the AppImage to ~/.local/bin.
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -63,23 +62,5 @@ if [ "$(uname -s)" = "Darwin" ]; then
   cp -R "$APP" /Applications/
   echo "Done. Launch SlopChat from /Applications."
 else
-  DEB=$(ls src-tauri/target/release/bundle/deb/*.deb 2>/dev/null | head -1 || true)
-  APPIMAGE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage 2>/dev/null | head -1 || true)
-  if [ -n "$DEB" ]; then
-    echo "==> Installing $DEB"
-    if command -v apt >/dev/null 2>&1; then
-      sudo apt install -y "$DEB"
-    else
-      sudo dpkg -i "$DEB"
-    fi
-  elif [ -n "$APPIMAGE" ]; then
-    mkdir -p "$HOME/.local/bin"
-    cp "$APPIMAGE" "$HOME/.local/bin/slopchat"
-    chmod +x "$HOME/.local/bin/slopchat"
-    echo "Installed to ~/.local/bin/slopchat"
-  else
-    echo "error: no Linux bundle found" >&2
-    exit 1
-  fi
-  echo "Done. On Wayland bind a compositor key to 'slopchat toggle'."
+    echo "Only macOS is supported currently"
 fi
