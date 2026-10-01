@@ -90,6 +90,7 @@ export function applyTheme(resolved: ResolvedTheme): string[] {
   }
 
   root.dataset.style = resolved.style ?? "minimal";
+  root.style.colorScheme = resolved.scheme;
 
   return invalid;
 }

@@ -7,10 +7,11 @@ export const DEFAULT_SETTINGS: Settings = {
   providers: {},
   profiles: [],
   models: [],
-  startup: "last",
+  startup: "latest",
   resumeWithinMinutes: 10,
   theme: "default-dark",
   style: "auto",
+  advanced: { maxSearches: 5, maxFetches: 50, maxRounds: 4 },
   window: { compactWidth: 680, expandedScreenRatio: 0.7 },
 };
 

@@ -1,7 +1,7 @@
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
-use crate::config::{self, ConfigState, Settings, Startup};
+use crate::config::{self, ConfigState, Settings};
 use crate::panel;
 use crate::providers::client::Streams;
 use crate::providers::kinds::Kind;
@@ -108,8 +108,7 @@ pub fn stop(app: AppHandle, chat_id: String) {
 #[tauri::command(async)]
 pub fn initial_chat(app: AppHandle, store: State<Store>) -> Result<Option<ChatView>, String> {
     let settings = app.state::<ConfigState>().get();
-    let resume_last = matches!(settings.startup, Startup::Last);
-    chats::initial(&store.conn(), resume_last, settings.resume_within_minutes)
+    chats::initial(&store.conn(), settings.startup, settings.resume_within_minutes)
 }
 
 #[tauri::command(async)]
@@ -254,6 +253,21 @@ pub fn set_theme(app: AppHandle, theme: String) -> Result<(), String> {
 #[tauri::command(async)]
 pub fn set_style(app: AppHandle, style: String) -> Result<(), String> {
     config::set_style(&app, &style)
+}
+
+#[tauri::command(async)]
+pub fn save_advanced(app: AppHandle, advanced: config::Advanced) -> Result<(), String> {
+    config::save_advanced(&app, &advanced)
+}
+
+#[tauri::command(async)]
+pub fn set_startup(app: AppHandle, startup: config::Startup) -> Result<(), String> {
+    config::set_startup(&app, startup)
+}
+
+#[tauri::command(async)]
+pub fn set_resume_within(app: AppHandle, minutes: u64) -> Result<(), String> {
+    config::set_resume_within(&app, minutes)
 }
 
 #[tauri::command(async)]

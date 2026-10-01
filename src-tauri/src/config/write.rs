@@ -4,7 +4,7 @@ use std::path::Path;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
-use super::{ModelConfig, Profile, Settings};
+use super::{Advanced, ModelConfig, Profile, Settings, Startup};
 use crate::paths;
 
 pub(super) fn load() -> Result<Settings, String> {
@@ -157,6 +157,32 @@ pub fn set_style(app: &AppHandle, style: &str) -> Result<(), String> {
     patch(app, |value| {
         if let Some(object) = value.as_object_mut() {
             object.insert("style".to_string(), json!(style));
+        }
+    })
+}
+
+pub fn save_advanced(app: &AppHandle, advanced: &Advanced) -> Result<(), String> {
+    let entry = serde_json::to_value(advanced).map_err(|error| error.to_string())?;
+    patch(app, move |value| {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("advanced".to_string(), entry);
+        }
+    })
+}
+
+pub fn set_startup(app: &AppHandle, startup: Startup) -> Result<(), String> {
+    let entry = serde_json::to_value(startup).map_err(|error| error.to_string())?;
+    patch(app, move |value| {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("startup".to_string(), entry);
+        }
+    })
+}
+
+pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
+    patch(app, move |value| {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("resumeWithinMinutes".to_string(), json!(minutes));
         }
     })
 }

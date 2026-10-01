@@ -159,6 +159,7 @@ pub fn new_id(prefix: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Startup;
 
     fn message(chat_id: &str, role: &str, content: &str) -> NewMessage {
         NewMessage {
@@ -217,6 +218,49 @@ mod tests {
 
         assert_eq!(chats::pinned(&conn).unwrap().unwrap().id, second.id);
         assert!(!chats::get(&conn, &first.id).unwrap().unwrap().pinned);
+    }
+
+    #[test]
+    fn resume_modes_pick_the_right_chat() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let first = chats::create(&conn, "default").unwrap();
+        let second = chats::create(&conn, "default").unwrap();
+        chats::touch(&conn, &first.id, now_millis() - 60_000).unwrap();
+        chats::touch(&conn, &second.id, now_millis()).unwrap();
+
+        assert!(chats::initial(&conn, Startup::New, 10).unwrap().is_none());
+        assert_eq!(
+            chats::initial(&conn, Startup::Latest, 10).unwrap().unwrap().chat.id,
+            second.id
+        );
+
+        // Pinned only opens a chat when one is pinned.
+        assert!(chats::initial(&conn, Startup::Pinned, 10).unwrap().is_none());
+        chats::toggle_pin(&conn, &first.id).unwrap();
+        assert_eq!(
+            chats::initial(&conn, Startup::Pinned, 10).unwrap().unwrap().chat.id,
+            first.id
+        );
+        // Latest ignores the pin.
+        assert_eq!(
+            chats::initial(&conn, Startup::Latest, 10).unwrap().unwrap().chat.id,
+            second.id
+        );
+    }
+
+    #[test]
+    fn latest_staleness_zero_means_always() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "default").unwrap();
+        chats::touch(&conn, &chat.id, now_millis() - 11 * 60_000).unwrap();
+
+        assert!(chats::initial(&conn, Startup::Latest, 10).unwrap().is_none());
+        assert_eq!(
+            chats::initial(&conn, Startup::Latest, 0).unwrap().unwrap().chat.id,
+            chat.id
+        );
     }
 
     #[test]

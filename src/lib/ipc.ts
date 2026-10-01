@@ -1,6 +1,7 @@
 import { invoke, type Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  Advanced,
   Attachment,
   Chat,
   ChatView,
@@ -12,6 +13,7 @@ import type {
   SearchProviderUsage,
   SendRequest,
   Settings,
+  Startup,
   StoredMessage,
   StreamEvent,
   ThemeInfo,
@@ -143,6 +145,18 @@ export function setTheme(theme: string): Promise<void> {
 
 export function setStyle(style: string): Promise<void> {
   return invoke("set_style", { style });
+}
+
+export function saveAdvanced(advanced: Advanced): Promise<void> {
+  return invoke("save_advanced", { advanced });
+}
+
+export function setStartup(startup: Startup): Promise<void> {
+  return invoke("set_startup", { startup });
+}
+
+export function setResumeWithin(minutes: number): Promise<void> {
+  return invoke("set_resume_within", { minutes });
 }
 
 export function loadUserThemes(): Promise<ThemeInfo[]> {

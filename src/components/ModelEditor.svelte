@@ -121,20 +121,34 @@
 
   <label class="row">
     <span class="label">Use context</span>
-    <input type="checkbox" bind:checked={useContext} />
+    <span class="check">
+      <input type="checkbox" bind:checked={useContext} />
+      <span class="box"></span>
+    </span>
   </label>
 
   <label class="row">
     <span class="label">Tool calling</span>
-    <input type="checkbox" bind:checked={toolCalling} />
+    <span class="check">
+      <input type="checkbox" bind:checked={toolCalling} />
+      <span class="box"></span>
+    </span>
   </label>
 
   {#if toolCalling}
     <div class="row">
       <span class="label">Tools</span>
       <span class="checks">
-        <label><input type="checkbox" checked={tools.has("web_search")} onchange={() => toggleTool("web_search")} /> web_search</label>
-        <label><input type="checkbox" checked={tools.has("web_fetch")} onchange={() => toggleTool("web_fetch")} /> web_fetch</label>
+        <label class="check">
+          <input type="checkbox" checked={tools.has("web_search")} onchange={() => toggleTool("web_search")} />
+          <span class="box"></span>
+          web_search
+        </label>
+        <label class="check">
+          <input type="checkbox" checked={tools.has("web_fetch")} onchange={() => toggleTool("web_fetch")} />
+          <span class="box"></span>
+          web_fetch
+        </label>
       </span>
     </div>
   {/if}
@@ -238,6 +252,54 @@
     gap: var(--sp-3);
     color: var(--text-secondary);
     font-size: var(--fs-sm);
+  }
+
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    cursor: default;
+  }
+
+  .check input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+
+  .check .box {
+    position: relative;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .check input:checked + .box {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .check input:checked + .box::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--accent-contrast);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .check input:focus-visible + .box {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .actions {

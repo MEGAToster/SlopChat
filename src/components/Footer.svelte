@@ -13,7 +13,7 @@
     reasoningInfo,
     reasoningOverride,
   } from "../lib/state/reasoning.svelte";
-  import { followOutput, tracking } from "../lib/state/view.svelte";
+  import { followOutput, view } from "../lib/state/view.svelte";
   import { effectiveWebMode } from "../lib/webSearch";
   import { settings } from "../lib/state/settings.svelte";
   import {
@@ -142,18 +142,20 @@
         <span><Kbd binding="Esc" /> Cancel</span>
       {:else if isStreamingHere()}
         <span><Kbd binding={keybinds.stop?.[0]} /> Stop</span>
-      {:else}
-        <button
-          type="button"
-          class="follow"
-          class:on={tracking()}
-          title="Follow output / jump to present"
-          onclick={followOutput}
-        >
-          <Icon name="follow" size={13} />
-          <Kbd binding={keybinds.follow?.[0]} />
-        </button>
       {/if}
+    </div>
+
+    <div class="controls" class:managing={sidebar}>
+      <button
+        type="button"
+        class="follow"
+        class:on={view.tracking}
+        title="Follow output / jump to present"
+        onclick={followOutput}
+      >
+        <Icon name="follow" size={13} />
+        <Kbd binding={keybinds.follow?.[0]} />
+      </button>
 
       <button
         type="button"
@@ -165,9 +167,7 @@
         <Icon name="lock" size={13} />
         <Kbd binding={keybinds.sticky?.[0]} />
       </button>
-    </div>
 
-    {#if !sidebar}
       <button
         type="button"
         class="web"
@@ -176,9 +176,10 @@
         disabled={config?.toolCalling === false}
         onclick={cycleWeb}
       >
-        {web === "off" ? "WEB OFF" : web === "on" ? "WEB ON" : "WEB"}
+        <Icon name={web === "off" ? "globe-off" : "globe"} size={13} />
+        <Kbd binding={keybinds.webToggle?.[0]} />
       </button>
-    {/if}
+    </div>
   </div>
 </footer>
 
@@ -200,27 +201,66 @@
     display: none;
   }
 
-  .web {
+  .controls {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: var(--sp-2);
     margin-left: auto;
-    padding: 0 6px;
+  }
+
+  .follow,
+  .sticky,
+  .web {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: 4px;
     border: none;
-    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-tertiary);
     font: inherit;
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    font-size: var(--fs-sm);
     cursor: default;
   }
 
-  .web[data-state="on"] {
-    background: var(--c-purple, var(--accent));
-    color: var(--bg);
+  .follow,
+  .sticky {
+    opacity: 0.55;
   }
 
-  .web[data-state="off"] {
-    text-decoration: line-through;
+  .follow.on,
+  .sticky.on {
+    color: var(--accent);
+    opacity: 1;
+  }
+
+  /* Web: the globe keeps its three stages; the keybind only lights up when on. */
+  .web :global(svg),
+  .web :global(.kbd) {
+    opacity: 0.55;
+  }
+
+  .web[data-state="auto"] :global(svg) {
+    opacity: 1;
+  }
+
+  .web[data-state="on"] {
+    color: var(--accent);
+  }
+
+  .web[data-state="on"] :global(svg),
+  .web[data-state="on"] :global(.kbd) {
+    opacity: 1;
+  }
+
+  .web:disabled :global(svg),
+  .web:disabled :global(.kbd) {
+    opacity: 0.35;
+  }
+
+  .controls.managing .web {
+    display: none;
   }
 
   .profile {
@@ -288,37 +328,4 @@
     gap: 4px;
   }
 
-  .sticky {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-    gap: 4px;
-    border: none;
-    background: transparent;
-    color: var(--text-tertiary);
-    font: inherit;
-    font-size: var(--fs-sm);
-    cursor: default;
-  }
-
-  .sticky.on {
-    color: var(--accent);
-  }
-
-  .follow {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-    gap: 4px;
-    border: none;
-    background: transparent;
-    color: var(--text-tertiary);
-    font: inherit;
-    font-size: var(--fs-sm);
-    cursor: default;
-  }
-
-  .follow.on {
-    color: var(--accent);
-  }
 </style>

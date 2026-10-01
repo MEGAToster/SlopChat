@@ -18,7 +18,7 @@
   } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
   import { createActions } from "./lib/state/actions.svelte";
-  import { init as initChat } from "./lib/state/chatHistory.svelte";
+  import { init as initChat, resumeOnShow } from "./lib/state/chatHistory.svelte";
   import { chatError, isStreaming, messages } from "./lib/state/chatStore.svelte";
   import {
     back as paletteBack,
@@ -145,6 +145,7 @@
     const subscriptions = [
       onPanelShown(() => {
         if (keyContext() === "composer") focusComposer();
+        void resumeOnShow({ hasDraft: text.trim().length > 0, streaming: isStreaming() });
       }),
       onStickyChanged((value) => (sticky = value)),
       onSearchUnavailable((message) => notify(message, "warning")),

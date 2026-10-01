@@ -1,9 +1,19 @@
 use std::collections::BTreeMap;
 
 use super::{
-    ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides, Provider, SearchSettings,
-    Settings, Startup, WebSearchMode, WindowConfig,
+    Advanced, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides, Provider,
+    SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
 };
+
+impl Default for Advanced {
+    fn default() -> Self {
+        Self {
+            max_searches: 5,
+            max_fetches: 50,
+            max_rounds: 4,
+        }
+    }
+}
 
 impl Default for ModelConfig {
     fn default() -> Self {
@@ -98,6 +108,7 @@ impl Default for Settings {
             style: "auto".to_string(),
             font: None,
             search: SearchSettings::default(),
+            advanced: Advanced::default(),
             window: WindowConfig::default(),
         }
     }

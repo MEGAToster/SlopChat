@@ -124,6 +124,18 @@ pub fn set_style(app: &AppHandle, style: &str) -> Result<(), String> {
     write::set_style(app, style)
 }
 
+pub fn save_advanced(app: &AppHandle, advanced: &Advanced) -> Result<(), String> {
+    write::save_advanced(app, advanced)
+}
+
+pub fn set_startup(app: &AppHandle, startup: Startup) -> Result<(), String> {
+    write::set_startup(app, startup)
+}
+
+pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
+    write::set_resume_within(app, minutes)
+}
+
 pub fn load_user_themes() -> Vec<UserTheme> {
     themes::load_user()
 }

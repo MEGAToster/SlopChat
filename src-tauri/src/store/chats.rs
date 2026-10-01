@@ -2,6 +2,7 @@ use rusqlite::{params, Connection, Row};
 use serde::Serialize;
 
 use super::Message;
+use crate::config::Startup;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,28 +95,28 @@ pub fn view(conn: &Connection, chat: Chat) -> Result<ChatView, String> {
 
 pub fn initial(
     conn: &Connection,
-    resume_last: bool,
+    mode: Startup,
     resume_minutes: u64,
 ) -> Result<Option<ChatView>, String> {
-    let chat = if let Some(chat) = pinned(conn)? {
-        Some(chat)
-    } else if resume_last {
-        match most_recent(conn)? {
-            Some(chat)
-                if super::now_millis() - chat.updated_at <= (resume_minutes as i64) * 60_000 =>
-            {
-                Some(chat)
-            }
+    let chat = match mode {
+        Startup::New => None,
+        Startup::Pinned => pinned(conn)?,
+        Startup::Latest => match most_recent(conn)? {
+            Some(chat) if within(&chat, resume_minutes) => Some(chat),
             _ => None,
-        }
-    } else {
-        None
+        },
     };
 
     match chat {
         Some(chat) => view(conn, chat).map(Some),
         None => Ok(None),
     }
+}
+
+// Zero minutes means "always resume" — no staleness limit.
+fn within(chat: &Chat, resume_minutes: u64) -> bool {
+    resume_minutes == 0
+        || super::now_millis() - chat.updated_at <= (resume_minutes as i64) * 60_000
 }
 
 pub fn create(conn: &Connection, profile: &str) -> Result<Chat, String> {

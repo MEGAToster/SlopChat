@@ -52,8 +52,16 @@
     <path d="m5 6 6 6-6 6" />
     <path d="M13 18h6" />
   {:else if name === "follow"}
-    <path d="M12 4v11" />
-    <path d="m7 10 5 5 5-5" />
-    <path d="M5 20h14" />
+    <path d="M12 5v13" />
+    <path d="m6 12 6 6 6-6" />
+  {:else if name === "globe"}
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18" />
+    <path d="M12 3c2.6 3 2.6 15 0 18M12 3c-2.6 3-2.6 15 0 18" />
+  {:else if name === "globe-off"}
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18" />
+    <path d="M12 3c2.6 3 2.6 15 0 18M12 3c-2.6 3-2.6 15 0 18" />
+    <path d="m4 4 16 16" />
   {/if}
 </svg>

@@ -6,17 +6,37 @@ import {
   listChats,
   toggleChatPin,
 } from "../ipc";
+import type { ChatView } from "../types";
 import { chatState } from "./chatStore.svelte";
 import { lastUsageOf, toChatMessage } from "./messages";
 
 export async function init(): Promise<void> {
+  applyView(await initialChat());
+  await refreshChats();
+}
+
+// Applies the "On open" setting when the panel is summoned. Skips while a
+// response is streaming or an unsent draft exists so nothing is lost.
+export async function resumeOnShow(options: {
+  hasDraft: boolean;
+  streaming: boolean;
+}): Promise<void> {
+  if (options.hasDraft || options.streaming) return;
+
   const view = await initialChat();
-  if (view) {
-    chatState.activeChatId = view.chat.id;
-    chatState.messages = view.messages.map(toChatMessage);
-    chatState.usage = lastUsageOf(view.messages);
+  if (view === null) {
+    if (chatState.activeChatId !== null || chatState.messages.length > 0) applyView(null);
+  } else if (view.chat.id !== chatState.activeChatId) {
+    applyView(view);
   }
   await refreshChats();
+}
+
+function applyView(view: ChatView | null): void {
+  chatState.activeChatId = view?.chat.id ?? null;
+  chatState.messages = view ? view.messages.map(toChatMessage) : [];
+  chatState.usage = view ? lastUsageOf(view.messages) : null;
+  chatState.error = null;
 }
 
 export async function refreshChats(): Promise<void> {

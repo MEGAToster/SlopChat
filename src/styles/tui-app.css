@@ -165,8 +165,18 @@
   white-space: nowrap;
 }
 
-[data-style="tui"] .footer .sticky {
-  padding: 0 8px;
+/* Power users get icons only: the keybind chips are hidden. */
+[data-style="tui"] .footer .kbd {
+  display: none;
+}
+
+[data-style="tui"] .footer .controls {
+  gap: var(--sp-3);
+}
+
+/* No sidebar hints in TUI, so keep the web icon while managing chats. */
+[data-style="tui"] .footer .controls.managing .web {
+  display: inline-flex;
 }
 
 [data-style="tui"] .footer .effort {

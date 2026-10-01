@@ -20,7 +20,16 @@ pub struct Settings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font: Option<Font>,
     pub search: SearchSettings,
+    pub advanced: Advanced,
     pub window: WindowConfig,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Advanced {
+    pub max_searches: u32,
+    pub max_fetches: u32,
+    pub max_rounds: u32,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -312,11 +321,13 @@ impl WebSearchMode {
     }
 }
 
-#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Startup {
+    Pinned,
     #[default]
-    Last,
+    #[serde(alias = "last")]
+    Latest,
     New,
 }
 
@@ -351,6 +362,27 @@ mod tests {
         assert_eq!(settings.keybinds.toggle, vec!["Ctrl+Space".to_string()]);
         assert_eq!(settings.keybinds.palette, Keybinds::default().palette);
         assert_eq!(settings.resume_within_minutes, 10);
+    }
+
+    #[test]
+    fn advanced_has_documented_defaults() {
+        let settings: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(settings.advanced.max_searches, 5);
+        assert_eq!(settings.advanced.max_fetches, 50);
+        assert_eq!(settings.advanced.max_rounds, 4);
+        assert_eq!(settings.startup, Startup::Latest);
+    }
+
+    #[test]
+    fn open_modes_parse_and_legacy_last_maps_to_latest() {
+        let pinned: Settings = serde_json::from_str(r#"{"startup":"pinned"}"#).unwrap();
+        assert_eq!(pinned.startup, Startup::Pinned);
+        let latest: Settings = serde_json::from_str(r#"{"startup":"latest"}"#).unwrap();
+        assert_eq!(latest.startup, Startup::Latest);
+        let legacy: Settings = serde_json::from_str(r#"{"startup":"last"}"#).unwrap();
+        assert_eq!(legacy.startup, Startup::Latest);
+        let new: Settings = serde_json::from_str(r#"{"startup":"new"}"#).unwrap();
+        assert_eq!(new.startup, Startup::New);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { isStreamingHere, isThinking, messages } from "../lib/state/chatStore.svelte";
-  import { tracking } from "../lib/state/view.svelte";
+  import { view } from "../lib/state/view.svelte";
   import Message from "./Message.svelte";
 
   let viewport = $state<HTMLDivElement | null>(null);
@@ -24,7 +24,7 @@
   });
 
   $effect(() => {
-    if (tracking() && pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
+    if (view.tracking && pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
   });
 </script>
 

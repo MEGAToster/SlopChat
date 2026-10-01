@@ -55,7 +55,13 @@ export type ReasoningInfo = {
   defaultEffort?: string;
 };
 
-export type Startup = "last" | "new";
+export type Startup = "pinned" | "latest" | "new";
+
+export type Advanced = {
+  maxSearches: number;
+  maxFetches: number;
+  maxRounds: number;
+};
 
 export type WindowConfig = {
   compactWidth: number;
@@ -72,6 +78,7 @@ export type Settings = {
   theme: string;
   style: "auto" | ThemeStyles;
   font?: FontSettings;
+  advanced: Advanced;
   window: WindowConfig;
 };
 

@@ -8,10 +8,6 @@ use super::{kinds::Kind, leak, ModelRef, StreamEvent};
 use crate::config::{ConfigState, WebSearchMode};
 use crate::tools::{self, ToolContext, ToolOutput};
 
-const MAX_ROUNDS: usize = 4;
-const MAX_SEARCHES: usize = 5;
-// Fetches are free; this is only a safety bound, effectively unlimited.
-const MAX_FETCHES: usize = 50;
 const STOP_HINT: &str =
     "web_search is used up for this turn — you may still call web_fetch, or answer now using the results above";
 const LEAK_NOTE: &str = "_(the model tried to call tools in an unsupported format)_";
@@ -97,6 +93,11 @@ async fn run_turn(
         TurnError::Failed(format!("provider {:?} is not supported", model.provider))
     })?;
     let settings = app.state::<ConfigState>().get();
+
+    // Clamp so a bad setting can't stall or unbound the turn.
+    let max_rounds = settings.advanced.max_rounds.clamp(1, 10) as usize;
+    let max_searches = settings.advanced.max_searches.clamp(1, 20) as usize;
+    let max_fetches = settings.advanced.max_fetches.clamp(0, 100) as usize;
 
     let key = if kind.needs_auth() {
         Some(
@@ -185,7 +186,7 @@ async fn run_turn(
     let mut searches = 0usize;
     let mut fetches = 0usize;
 
-    for _ in 0..MAX_ROUNDS {
+    for _ in 0..max_rounds {
         let can_search = tool_names.iter().any(|name| name == "web_search");
         // Tools stay available after the wrap-up so web_fetch keeps working;
         // further searches are refused per call instead.
@@ -245,7 +246,7 @@ async fn run_turn(
         for call in &calls {
             let search = call.name == "web_search";
             let fetch = call.name == "web_fetch" || call.name == "fetch_url";
-            let allowed = (!search || searches < MAX_SEARCHES) && (!fetch || fetches < MAX_FETCHES);
+            let allowed = (!search || searches < max_searches) && (!fetch || fetches < max_fetches);
 
             if !allowed {
                 // Our own budget, not a provider failure: tell the model, but

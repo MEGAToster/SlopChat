@@ -1,7 +1,16 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { removeModel, removeProfile, saveModel, saveProfile, searchUsage } from "../lib/ipc";
-  import type { ModelConfig, Profile, SearchProviderUsage } from "../lib/types";
+  import { onMount, tick } from "svelte";
+  import {
+    removeModel,
+    removeProfile,
+    saveAdvanced,
+    saveModel,
+    saveProfile,
+    searchUsage,
+    setResumeWithin,
+    setStartup,
+  } from "../lib/ipc";
+  import type { Advanced, ModelConfig, Profile, SearchProviderUsage, Startup } from "../lib/types";
   import {
     composedModel,
     modelId,
@@ -33,6 +42,7 @@
   let modelPrevious = $state<string | null>(null);
   let editingProfile = $state<Profile | null>(null);
   let profilePrevious = $state<string | null>(null);
+  let advancedEl = $state<HTMLDetailsElement | null>(null);
 
   function blankModel(): ModelConfig {
     return { model: "", useContext: true, tools: [], toolCalling: true, webSearch: "auto" };
@@ -104,6 +114,24 @@
   function dim(name: string): boolean {
     const entry = usage[name];
     return entry !== undefined && (!entry.hasKey || entry.exhausted);
+  }
+
+  function clamp(event: Event, min: number, max: number): number {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    return Math.min(max, Math.max(min, Math.round(value)));
+  }
+
+  function saveLimits(patch: Partial<Advanced>): void {
+    void saveAdvanced({ ...settings().advanced, ...patch });
+  }
+
+  function changeStartup(event: Event): void {
+    void setStartup((event.currentTarget as HTMLSelectElement).value as Startup);
+  }
+
+  async function onAdvancedToggle(): Promise<void> {
+    await tick();
+    advancedEl?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 </script>
 
@@ -177,6 +205,69 @@
           />
         {/each}
         <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>
+
+        <details class="advanced" bind:this={advancedEl} ontoggle={onAdvancedToggle}>
+          <summary class="section-title">Advanced</summary>
+
+          <div class="adv-row">
+            <span class="adv-label">On open</span>
+            <select class="control" value={settings().startup} onchange={changeStartup}>
+              <option value="pinned">Pinned chat</option>
+              <option value="latest">Latest chat</option>
+              <option value="new">New chat</option>
+            </select>
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">Resume within <span class="adv-unit">(in min)</span></span>
+            <input
+              class="control"
+              type="number"
+              min="0"
+              title="0 = no limit (always resume)"
+              value={settings().resumeWithinMinutes}
+              onchange={(event) => void setResumeWithin(clamp(event, 0, 100000))}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">Max web searches / reply</span>
+            <input
+              class="control"
+              type="number"
+              min="1"
+              max="20"
+              value={settings().advanced.maxSearches}
+              onchange={(event) => saveLimits({ maxSearches: clamp(event, 1, 20) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">Max page fetches / reply</span>
+            <input
+              class="control"
+              type="number"
+              min="0"
+              max="100"
+              value={settings().advanced.maxFetches}
+              onchange={(event) => saveLimits({ maxFetches: clamp(event, 0, 100) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">Max tool rounds</span>
+            <input
+              class="control"
+              type="number"
+              min="1"
+              max="10"
+              value={settings().advanced.maxRounds}
+              onchange={(event) => saveLimits({ maxRounds: clamp(event, 1, 10) })}
+            />
+          </div>
+
+          <p class="muted">“On open” applies at launch and when the window is summoned with the keybind.</p>
+        </details>
       {/if}
     </div>
   </Frame>
@@ -285,6 +376,65 @@
     color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
+  }
+
+  .advanced {
+    margin-top: var(--sp-2);
+    scroll-margin-block: var(--sp-2);
+  }
+
+  .advanced > summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .advanced > summary::before {
+    content: "▸";
+    margin-right: var(--sp-1);
+  }
+
+  .advanced[open] > summary::before {
+    content: "▾";
+  }
+
+  .adv-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 36px;
+    padding: 0 var(--sp-2);
+  }
+
+  .adv-label {
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+  }
+
+  .adv-unit {
+    color: var(--text-tertiary);
+    font-size: var(--fs-sm);
+  }
+
+  .control {
+    flex: none;
+    width: 72px;
+    padding: 4px var(--sp-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: var(--fs-sm);
+  }
+
+  .control:focus {
+    outline: 1px solid var(--accent);
+  }
+
+  select.control {
+    width: auto;
+    cursor: pointer;
   }
 
   .ghost {
