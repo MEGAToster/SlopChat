@@ -17,16 +17,8 @@ import type {
   ThemeInfo,
 } from "./types";
 
-export function showPanel(): Promise<void> {
-  return invoke("show_panel");
-}
-
 export function hidePanel(): Promise<void> {
   return invoke("hide_panel");
-}
-
-export function togglePanel(): Promise<void> {
-  return invoke("toggle_panel");
 }
 
 export function toggleSticky(): Promise<boolean> {
@@ -71,10 +63,6 @@ export function stop(chatId: string): Promise<void> {
 
 export function setPanelExpanded(expanded: boolean): Promise<void> {
   return invoke("set_panel_expanded", { expanded });
-}
-
-export function isPanelExpanded(): Promise<boolean> {
-  return invoke("is_panel_expanded");
 }
 
 export function initialChat(): Promise<ChatView | null> {
@@ -129,8 +117,8 @@ export function reloadConfig(): Promise<void> {
   return invoke("reload_config");
 }
 
-export function saveModel(model: ModelConfig): Promise<void> {
-  return invoke("save_model", { model });
+export function saveModel(model: ModelConfig, previous?: string): Promise<void> {
+  return invoke("save_model", { model, previous });
 }
 
 export function removeModel(model: string): Promise<void> {
@@ -165,12 +153,8 @@ export function openUrl(url: string): Promise<void> {
   return invoke("open_url", { url });
 }
 
-export function setWindowStyle(
-  scheme: string,
-  vibrancy: string,
-  opacity: number,
-): Promise<void> {
-  return invoke("set_window_style", { scheme, vibrancy, opacity });
+export function setWindowStyle(scheme: string, vibrancy: string): Promise<void> {
+  return invoke("set_window_style", { scheme, vibrancy });
 }
 
 export function setSuppressHide(value: boolean): Promise<void> {

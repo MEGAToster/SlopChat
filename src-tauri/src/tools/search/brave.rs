@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::hit::{Batch, Hit};
+use super::hit::{text, Batch, Hit};
 use super::{BackendCtx, SearchError, TIMEOUT};
 use crate::tools::html;
 
@@ -47,14 +47,6 @@ fn parse(value: &Value) -> Batch {
         units: 1,
         cost_usd: COST_PER_QUERY,
     }
-}
-
-fn text(value: &Value, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string()
 }
 
 #[cfg(test)]

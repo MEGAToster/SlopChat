@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod panel;
 mod paths;
+mod platform;
 mod providers;
 mod secrets;
 mod store;

@@ -13,8 +13,6 @@ pub struct ReasoningInfo {
     pub supported_efforts: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_effort: Option<String>,
-    pub default_enabled: bool,
-    pub mandatory: bool,
 }
 
 fn cache() -> &'static Mutex<HashMap<String, bool>> {
@@ -57,12 +55,7 @@ pub async fn reasoning(
     info
 }
 
-async fn openrouter_reasoning(
-    settings: &Settings,
-    key: Option<&str>,
-    model: &str,
-) -> Option<ReasoningInfo> {
-    let key = key?;
+async fn fetch_models(settings: &Settings, key: &str) -> Option<Value> {
     let response = super::client()
         .get(Kind::OpenRouter.models_url(settings))
         .bearer_auth(key)
@@ -70,8 +63,15 @@ async fn openrouter_reasoning(
         .send()
         .await
         .ok()?;
-    let body = response.json::<Value>().await.ok()?;
+    response.json::<Value>().await.ok()
+}
 
+async fn openrouter_reasoning(
+    settings: &Settings,
+    key: Option<&str>,
+    model: &str,
+) -> Option<ReasoningInfo> {
+    let body = fetch_models(settings, key?).await?;
     let entry = find_entry(body.get("data")?.as_array()?, model)?;
     let reasoning = entry.get("reasoning")?;
 
@@ -91,14 +91,6 @@ async fn openrouter_reasoning(
             .get("default_effort")
             .and_then(Value::as_str)
             .map(str::to_string),
-        default_enabled: reasoning
-            .get("default_enabled")
-            .and_then(Value::as_bool)
-            .unwrap_or(true),
-        mandatory: reasoning
-            .get("mandatory")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
     })
 }
 
@@ -129,15 +121,7 @@ async fn openrouter(settings: &Settings, key: Option<&str>, model: &str) -> bool
     let Some(key) = key else {
         return true;
     };
-    let request = super::client()
-        .get(Kind::OpenRouter.models_url(settings))
-        .bearer_auth(key)
-        .timeout(Duration::from_secs(5));
-
-    let Ok(response) = request.send().await else {
-        return true;
-    };
-    let Ok(body) = response.json::<Value>().await else {
+    let Some(body) = fetch_models(settings, key).await else {
         return true;
     };
 

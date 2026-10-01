@@ -1,30 +1,19 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { removeModel, removeProfile, saveModel, saveProfile, searchUsage } from "../lib/ipc";
-  import { REASONING_LEVELS } from "../lib/reasoningLevels";
-  import type { SearchProviderUsage } from "../lib/types";
-  import {
-    add,
-    composedModel,
-    modelId,
-    provider,
-    reasoning,
-    setModelId,
-    setProvider,
-    setReasoning,
-    setTag,
-    tag,
-    tags,
-  } from "../lib/state/settingsPanel.svelte";
+  import type { ModelConfig, Profile, SearchProviderUsage } from "../lib/types";
+  import { composedModel, modelId } from "../lib/state/settingsPanel.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import ApiKeyRow from "./ApiKeyRow.svelte";
   import Frame from "./Frame.svelte";
-  import ModelRow from "./ModelRow.svelte";
+  import ModelEditor from "./ModelEditor.svelte";
+  import ProfileEditor from "./ProfileEditor.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
 
   const providers = $derived(Object.keys(settings().providers));
   const models = $derived(settings().models);
+  const profiles = $derived(settings().profiles);
 
   const searchProviders = [
     { name: "exa", label: "Exa", placeholder: "exa-…", hint: "$10 free credit / month" },
@@ -33,25 +22,56 @@
     { name: "brave", label: "Brave", placeholder: "…", hint: "$5 free credit / month" },
   ];
 
-  let modelInput = $state<HTMLInputElement | null>(null);
   let usage = $state<Record<string, SearchProviderUsage>>({});
   let order = $state("exa → serper → tavily → brave");
 
-  let rotationName = $state("");
-  let rotationModel = $state("");
-  let rotationReasoning = $state("");
+  let editingModel = $state<ModelConfig | null>(null);
+  let modelPrevious = $state<string | null>(null);
+  let editingProfile = $state<Profile | null>(null);
+  let profilePrevious = $state<string | null>(null);
 
-  async function addRotation(): Promise<void> {
-    if (!rotationName.trim() || !rotationModel.trim()) return;
-    await saveProfile({
-      name: rotationName.trim(),
-      model: rotationModel.trim(),
-      useContext: true,
-      reasoning: rotationReasoning || undefined,
-    });
-    rotationName = "";
-    rotationModel = "";
-    rotationReasoning = "";
+  function blankModel(): ModelConfig {
+    return { model: "", useContext: true, tools: [], toolCalling: true, webSearch: "auto" };
+  }
+
+  function openModel(entry: ModelConfig): void {
+    editingModel = { ...entry };
+    modelPrevious = entry.model;
+  }
+
+  function openNewModel(): void {
+    editingModel = blankModel();
+    modelPrevious = null;
+  }
+
+  function openProfile(entry: Profile): void {
+    editingProfile = { ...entry };
+    profilePrevious = entry.name;
+  }
+
+  function openNewProfile(): void {
+    editingProfile = { name: "", model: models[0]?.model ?? "", useContext: true };
+    profilePrevious = null;
+  }
+
+  async function saveModelEdit(config: ModelConfig, previous: string | null): Promise<void> {
+    await saveModel(config, previous ?? undefined);
+    editingModel = null;
+  }
+
+  async function deleteModelEdit(): Promise<void> {
+    if (modelPrevious) await removeModel(modelPrevious);
+    editingModel = null;
+  }
+
+  async function saveProfileEdit(profile: Profile): Promise<void> {
+    await saveProfile(profile);
+    editingProfile = null;
+  }
+
+  async function deleteProfileEdit(): Promise<void> {
+    if (profilePrevious) await removeProfile(profilePrevious);
+    editingProfile = null;
   }
 
   async function refreshUsage(): Promise<void> {
@@ -61,8 +81,9 @@
   }
 
   onMount(() => {
-    modelInput?.focus();
     void refreshUsage();
+    // Opened from the palette's "Add models…" with a prefilled provider/model.
+    if (modelId()) openModel({ ...blankModel(), model: composedModel() });
   });
 
   function dim(name: string): boolean {
@@ -74,121 +95,74 @@
 <div class="settings">
   <Frame title="settings" hint="⎋ close" focused>
     <header class="head">
-    <h2>Settings</h2>
-    <button type="button" class="ghost" onclick={onclose}>Done</button>
-  </header>
+      <h2>Settings</h2>
+      <button type="button" class="ghost" onclick={onclose}>Done</button>
+    </header>
 
-  <div class="body">
-    <div class="section-title">Add model</div>
-
-    <label class="row">
-      <span class="label">Provider</span>
-      <select class="control" value={provider()} onchange={(event) => setProvider(event.currentTarget.value)}>
-        {#each providers as name (name)}
-          <option value={name}>{name}</option>
-        {/each}
-      </select>
-    </label>
-
-    <label class="row">
-      <span class="label">Model id</span>
-      <input
-        bind:this={modelInput}
-        class="control"
-        value={modelId()}
-        placeholder="deepseek/deepseek-v4.1-flash"
-        oninput={(event) => setModelId(event.currentTarget.value)}
-      />
-    </label>
-
-    {#if tags().length > 1}
-      <label class="row">
-        <span class="label">Tag</span>
-        <select class="control" value={tag()} onchange={(event) => setTag(event.currentTarget.value)}>
-          {#each tags() as variant (variant)}
-            <option value={variant}>{variant || "none"}</option>
-          {/each}
-        </select>
-      </label>
-    {/if}
-
-    <label class="row">
-      <span class="label">Reasoning</span>
-      <select
-        class="control"
-        value={reasoning()}
-        onchange={(event) => setReasoning(event.currentTarget.value)}
-      >
-        {#each REASONING_LEVELS as value (value)}
-          <option value={value}>{value || "default"}</option>
-        {/each}
-      </select>
-    </label>
-
-    <div class="row">
-      <span class="label">Preview</span>
-      <span class="preview">{composedModel() || "—"}</span>
-    </div>
-
-    <button type="button" class="primary" disabled={!composedModel()} onclick={() => void add().then(onclose)}>
-      Add model
-    </button>
-
-    <div class="section-title">Configured models</div>
-    {#if models.length === 0}
-      <p class="muted">No models configured yet.</p>
-    {:else}
-      {#each models as entry (entry.model)}
-        <ModelRow
-          label={entry.model}
-          reasoning={entry.reasoning ?? ""}
-          onreasoning={(value) => void saveModel({ ...entry, reasoning: value || undefined })}
-          onremove={() => void removeModel(entry.model)}
+    <div class="body">
+      {#if editingModel}
+        <ModelEditor
+          {providers}
+          value={editingModel}
+          previous={modelPrevious}
+          onsave={(config, previous) => void saveModelEdit(config, previous)}
+          oncancel={() => (editingModel = null)}
+          onremove={modelPrevious ? () => void deleteModelEdit() : undefined}
         />
-      {/each}
-    {/if}
+      {:else if editingProfile}
+        <ProfileEditor
+          {models}
+          value={editingProfile}
+          previous={profilePrevious}
+          onsave={(profile) => void saveProfileEdit(profile)}
+          oncancel={() => (editingProfile = null)}
+          onremove={profilePrevious ? () => void deleteProfileEdit() : undefined}
+        />
+      {:else}
+        <div class="section-head">
+          <div class="section-title">Models</div>
+          <button type="button" class="ghost" onclick={openNewModel}>Add model</button>
+        </div>
+        {#if models.length === 0}
+          <p class="muted">No models yet.</p>
+        {:else}
+          {#each models as entry (entry.model)}
+            <button type="button" class="item" onclick={() => openModel(entry)}>
+              <span class="item-label">{entry.model}</span>
+              {#if entry.reasoning}<span class="tag">{entry.reasoning}</span>{/if}
+            </button>
+          {/each}
+        {/if}
 
-    <div class="section-title">Rotation (Shift+Tab)</div>
-    {#each settings().profiles as entry (entry.name)}
-      <ModelRow
-        label={entry.name}
-        detail={entry.model}
-        reasoning={entry.reasoning ?? ""}
-        onreasoning={(value) => void saveProfile({ ...entry, reasoning: value || undefined })}
-        onremove={() => void removeProfile(entry.name)}
-      />
-    {/each}
-    <div class="add-row">
-      <input class="mini" placeholder="name" bind:value={rotationName} />
-      <input class="mini" placeholder="provider/model" bind:value={rotationModel} />
-      <select class="mini" bind:value={rotationReasoning}>
-        {#each REASONING_LEVELS as value (value)}
-          <option value={value}>{value || "default"}</option>
+        <div class="section-head">
+          <div class="section-title">Rotation (Shift+Tab)</div>
+          <button type="button" class="ghost" onclick={openNewProfile}>Add to rotation</button>
+        </div>
+        {#if profiles.length === 0}
+          <p class="muted">No rotation entries yet.</p>
+        {:else}
+          {#each profiles as entry (entry.name)}
+            <button type="button" class="item" onclick={() => openProfile(entry)}>
+              <span class="item-name">{entry.name}</span>
+              <span class="item-label">{entry.model}</span>
+            </button>
+          {/each}
+        {/if}
+
+        <div class="section-title">Web search</div>
+        <p class="order">{order}</p>
+        {#each searchProviders as entry (entry.name)}
+          <ApiKeyRow
+            provider={entry.name}
+            label={entry.label}
+            placeholder={entry.placeholder}
+            hint={entry.hint}
+            dim={dim(entry.name)}
+            onchange={() => void refreshUsage()}
+          />
         {/each}
-      </select>
-      <button
-        type="button"
-        class="ghost"
-        disabled={!rotationName.trim() || !rotationModel.trim()}
-        onclick={() => void addRotation()}
-      >
-        Add
-      </button>
-    </div>
-
-    <div class="section-title">Web search</div>
-    <p class="order">{order}</p>
-    {#each searchProviders as entry (entry.name)}
-      <ApiKeyRow
-        provider={entry.name}
-        label={entry.label}
-        placeholder={entry.placeholder}
-        hint={entry.hint}
-        dim={dim(entry.name)}
-        onchange={() => void refreshUsage()}
-      />
-    {/each}
-    <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>
+        <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>
+      {/if}
     </div>
   </Frame>
 </div>
@@ -208,6 +182,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex: none;
     height: 52px;
     padding: 0 var(--sp-4);
     border-bottom: 1px solid var(--border);
@@ -221,8 +196,16 @@
 
   .body {
     flex: 1;
+    min-height: 0;
     padding: var(--sp-2);
     overflow-y: auto;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: var(--sp-2);
   }
 
   .section-title {
@@ -237,88 +220,56 @@
     text-transform: uppercase;
   }
 
-  .row {
+  .item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-3);
+    gap: var(--sp-2);
+    width: 100%;
     min-height: 40px;
     padding: 0 var(--sp-2);
+    border: none;
     border-radius: var(--radius-md);
-  }
-
-  .label {
-    color: var(--text-secondary);
-    font-size: var(--fs-md);
-  }
-
-  .control {
-    width: 60%;
-    height: 28px;
-    padding: 0 var(--sp-2);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    outline: none;
-    background: var(--surface);
+    background: transparent;
     color: var(--text);
     font: inherit;
-    font-size: var(--fs-md);
-    text-align: right;
+    text-align: left;
+    cursor: default;
   }
 
-  .control:focus {
-    border-color: var(--accent);
+  .item:hover {
+    background: var(--surface-hover);
   }
 
-  .preview {
+  .item-name {
+    flex: none;
+    color: var(--text);
+    font-size: var(--fs-sm);
+  }
+
+  .item-label {
     overflow: hidden;
-    color: var(--accent);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
-  .add-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    min-height: 40px;
-    padding: 0 var(--sp-2);
+  .tag {
+    flex: none;
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
   }
 
-  .mini {
-    flex: 1;
-    min-width: 0;
-    height: 28px;
-    padding: 0 var(--sp-2);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    outline: none;
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
+  .order {
+    margin: var(--sp-1) var(--sp-2);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
     font-size: var(--fs-sm);
-  }
-
-  .mini:focus {
-    border-color: var(--accent);
-  }
-
-  .primary {
-    margin: var(--sp-2);
-    padding: 7px var(--sp-3);
-    border: none;
-    border-radius: var(--radius-md);
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .primary:disabled {
-    opacity: 0.4;
   }
 
   .ghost {
@@ -335,13 +286,6 @@
   .muted {
     margin: var(--sp-2);
     color: var(--text-tertiary);
-    font-size: var(--fs-sm);
-  }
-
-  .order {
-    margin: var(--sp-1) var(--sp-2);
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
     font-size: var(--fs-sm);
   }
 </style>

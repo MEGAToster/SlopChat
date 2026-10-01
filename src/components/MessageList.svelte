@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isStreamingHere, isThinking, messages } from "../lib/state/chat.svelte";
+  import { isStreamingHere, isThinking, messages } from "../lib/state/chatStore.svelte";
   import Message from "./Message.svelte";
 
   let viewport = $state<HTMLDivElement | null>(null);

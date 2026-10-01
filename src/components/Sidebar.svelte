@@ -1,6 +1,6 @@
 <script lang="ts">
   import { focusComposer } from "../lib/dom";
-  import { activeChatId, isBlank } from "../lib/state/chat.svelte";
+  import { activeChatId, isBlank } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import {
     chatGroups,

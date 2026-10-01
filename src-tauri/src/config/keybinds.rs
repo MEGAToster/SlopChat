@@ -5,7 +5,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 static REGISTERED: Mutex<Vec<Shortcut>> = Mutex::new(Vec::new());
 
-pub fn parse(keys: &[String]) -> Result<Vec<Shortcut>, String> {
+pub(super) fn parse(keys: &[String]) -> Result<Vec<Shortcut>, String> {
     keys.iter()
         .map(|key| {
             key.parse::<Shortcut>()
@@ -14,7 +14,7 @@ pub fn parse(keys: &[String]) -> Result<Vec<Shortcut>, String> {
         .collect()
 }
 
-pub fn apply(app: &AppHandle, shortcuts: &[Shortcut]) -> Result<(), String> {
+pub(super) fn apply(app: &AppHandle, shortcuts: &[Shortcut]) -> Result<(), String> {
     let manager = app.global_shortcut();
     let _ = manager.unregister_all();
 

@@ -1,14 +1,12 @@
 import { appendMessage, getChat, readAttachment, rewindTo, saveAttachment } from "../ipc";
 import type { Attachment, ContentPart, NewAttachment, RequestMessage } from "../types";
+import { basename } from "../text";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
 import { adoptWebDraft, chatState, type SendOptions } from "./chatStore.svelte";
 import { adoptReasoningDraft } from "./reasoning.svelte";
 import { toChatMessage } from "./messages";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
-
-export * from "./chatStore.svelte";
-export * from "./chatHistory.svelte";
 
 export async function submit(text: string, options: SendOptions): Promise<void> {
   const content = text.trim();
@@ -196,6 +194,4 @@ function decode(data: string): string {
   }
 }
 
-function basename(path: string): string {
-  return path.split("/").pop() ?? path;
-}
+

@@ -7,7 +7,7 @@ let loading: Promise<void> | null = null;
 
 export const mathState = $state({ ready: false });
 
-export function ensureKatex(): void {
+function ensureKatex(): void {
   if (katex || loading) return;
   loading = (async () => {
     await import("katex/dist/katex.min.css");
@@ -15,10 +15,6 @@ export function ensureKatex(): void {
     katex = module.default ?? module;
     mathState.ready = true;
   })();
-}
-
-export function hasKatex(): boolean {
-  return katex !== null;
 }
 
 export function renderMath(source: string, display: boolean): string | null {

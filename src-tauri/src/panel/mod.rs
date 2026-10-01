@@ -12,7 +12,7 @@ pub use linux::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, LogicalPosition, Manager, Position};
+use tauri::{AppHandle, Emitter, LogicalPosition, Manager, Monitor, Position};
 
 pub const MIN_HEIGHT: f64 = 88.0;
 pub const MAX_HEIGHT: f64 = 480.0;
@@ -89,6 +89,49 @@ pub fn set_expanded(app: &AppHandle, expanded: bool) {
 
 pub fn toggle_expanded(app: &AppHandle) {
     set_expanded(app, !is_expanded(app));
+}
+
+pub fn toggle(app: &AppHandle) {
+    if is_visible(app) {
+        hide(app, true);
+    } else {
+        show(app);
+    }
+}
+
+pub fn work_area(app: &AppHandle) -> (f64, f64, f64, f64) {
+    match active_monitor(app) {
+        Some(monitor) => {
+            let scale = monitor.scale_factor();
+            let area = monitor.work_area();
+            let position = area.position.to_logical::<f64>(scale);
+            let size = area.size.to_logical::<f64>(scale);
+            (position.x, position.y, size.width, size.height)
+        }
+        None => (0.0, 0.0, 1440.0, 900.0),
+    }
+}
+
+pub fn compact_position(app: &AppHandle) -> Position {
+    let Some(monitor) = active_monitor(app) else {
+        return Position::Logical(LogicalPosition::new(0.0, 0.0));
+    };
+
+    let scale = monitor.scale_factor();
+    let origin = monitor.position().to_logical::<f64>(scale);
+    let size = monitor.size().to_logical::<f64>(scale);
+
+    Position::Logical(LogicalPosition::new(
+        origin.x + (size.width - DEFAULT_COMPACT_WIDTH) / 2.0,
+        origin.y + size.height * 0.18,
+    ))
+}
+
+fn active_monitor(app: &AppHandle) -> Option<Monitor> {
+    app.cursor_position()
+        .ok()
+        .and_then(|cursor| app.monitor_from_point(cursor.x, cursor.y).ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten())
 }
 
 fn compact_width(app: &AppHandle) -> f64 {

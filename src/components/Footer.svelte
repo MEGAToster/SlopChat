@@ -6,13 +6,14 @@
     messages,
     toggleWeb,
     webOverride,
-  } from "../lib/state/chat.svelte";
+  } from "../lib/state/chatStore.svelte";
   import {
-    cycleReasoning,
+    cycleReasoningFor,
     loadReasoning,
     reasoningInfo,
     reasoningOverride,
   } from "../lib/state/reasoning.svelte";
+  import { effectiveWebMode } from "../lib/webSearch";
   import { settings } from "../lib/state/settings.svelte";
   import {
     activeConfig,
@@ -48,11 +49,12 @@
   });
 
   const web = $derived.by(() => {
-    if (config?.toolCalling === false) return "off";
-    const override = webOverride();
-    if (override === "off") return "off";
-    if (override === "on") return "on";
-    return config?.webSearch === "off" ? "off" : "auto";
+    const mode = effectiveWebMode(
+      config?.toolCalling !== false,
+      webOverride(),
+      config?.webSearch,
+    );
+    return mode === "off" ? "off" : mode === "always" ? "on" : "auto";
   });
 
   const webTitle = $derived(
@@ -116,7 +118,7 @@
           type="button"
           class="effort"
           title={`Reasoning effort: ${reasoning} (${keybinds.reasoning?.[0] ?? ""} to cycle)`}
-          onclick={() => config && void loadReasoning(config.model).then(() => cycleReasoning(config.model))}
+          onclick={() => config && void cycleReasoningFor(config.model)}
         >
           {reasoning}
         </button>

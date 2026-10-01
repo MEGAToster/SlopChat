@@ -11,7 +11,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub const ALL: [Kind; 3] = [Kind::OpenRouter, Kind::Ollama, Kind::Gemini];
+    const ALL: [Kind; 3] = [Kind::OpenRouter, Kind::Ollama, Kind::Gemini];
 
     pub fn from_name(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|kind| kind.name() == name)

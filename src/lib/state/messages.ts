@@ -1,5 +1,5 @@
 import type { StoredMessage, Usage } from "../types";
-import type { ChatMessage } from "./chat.svelte";
+import type { ChatMessage } from "./chatStore.svelte";
 
 export function toChatMessage(stored: StoredMessage): ChatMessage {
   const hasUsage =

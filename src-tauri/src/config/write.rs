@@ -18,14 +18,23 @@ pub(super) fn load() -> Result<Settings, String> {
 
     let text =
         fs::read_to_string(&path).map_err(|error| format!("reading {}: {error}", path.display()))?;
-    serde_json::from_str(&text).map_err(|error| format!("settings.json: {error}"))
+    let mut settings: Settings =
+        serde_json::from_str(&text).map_err(|error| format!("settings.json: {error}"))?;
+
+    // One-time: register models that only existed as full profiles.
+    if super::migrate_profiles(&mut settings) {
+        let json = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
+        write_atomic(&path, &json)?;
+    }
+
+    Ok(settings)
 }
 
 pub fn ensure_file() -> Result<(), String> {
     load().map(|_| ())
 }
 
-pub fn patch(app: &AppHandle, update: impl FnOnce(&mut Value)) -> Result<(), String> {
+fn patch(app: &AppHandle, update: impl FnOnce(&mut Value)) -> Result<(), String> {
     let path = paths::settings_path();
     let text =
         fs::read_to_string(&path).map_err(|error| format!("reading {}: {error}", path.display()))?;
@@ -40,38 +49,68 @@ pub fn patch(app: &AppHandle, update: impl FnOnce(&mut Value)) -> Result<(), Str
     Ok(())
 }
 
-// Adds or updates a model entry (matched by its `model` reference).
-pub fn save_model(app: &AppHandle, config: &ModelConfig) -> Result<(), String> {
+// Adds/updates a model entry. When `previous` is an old ref, profiles pointing
+// at it follow to the new ref.
+pub fn save_model(app: &AppHandle, config: &ModelConfig, previous: Option<&str>) -> Result<(), String> {
     let entry = serde_json::to_value(config).map_err(|error| error.to_string())?;
+    let new_ref = config.model.clone();
+    let renamed = previous
+        .filter(|prev| *prev != new_ref)
+        .map(str::to_string);
+
     patch(app, move |value| {
         let Some(object) = value.as_object_mut() else {
             return;
         };
-        let models = object
-            .entry("models")
-            .or_insert_with(|| json!([]))
-            .as_array_mut();
-        let Some(models) = models else { return };
-        for item in models.iter_mut() {
-            if item.is_string() {
-                let id = item.as_str().unwrap_or_default().to_string();
-                *item = json!({ "model": id });
+
+        {
+            let models = object
+                .entry("models")
+                .or_insert_with(|| json!([]))
+                .as_array_mut();
+            let Some(models) = models else { return };
+            for item in models.iter_mut() {
+                if let Some(id) = item.as_str() {
+                    *item = json!({ "model": id });
+                }
+            }
+
+            let existing = renamed.as_deref().unwrap_or(new_ref.as_str());
+            match models
+                .iter_mut()
+                .find(|item| item.get("model").and_then(Value::as_str) == Some(existing))
+            {
+                Some(slot) => *slot = entry,
+                None => models.push(entry),
             }
         }
-        match models
-            .iter_mut()
-            .find(|item| item.get("model") == entry.get("model"))
-        {
-            Some(slot) => *slot = entry,
-            None => models.push(entry),
+
+        if let Some(previous) = renamed.as_deref() {
+            if let Some(profiles) = object.get_mut("profiles").and_then(Value::as_array_mut) {
+                for profile in profiles.iter_mut() {
+                    let points_here = profile.get("model").and_then(Value::as_str) == Some(previous);
+                    if points_here {
+                        if let Some(map) = profile.as_object_mut() {
+                            map.insert("model".to_string(), json!(new_ref));
+                        }
+                    }
+                }
+            }
         }
     })
 }
 
 pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
     patch(app, |value| {
-        if let Some(models) = value.get_mut("models").and_then(Value::as_array_mut) {
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
+        if let Some(models) = object.get_mut("models").and_then(Value::as_array_mut) {
             models.retain(|entry| entry.get("model").and_then(Value::as_str) != Some(model));
+        }
+        // Cascade: drop profiles pointing at the removed model.
+        if let Some(profiles) = object.get_mut("profiles").and_then(Value::as_array_mut) {
+            profiles.retain(|entry| entry.get("model").and_then(Value::as_str) != Some(model));
         }
     })
 }

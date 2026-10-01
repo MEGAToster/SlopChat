@@ -8,7 +8,8 @@ import {
   toggleSticky,
 } from "../ipc";
 import type { Chat, ProviderModel, SearchProviderUsage } from "../types";
-import { activeChatId, pinChat } from "./chat.svelte";
+import { pinChat } from "./chatHistory.svelte";
+import { activeChatId } from "./chatStore.svelte";
 import { addGroups, rootGroups } from "./paletteItems";
 import type { PaletteGroup, PaletteItem } from "./paletteTypes";
 import { settings } from "./settings.svelte";

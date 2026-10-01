@@ -25,11 +25,18 @@
     void index();
     const viewport = list;
     const row = viewport?.querySelector<HTMLElement>(".row.selected");
-    if (!viewport || !row) return;
+    // Before layout settles the list reports zero height and every row looks
+    // out of view, which scrolls the header/first row off the top.
+    if (!viewport || !row || viewport.clientHeight === 0) return;
     const view = viewport.getBoundingClientRect();
     const target = row.getBoundingClientRect();
-    if (target.top < view.top) viewport.scrollTop -= view.top - target.top;
-    else if (target.bottom > view.bottom) viewport.scrollTop += target.bottom - view.bottom;
+    if (target.top < view.top - 1) viewport.scrollTop -= view.top - target.top;
+    else if (target.bottom > view.bottom + 1) viewport.scrollTop += target.bottom - view.bottom;
+  });
+
+  $effect(() => {
+    void query();
+    if (list) list.scrollTop = 0;
   });
 
   function flatIndex(sectionIndex: number, itemIndex: number): number {

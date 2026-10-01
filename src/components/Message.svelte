@@ -4,7 +4,8 @@
   import { renderMermaid } from "../lib/markdown/mermaid";
   import { renderMarkdown } from "../lib/markdown/render";
   import { MarkdownStream } from "../lib/markdown/stream";
-  import type { ChatMessage } from "../lib/state/chat.svelte";
+  import { basename } from "../lib/text";
+  import type { ChatMessage } from "../lib/state/chatStore.svelte";
   import type { ToolStep } from "../lib/types";
   import Icon from "./Icon.svelte";
 
@@ -30,10 +31,6 @@
     void mathState.ready;
     if (!streaming && markdown) void renderMermaid(markdown);
   });
-
-  function name(path: string): string {
-    return path.split("/").pop() ?? path;
-  }
 
   function query(step: ToolStep): string {
     const value = step.args?.query;
@@ -63,7 +60,7 @@
     {#if message.attachments?.length}
       <div class="attachments">
         {#each message.attachments as file (file.id)}
-          <span class="attachment"><Icon name="attach" size={12} />{name(file.path)}</span>
+          <span class="attachment"><Icon name="attach" size={12} />{basename(file.path)}</span>
         {/each}
       </div>
     {/if}

@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use super::hit::{Batch, Hit};
+use super::hit::{text, Batch, Hit};
 use super::{BackendCtx, SearchError, TIMEOUT};
 use crate::config::ExaSettings;
 
@@ -69,14 +69,6 @@ fn contents(exa: &ExaSettings) -> Value {
         "text" => json!({ "text": { "maxCharacters": exa.max_characters } }),
         _ => json!({}),
     }
-}
-
-fn text(value: &Value, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string()
 }
 
 #[cfg(test)]

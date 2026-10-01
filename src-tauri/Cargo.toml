@@ -23,3 +23,12 @@ serde_json = { version = "1", features = ["preserve_order"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = "2.1"
+
+[lints.clippy]
+too_many_arguments = "deny"
+new_without_default = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+[lints.rust]
+unused_must_use = "deny"

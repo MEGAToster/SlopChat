@@ -1,21 +1,9 @@
+import { DEFAULT_KEYBINDS } from "../keymap/defaults";
 import { getConfigError, getSettings, onConfigChanged, onConfigError } from "../ipc";
 import type { Settings } from "../types";
 
 export const DEFAULT_SETTINGS: Settings = {
-  keybinds: {
-    toggle: ["Alt+Space"],
-    palette: ["Ctrl+P"],
-    sidebar: ["Ctrl+H"],
-    prevChat: ["Ctrl+K"],
-    nextChat: ["Ctrl+J"],
-    cycleProfile: ["Shift+Tab"],
-    sticky: ["Ctrl+Shift+P"],
-    stop: ["Ctrl+C"],
-    scrollUp: ["Ctrl+U"],
-    scrollDown: ["Ctrl+D"],
-    webToggle: ["Ctrl+W"],
-    reasoning: ["Ctrl+R"],
-  },
+  keybinds: DEFAULT_KEYBINDS,
   providers: {},
   profiles: [],
   models: [],

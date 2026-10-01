@@ -26,7 +26,7 @@ export function applyThemeFor(name: string): string[] {
   // Chain so rapid previews apply in order; otherwise the last IPC to resolve
   // can win with a stale window style.
   styleChain = styleChain
-    .then(() => setWindowStyle(resolved.scheme, resolved.vibrancy, resolved.opacity))
+    .then(() => setWindowStyle(resolved.scheme, resolved.vibrancy))
     .catch(() => {});
   return invalid;
 }

@@ -17,7 +17,8 @@
   } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
   import { createActions } from "./lib/state/actions.svelte";
-  import { chatError, init as initChat, isStreaming, messages } from "./lib/state/chat.svelte";
+  import { init as initChat } from "./lib/state/chatHistory.svelte";
+  import { chatError, isStreaming, messages } from "./lib/state/chatStore.svelte";
   import {
     back as paletteBack,
     isOpen as paletteIsOpen,

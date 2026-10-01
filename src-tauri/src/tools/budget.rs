@@ -1,8 +1,47 @@
 use rusqlite::params;
 use tauri::{AppHandle, Manager};
 
-use crate::config::Limit;
+use crate::config::{ConfigState, Limit};
 use crate::store::Store;
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchProviderUsage {
+    pub provider: String,
+    pub requests: i64,
+    pub units: i64,
+    pub total_units: i64,
+    pub cost: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<Limit>,
+    pub exhausted: bool,
+    pub has_key: bool,
+}
+
+pub fn report(app: &AppHandle) -> Vec<SearchProviderUsage> {
+    let settings = app.state::<ConfigState>().get();
+    settings
+        .search
+        .providers
+        .iter()
+        .map(|name| {
+            let (requests, units, cost) = monthly(app, name);
+            SearchProviderUsage {
+                provider: name.clone(),
+                requests,
+                units,
+                total_units: total_units(app, name),
+                cost,
+                limit: settings.search.limits.get(name).cloned(),
+                exhausted: is_exhausted(app, name),
+                has_key: crate::providers::search_key(&settings, name)
+                    .ok()
+                    .flatten()
+                    .is_some(),
+            }
+        })
+        .collect()
+}
 
 const HEADROOM: f64 = 0.02;
 

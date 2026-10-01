@@ -23,20 +23,27 @@ export type ModelConfig = {
   system?: string;
   temperature?: number;
   useContext: boolean;
-  color?: string;
   tools?: string[];
   toolCalling?: boolean;
   webSearch?: WebSearchMode;
   reasoning?: string;
 };
 
-export type Profile = ModelConfig & { name: string };
+export type ProfileOverrides = {
+  system?: string;
+  temperature?: number;
+  useContext?: boolean;
+  tools?: string[];
+  toolCalling?: boolean;
+  webSearch?: WebSearchMode;
+  reasoning?: string;
+};
+
+export type Profile = { name: string; model: string; color?: string } & ProfileOverrides;
 
 export type ReasoningInfo = {
   supportedEfforts: string[];
   defaultEffort?: string;
-  defaultEnabled: boolean;
-  mandatory: boolean;
 };
 
 export type Startup = "last" | "new";

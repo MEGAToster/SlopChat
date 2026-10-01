@@ -87,7 +87,7 @@ describe("configured bindings", () => {
     ).toBe("sticky");
   });
 
-  it("scrolls with Ctrl+U/D, and Ctrl+C stops while streaming", () => {
+  it("scrolls with Ctrl+U/D, and Ctrl+Q stops while streaming", () => {
     expect(resolve("composer", key({ key: "u", ctrlKey: true }), bindings, state())).toBe(
       "scrollUp",
     );
@@ -95,7 +95,7 @@ describe("configured bindings", () => {
       "scrollDown",
     );
     expect(
-      resolve("composer", key({ key: "c", ctrlKey: true }), bindings, state({ streaming: true })),
+      resolve("composer", key({ key: "q", ctrlKey: true }), bindings, state({ streaming: true })),
     ).toBe("stop");
   });
 

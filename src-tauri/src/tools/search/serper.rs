@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use super::hit::{Batch, Hit};
+use super::hit::{text, Batch, Hit};
 use super::{BackendCtx, SearchError, TIMEOUT};
 
 pub async fn search(query: &str, n: u32, ctx: &BackendCtx<'_>) -> Result<Batch, SearchError> {
@@ -63,14 +63,6 @@ fn lead(title: &str, snippet: &str) -> Hit {
         snippet: snippet.to_string(),
         published: None,
     }
-}
-
-fn text(value: &Value, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string()
 }
 
 #[cfg(test)]

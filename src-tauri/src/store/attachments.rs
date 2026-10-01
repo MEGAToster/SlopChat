@@ -1,3 +1,4 @@
+use base64::Engine;
 use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
 
@@ -9,13 +10,49 @@ pub struct Attachment {
     pub mime: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewAttachment {
     pub id: String,
     pub path: String,
     #[serde(default)]
     pub mime: Option<String>,
+}
+
+pub fn save(name: &str, mime: &str, data: &str) -> Result<Attachment, String> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|error| format!("decoding attachment: {error}"))?;
+
+    let id = super::new_id("a");
+    let extension = std::path::Path::new(name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!(".{value}"))
+        .unwrap_or_default();
+
+    let dir = crate::paths::attachments_dir();
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let path = dir.join(format!("{id}{extension}"));
+    std::fs::write(&path, bytes).map_err(|error| error.to_string())?;
+
+    Ok(Attachment {
+        id,
+        path: path.to_string_lossy().to_string(),
+        mime: Some(mime.to_string()),
+    })
+}
+
+pub fn read(path: &str) -> Result<String, String> {
+    let dir = crate::paths::attachments_dir();
+    let canonical = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
+    let root = std::fs::canonicalize(&dir).unwrap_or(dir);
+    if !canonical.starts_with(&root) {
+        return Err("attachment path is outside the attachments directory".to_string());
+    }
+
+    let bytes = std::fs::read(&canonical).map_err(|error| error.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
 fn row_to_attachment(row: &Row<'_>) -> rusqlite::Result<Attachment> {

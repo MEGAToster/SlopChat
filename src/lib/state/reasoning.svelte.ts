@@ -36,6 +36,11 @@ export function cycleReasoning(model: string): void {
   else state.draft = next;
 }
 
+export async function cycleReasoningFor(model: string): Promise<void> {
+  await loadReasoning(model);
+  cycleReasoning(model);
+}
+
 export function adoptReasoningDraft(chatId: string): void {
   if (state.draft === null) return;
   state.overrides[chatId] = state.draft;

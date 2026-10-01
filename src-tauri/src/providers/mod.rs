@@ -1,12 +1,12 @@
-pub mod agent;
+mod agent;
 pub mod capabilities;
 mod chunks;
 pub mod client;
 pub mod kinds;
 mod leak;
 mod prompt;
-pub mod sse;
-pub mod stream;
+mod sse;
+mod stream;
 
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -136,6 +136,46 @@ pub struct ProviderModel {
     pub provider: String,
     pub id: String,
     pub name: Option<String>,
+}
+
+pub async fn list_all(settings: &Settings) -> Vec<ProviderModel> {
+    let openrouter_key = api_key(settings, kinds::Kind::OpenRouter.name())
+        .ok()
+        .flatten();
+    let gemini_key = api_key(settings, kinds::Kind::Gemini.name())
+        .ok()
+        .flatten();
+
+    let openrouter = async {
+        match openrouter_key.as_deref() {
+            Some(key) => kinds::Kind::OpenRouter
+                .fetch_models(settings, Some(key))
+                .await
+                .unwrap_or_default(),
+            None => Vec::new(),
+        }
+    };
+    let ollama = async {
+        kinds::Kind::Ollama
+            .fetch_models(settings, None)
+            .await
+            .unwrap_or_default()
+    };
+    let gemini = async {
+        match gemini_key.as_deref() {
+            Some(key) => kinds::Kind::Gemini
+                .fetch_models(settings, Some(key))
+                .await
+                .unwrap_or_default(),
+            None => Vec::new(),
+        }
+    };
+
+    let (openrouter, ollama, gemini) = tokio::join!(openrouter, ollama, gemini);
+    let mut models = openrouter;
+    models.extend(ollama);
+    models.extend(gemini);
+    models
 }
 
 pub fn api_key(settings: &Settings, provider: &str) -> Result<Option<String>, String> {

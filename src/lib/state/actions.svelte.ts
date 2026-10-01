@@ -3,21 +3,13 @@ import { tick } from "svelte";
 import { focusComposer, messagesViewport } from "../dom";
 import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
-import {
-  lastUserMessage,
-  nextChat,
-  pinChat,
-  prevChat,
-  regenerate,
-  reportError,
-  stop,
-  submit,
-  toggleWeb,
-  webOverride,
-} from "./chat.svelte";
+import { regenerate, stop, submit } from "./chat.svelte";
+import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
+import { lastUserMessage, reportError, toggleWeb, webOverride } from "./chatStore.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
-import { cycleReasoning, loadReasoning, reasoningOverride } from "./reasoning.svelte";
+import { cycleReasoningFor, reasoningOverride } from "./reasoning.svelte";
+import { effectiveWebMode } from "../webSearch";
 import {
   activeConfig,
   activeProfile,
@@ -53,14 +45,7 @@ export function createActions(text: TextRef) {
       return;
     }
     const toolCalling = config.toolCalling !== false;
-    const override = toolCalling ? webOverride() : null;
-    const webSearch = !toolCalling
-      ? "off"
-      : override === "off"
-        ? "off"
-        : override === "on"
-          ? "always"
-          : config.webSearch;
+    const webSearch = effectiveWebMode(toolCalling, webOverride(), config.webSearch);
     const options = {
       profileName: profile.name,
       model: config.model,
@@ -145,9 +130,7 @@ export function createActions(text: TextRef) {
         break;
       case "reasoning": {
         const config = activeConfig();
-        if (config) {
-          void loadReasoning(config.model).then(() => cycleReasoning(config.model));
-        }
+        if (config) void cycleReasoningFor(config.model);
         break;
       }
       case "send":

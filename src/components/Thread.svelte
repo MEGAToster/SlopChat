@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatKeys } from "../lib/keymap/format";
-  import { activeChatId, chats, messages } from "../lib/state/chat.svelte";
+  import { activeChatId, chats, messages } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import { activeProfile, keyContext } from "../lib/state/ui.svelte";
   import Composer from "./Composer.svelte";

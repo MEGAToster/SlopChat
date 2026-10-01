@@ -26,7 +26,7 @@ Found in a review of the state after commit `73a88d3` plus uncommitted work. Fix
 3. **Hotkey can end up unregistered.**
    - Invalid `settings.json` at startup never registers the toggle (`config::init`). Register the default binding in that case.
    - `keybinds::apply` calls `unregister_all` before registering. If registration fails, re-register the previous shortcuts.
-4. **Keybind collision:** `stop` and `scrollDown` both default to `Ctrl+D`. Make `stop` `Ctrl+C` while streaming, and also Esc (see 9). Keep `Ctrl+D`/`Ctrl+U` for scrolling. Update both `config/mod.rs` defaults and `src/lib/keymap/defaults.ts`.
+4. **Keybind collision:** `stop` and `scrollDown` both default to `Ctrl+D`. Make `stop` `Ctrl+Q` while streaming, and also Esc (see 9). Keep `Ctrl+D`/`Ctrl+U` for scrolling. Update both `config/mod.rs` defaults and `src/lib/keymap/defaults.ts`.
 5. **Links navigate the webview away from the app.**
    - Intercept clicks on `a[href]` inside `.markdown` and call a new `open_url` command. It accepts only `http`/`https`/`mailto`, opens with `open`/`xdg-open`, and never uses a shell.
    - Set a real CSP in `tauri.conf.json`: `default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost`.

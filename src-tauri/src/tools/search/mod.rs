@@ -4,7 +4,7 @@ mod hit;
 mod serper;
 mod tavily;
 
-pub use hit::Batch;
+use hit::Batch;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;

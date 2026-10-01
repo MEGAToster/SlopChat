@@ -16,6 +16,12 @@ pub struct Cancel {
     pub(crate) notify: Arc<Notify>,
 }
 
+impl Default for Cancel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cancel {
     pub fn new() -> Self {
         Self {
@@ -36,7 +42,6 @@ pub struct RequestPlan {
     pub key: Option<String>,
 }
 
-#[derive(Clone)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,

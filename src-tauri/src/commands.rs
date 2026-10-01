@@ -1,10 +1,8 @@
-use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
 use crate::config::{self, ConfigState, Settings, Startup};
 use crate::panel;
-use crate::paths;
 use crate::providers::client::Streams;
 use crate::providers::kinds::Kind;
 use crate::providers::{self, ChatRequest, StreamEvent};
@@ -47,8 +45,8 @@ pub fn is_panel_expanded(app: AppHandle) -> bool {
 }
 
 #[tauri::command]
-pub fn set_window_style(app: AppHandle, scheme: String, vibrancy: String, opacity: f64) {
-    panel::set_window_style(&app, &scheme, &vibrancy, opacity);
+pub fn set_window_style(app: AppHandle, scheme: String, vibrancy: String) {
+    panel::set_window_style(&app, &scheme, &vibrancy);
 }
 
 #[tauri::command]
@@ -179,105 +177,23 @@ pub fn set_suppress_hide(app: AppHandle, value: bool) {
 
 #[tauri::command(async)]
 pub fn save_attachment(name: String, mime: String, data: String) -> Result<Attachment, String> {
-    use base64::Engine;
-
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(data)
-        .map_err(|error| format!("decoding attachment: {error}"))?;
-
-    let id = crate::store::new_id("a");
-    let extension = std::path::Path::new(&name)
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(|value| format!(".{value}"))
-        .unwrap_or_default();
-
-    let dir = paths::attachments_dir();
-    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-    let path = dir.join(format!("{id}{extension}"));
-    std::fs::write(&path, bytes).map_err(|error| error.to_string())?;
-
-    Ok(Attachment {
-        id,
-        path: path.to_string_lossy().to_string(),
-        mime: Some(mime),
-    })
+    crate::store::attachments::save(&name, &mime, &data)
 }
 
 #[tauri::command(async)]
 pub fn read_attachment(path: String) -> Result<String, String> {
-    use base64::Engine;
-
-    let dir = paths::attachments_dir();
-    let canonical = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
-    let root = std::fs::canonicalize(&dir).unwrap_or(dir);
-    if !canonical.starts_with(&root) {
-        return Err("attachment path is outside the attachments directory".to_string());
-    }
-
-    let bytes = std::fs::read(&canonical).map_err(|error| error.to_string())?;
-    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+    crate::store::attachments::read(&path)
 }
 
 #[tauri::command]
 pub async fn list_models(app: AppHandle) -> Result<Vec<providers::ProviderModel>, String> {
     let settings = app.state::<ConfigState>().get();
-    let openrouter_key = providers::api_key(&settings, Kind::OpenRouter.name())?;
-    let gemini_key = providers::api_key(&settings, Kind::Gemini.name())?;
-
-    let openrouter = async {
-        match openrouter_key.as_deref() {
-            Some(key) => Kind::OpenRouter
-                .fetch_models(&settings, Some(key))
-                .await
-                .unwrap_or_default(),
-            None => Vec::new(),
-        }
-    };
-    let ollama = async {
-        Kind::Ollama
-            .fetch_models(&settings, None)
-            .await
-            .unwrap_or_default()
-    };
-    let gemini = async {
-        match gemini_key.as_deref() {
-            Some(key) => Kind::Gemini
-                .fetch_models(&settings, Some(key))
-                .await
-                .unwrap_or_default(),
-            None => Vec::new(),
-        }
-    };
-
-    let (openrouter, ollama, gemini) = tokio::join!(openrouter, ollama, gemini);
-    let mut models = openrouter;
-    models.extend(ollama);
-    models.extend(gemini);
-    Ok(models)
+    Ok(providers::list_all(&settings).await)
 }
 
 #[tauri::command(async)]
 pub fn open_settings_file() -> Result<(), String> {
-    config::ensure_file()?;
-    let path = paths::settings_path();
-
-    if let Some(editor) = std::env::var("EDITOR")
-        .or_else(|_| std::env::var("VISUAL"))
-        .ok()
-        .filter(|editor| !editor.trim().is_empty())
-    {
-        return std::process::Command::new("sh")
-            .arg("-c")
-            .arg(format!("exec {editor} \"$1\""))
-            .arg("sh")
-            .arg(&path)
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| error.to_string());
-    }
-
-    open_path(&path)
+    config::open_file()
 }
 
 #[tauri::command(async)]
@@ -285,7 +201,7 @@ pub fn open_url(url: String) -> Result<(), String> {
     if !(url.starts_with("http://") || url.starts_with("https://") || url.starts_with("mailto:")) {
         return Err(format!("refusing to open unsupported URL: {url}"));
     }
-    open_path(std::path::Path::new(&url))
+    crate::platform::open_path(std::path::Path::new(&url))
 }
 
 #[tauri::command(async)]
@@ -294,8 +210,12 @@ pub fn reload_config(app: AppHandle) {
 }
 
 #[tauri::command(async)]
-pub fn save_model(app: AppHandle, model: config::ModelConfig) -> Result<(), String> {
-    config::save_model(&app, &model)
+pub fn save_model(
+    app: AppHandle,
+    model: config::ModelConfig,
+    previous: Option<String>,
+) -> Result<(), String> {
+    config::save_model(&app, &model, previous.as_deref())
 }
 
 #[tauri::command(async)]
@@ -341,52 +261,7 @@ pub fn load_user_themes() -> Vec<config::UserTheme> {
     config::load_user_themes()
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchProviderUsage {
-    pub provider: String,
-    pub requests: i64,
-    pub units: i64,
-    pub total_units: i64,
-    pub cost: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<crate::config::Limit>,
-    pub exhausted: bool,
-    pub has_key: bool,
-}
-
 #[tauri::command(async)]
-pub fn search_usage(app: AppHandle) -> Vec<SearchProviderUsage> {
-    let settings = app.state::<ConfigState>().get();
-    settings
-        .search
-        .providers
-        .iter()
-        .map(|name| {
-            let (requests, units, cost) = crate::tools::budget::monthly(&app, name);
-            SearchProviderUsage {
-                provider: name.clone(),
-                requests,
-                units,
-                total_units: crate::tools::budget::total_units(&app, name),
-                cost,
-                limit: settings.search.limits.get(name).cloned(),
-                exhausted: crate::tools::budget::is_exhausted(&app, name),
-                has_key: providers::search_key(&settings, name).ok().flatten().is_some(),
-            }
-        })
-        .collect()
-}
-
-fn open_path(target: &std::path::Path) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    let opener = "open";
-    #[cfg(not(target_os = "macos"))]
-    let opener = "xdg-open";
-
-    std::process::Command::new(opener)
-        .arg(target)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+pub fn search_usage(app: AppHandle) -> Vec<crate::tools::budget::SearchProviderUsage> {
+    crate::tools::budget::report(&app)
 }

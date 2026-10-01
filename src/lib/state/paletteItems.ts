@@ -27,10 +27,10 @@ export function rootGroups(input: {
   const query = input.query.trim();
   return [
     { title: "Chats", items: chatItems(input.chats) },
+    { title: "Actions", items: category("Actions", actionItems(input.settings), query) },
     { title: "Models", items: category("Models", modelItems(input.settings), query) },
     { title: "Profiles", items: category("Profiles", profileItems(input.settings), query) },
     { title: "Themes", items: category("Themes", themeItems(input.themes), query) },
-    { title: "Actions", items: category("Actions", actionItems(input.settings), query) },
   ].filter((group) => group.items.length > 0);
 }
 
@@ -71,15 +71,7 @@ function chatItems(chats: Chat[]): PaletteItem[] {
 }
 
 function modelItems(settings: Settings): PaletteItem[] {
-  const seen = new Set<string>();
-  const items: PaletteItem[] = [];
-  const refs = [...settings.models.map((entry) => entry.model), ...settings.profiles.map((p) => p.model)];
-  for (const model of refs) {
-    if (seen.has(model)) continue;
-    seen.add(model);
-    items.push({ kind: "model", id: model, label: model });
-  }
-  return items;
+  return settings.models.map((entry) => ({ kind: "model", id: entry.model, label: entry.model }));
 }
 
 function profileItems(settings: Settings): PaletteItem[] {

@@ -1,57 +1,20 @@
-import { removeModel, resizePanel, saveModel } from "../ipc";
+import { resizePanel } from "../ipc";
+import { composeModelRef, splitModelRef } from "../modelRef";
 import { isExpanded, OVERLAY_HEIGHT } from "./ui.svelte";
-
-const VARIANTS = ["", ":floor", ":nitro", ":online", ":free", ":thinking"];
-const VARIANT_PATTERN = /:(floor|nitro|online|free|thinking)$/;
-const PROVIDERS_WITH_VARIANTS = new Set(["openrouter"]);
 
 const state = $state({
   open: false,
   provider: "openrouter",
   modelId: "",
   tag: "",
-  reasoning: "",
 });
 
 export function isOpen(): boolean {
   return state.open;
 }
 
-export function provider(): string {
-  return state.provider;
-}
-
 export function modelId(): string {
   return state.modelId;
-}
-
-export function tag(): string {
-  return state.tag;
-}
-
-export function reasoning(): string {
-  return state.reasoning;
-}
-
-export function setReasoning(value: string): void {
-  state.reasoning = value;
-}
-
-export function tags(): string[] {
-  return PROVIDERS_WITH_VARIANTS.has(state.provider) ? VARIANTS : [""];
-}
-
-export function setProvider(value: string): void {
-  state.provider = value;
-  if (!tags().includes(state.tag)) state.tag = "";
-}
-
-export function setModelId(value: string): void {
-  state.modelId = value;
-}
-
-export function setTag(value: string): void {
-  state.tag = value;
 }
 
 export function openPanel(prefill?: { provider?: string; modelId?: string; tag?: string }): void {
@@ -63,47 +26,16 @@ export function openPanel(prefill?: { provider?: string; modelId?: string; tag?:
 }
 
 export function openFromProvider(provider: string, modelRef: string): void {
-  let id = modelRef;
-  let tag = "";
-
-  const match = id.match(VARIANT_PATTERN);
-  if (match) {
-    tag = match[0];
-    id = id.slice(0, -tag.length);
-  }
-  if (id.startsWith(`${provider}/`)) id = id.slice(provider.length + 1);
-
-  openPanel({ provider, modelId: id, tag });
+  const { modelId, tag } = splitModelRef(modelRef);
+  openPanel({ provider, modelId, tag });
 }
 
 export function closePanel(): void {
   state.open = false;
 }
 
+// The palette's "Add models…" flow pre-fills this; Settings opens the editor
+// with the composed reference.
 export function composedModel(): string {
-  const base = state.modelId
-    .trim()
-    .replace(VARIANT_PATTERN, "")
-    .replace(/^\/+/, "");
-  if (!base) return "";
-
-  const prefixed = base.startsWith(`${state.provider}/`) ? base : `${state.provider}/${base}`;
-  return `${prefixed}${state.tag}`;
-}
-
-export async function add(): Promise<void> {
-  const model = composedModel();
-  if (!model) return;
-  await saveModel({
-    model,
-    useContext: true,
-    reasoning: state.reasoning || undefined,
-  });
-  state.modelId = "";
-  state.tag = "";
-  state.reasoning = "";
-}
-
-export async function remove(model: string): Promise<void> {
-  await removeModel(model);
+  return composeModelRef(state.provider, state.modelId, state.tag);
 }

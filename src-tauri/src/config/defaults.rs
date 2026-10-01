@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    ExaSettings, Keybinds, Limit, ModelConfig, Profile, Provider, SearchSettings, Settings,
-    Startup, WebSearchMode, WindowConfig,
+    ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides, Provider, SearchSettings,
+    Settings, Startup, WebSearchMode, WindowConfig,
 };
 
 impl Default for ModelConfig {
@@ -12,7 +12,6 @@ impl Default for ModelConfig {
             system: None,
             temperature: None,
             use_context: true,
-            color: None,
             tools: Vec::new(),
             tool_calling: true,
             web_search: WebSearchMode::Auto,
@@ -92,7 +91,7 @@ impl Default for Settings {
             keybinds: Keybinds::default(),
             providers: default_providers(),
             profiles: default_profiles(),
-            models: Vec::new(),
+            models: default_models(),
             startup: Startup::default(),
             resume_within_minutes: 10,
             theme: "default-dark".to_string(),
@@ -114,7 +113,7 @@ impl Default for Keybinds {
             next_chat: vec!["Ctrl+J".to_string()],
             cycle_profile: vec!["Shift+Tab".to_string()],
             sticky: vec!["Ctrl+Shift+P".to_string()],
-            stop: vec!["Ctrl+C".to_string()],
+            stop: vec!["Ctrl+Q".to_string()],
             scroll_up: vec!["Ctrl+U".to_string()],
             scroll_down: vec!["Ctrl+D".to_string()],
             web_toggle: vec!["Ctrl+W".to_string()],
@@ -158,50 +157,49 @@ fn default_providers() -> BTreeMap<String, Provider> {
     providers
 }
 
-fn profile(name: &str, config: ModelConfig) -> Profile {
+pub(super) fn default_models() -> Vec<ModelConfig> {
+    vec![
+        ModelConfig {
+            model: "openrouter/anthropic/claude-sonnet-5".to_string(),
+            tools: vec!["web_search".to_string(), "web_fetch".to_string()],
+            ..ModelConfig::default()
+        },
+        ModelConfig {
+            model: "openrouter/deepseek/deepseek-chat:floor".to_string(),
+            tool_calling: false,
+            ..ModelConfig::default()
+        },
+        ModelConfig {
+            model: "openrouter/anthropic/claude-opus-5-5".to_string(),
+            ..ModelConfig::default()
+        },
+        ModelConfig {
+            model: "openrouter/google/gemini-2.5-flash".to_string(),
+            system: Some(
+                "Translate the user's text. Detect the source language; translate to English unless another target is given."
+                    .to_string(),
+            ),
+            use_context: false,
+            tool_calling: false,
+            ..ModelConfig::default()
+        },
+    ]
+}
+
+fn profile(name: &str, model: &str) -> Profile {
     Profile {
         name: name.to_string(),
-        config,
+        model: model.to_string(),
+        color: None,
+        overrides: ProfileOverrides::default(),
     }
 }
 
 fn default_profiles() -> Vec<Profile> {
     vec![
-        profile(
-            "default",
-            ModelConfig {
-                model: "openrouter/anthropic/claude-sonnet-5".to_string(),
-                tools: vec!["web_search".to_string(), "web_fetch".to_string()],
-                ..ModelConfig::default()
-            },
-        ),
-        profile(
-            "cheap",
-            ModelConfig {
-                model: "openrouter/deepseek/deepseek-chat:floor".to_string(),
-                tool_calling: false,
-                ..ModelConfig::default()
-            },
-        ),
-        profile(
-            "complex",
-            ModelConfig {
-                model: "openrouter/anthropic/claude-opus-5-5".to_string(),
-                ..ModelConfig::default()
-            },
-        ),
-        profile(
-            "translate",
-            ModelConfig {
-                model: "openrouter/google/gemini-2.5-flash".to_string(),
-                system: Some(
-                    "Translate the user's text. Detect the source language; translate to English unless another target is given."
-                        .to_string(),
-                ),
-                use_context: false,
-                tool_calling: false,
-                ..ModelConfig::default()
-            },
-        ),
+        profile("default", "openrouter/anthropic/claude-sonnet-5"),
+        profile("cheap", "openrouter/deepseek/deepseek-chat:floor"),
+        profile("complex", "openrouter/anthropic/claude-opus-5-5"),
+        profile("translate", "openrouter/google/gemini-2.5-flash"),
     ]
 }

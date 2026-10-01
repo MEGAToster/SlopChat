@@ -1,4 +1,14 @@
-#[derive(Debug, Clone)]
+use serde_json::Value;
+
+pub fn text(value: &Value, key: &str) -> String {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+#[derive(Debug)]
 pub struct Hit {
     pub title: String,
     pub url: String,

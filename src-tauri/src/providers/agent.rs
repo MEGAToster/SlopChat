@@ -6,7 +6,7 @@ use super::prompt::{assistant_tool_message, build_messages, last_user_text, pars
 use super::stream::{self, Cancel, RequestPlan, StepOutcome, StreamError, ToolCall};
 use super::{kinds::Kind, leak, ModelRef, StreamEvent};
 use crate::config::{ConfigState, WebSearchMode};
-use crate::tools::{self, ToolContext};
+use crate::tools::{self, ToolContext, ToolOutput};
 
 const MAX_ROUNDS: usize = 4;
 const MAX_SEARCHES: usize = 5;
@@ -54,7 +54,7 @@ pub async fn run(
     let supports = if request.tools.is_empty() && !web_enabled {
         false
     } else {
-        supports_tools(kind, &model.model, &settings, key.as_deref()).await
+        super::capabilities::supports(kind, &model.model, &settings, key.as_deref()).await
     };
 
     let mut tool_names: Vec<String> = if tool_calling {
@@ -82,7 +82,8 @@ pub async fn run(
 
     if forced && !supports {
         let query = last_user_text(&request);
-        let (content, _, cost, next) = run_web_search(app, &query, source_counter, &channel, &cancel).await;
+        let (content, cost, next) =
+            run_web_search(app, &query, source_counter, &channel, &cancel).await;
         search_cost += cost;
         source_counter = next;
         messages.push(json!({ "role": "system", "content": format!("Web results (cite as [n]):\n{content}") }));
@@ -98,6 +99,15 @@ pub async fn run(
         None
     } else {
         Some(json!(schemas))
+    };
+
+    let turn = Turn {
+        kind,
+        settings: &settings,
+        model: &model.model,
+        temperature: request.temperature,
+        reasoning: request.reasoning.as_deref(),
+        key: key.as_deref(),
     };
 
     let (mut tokens_in, mut tokens_out) = (0u32, 0u32);
@@ -121,20 +131,9 @@ pub async fn run(
             json!("none")
         };
 
-        let outcome = match run_plan(
-            kind,
-            &settings,
-            &model.model,
-            &messages,
-            request.temperature,
-            request.reasoning.as_deref(),
-            tools_value.as_ref(),
-            &tool_choice,
-            key.as_deref(),
-            &channel,
-            &cancel,
-        )
-        .await
+        let outcome = match turn
+            .step(&messages, tools_value.as_ref(), &tool_choice, &channel, &cancel)
+            .await
         {
             Ok(outcome) => outcome,
             Err(StreamError::Cancelled) => return Ok(()),
@@ -202,22 +201,21 @@ pub async fn run(
                 args: parse_args(&call.arguments),
             });
 
-            let (content, summary, sources, call_cost) =
-                execute_tool(app, call, source_counter, &channel, &cancel).await;
-            search_cost += call_cost;
-            source_counter += sources.len() as u32;
+            let result = execute_tool(app, call, source_counter, &channel, &cancel).await;
+            search_cost += result.cost;
+            source_counter += result.sources.len() as u32;
 
             let _ = channel.send(StreamEvent::ToolResult {
                 id: call.id.clone(),
-                ok: !content.starts_with("error:"),
-                summary,
-                sources,
+                ok: !result.content.starts_with("error:"),
+                summary: result.summary,
+                sources: result.sources,
             });
 
             messages.push(json!({
                 "role": "tool",
                 "tool_call_id": call.id,
-                "content": content,
+                "content": result.content,
             }));
         }
 
@@ -235,20 +233,9 @@ pub async fn run(
         if !wrap_up {
             messages.push(wrap_up_message());
         }
-        match run_plan(
-            kind,
-            &settings,
-            &model.model,
-            &messages,
-            request.temperature,
-            request.reasoning.as_deref(),
-            tools_value.as_ref(),
-            &json!("none"),
-            key.as_deref(),
-            &channel,
-            &cancel,
-        )
-        .await
+        match turn
+            .step(&messages, tools_value.as_ref(), &json!("none"), &channel, &cancel)
+            .await
         {
             Ok(outcome) => {
                 accumulate(&outcome, kind, &mut tokens_in, &mut tokens_out, &mut cost, &mut provider);
@@ -282,33 +269,38 @@ pub async fn run(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn run_plan(
+struct Turn<'a> {
     kind: Kind,
-    settings: &crate::config::Settings,
-    model: &str,
-    messages: &[Value],
+    settings: &'a crate::config::Settings,
+    model: &'a str,
     temperature: Option<f32>,
-    reasoning: Option<&str>,
-    tools: Option<&Value>,
-    tool_choice: &Value,
-    key: Option<&str>,
-    channel: &Channel<StreamEvent>,
-    cancel: &Cancel,
-) -> Result<StepOutcome, StreamError> {
-    let plan = RequestPlan {
-        endpoint: kind.endpoint(settings),
-        body: kind.body(
-            model,
-            &Value::Array(messages.to_vec()),
-            temperature,
-            reasoning,
-            tools,
-            tool_choice,
-        ),
-        key: key.map(str::to_string),
-    };
-    stream::run_step(&plan, channel, cancel).await
+    reasoning: Option<&'a str>,
+    key: Option<&'a str>,
+}
+
+impl Turn<'_> {
+    async fn step(
+        &self,
+        messages: &[Value],
+        tools: Option<&Value>,
+        tool_choice: &Value,
+        channel: &Channel<StreamEvent>,
+        cancel: &Cancel,
+    ) -> Result<StepOutcome, StreamError> {
+        let plan = RequestPlan {
+            endpoint: self.kind.endpoint(self.settings),
+            body: self.kind.body(
+                self.model,
+                &Value::Array(messages.to_vec()),
+                self.temperature,
+                self.reasoning,
+                tools,
+                tool_choice,
+            ),
+            key: self.key.map(str::to_string),
+        };
+        stream::run_step(&plan, channel, cancel).await
+    }
 }
 
 fn accumulate(
@@ -331,33 +323,67 @@ fn accumulate(
     }
 }
 
+struct ToolOutcome {
+    content: String,
+    summary: String,
+    sources: Vec<super::Source>,
+    cost: f64,
+}
+
+fn tool_context(app: &AppHandle, start_index: u32) -> ToolContext {
+    let settings = app.state::<ConfigState>().get();
+    ToolContext {
+        app: app.clone(),
+        search: settings.search.clone(),
+        start_index,
+    }
+}
+
+// None means the turn was cancelled.
+async fn call_tool(
+    app: &AppHandle,
+    name: &str,
+    args: Value,
+    start_index: u32,
+    cancel: &Cancel,
+) -> Option<Result<ToolOutput, String>> {
+    let context = tool_context(app, start_index);
+    tokio::select! {
+        _ = cancel.notify.notified() => None,
+        result = tools::run(name, args, context) => Some(result),
+    }
+}
+
 async fn execute_tool(
     app: &AppHandle,
     call: &ToolCall,
     start_index: u32,
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
-) -> (String, String, Vec<super::Source>, f64) {
-    let settings = app.state::<ConfigState>().get();
-    let context = ToolContext {
-        app: app.clone(),
-        search: settings.search.clone(),
-        start_index,
-    };
-
-    let result = tokio::select! {
-        _ = cancel.notify.notified() => None,
-        result = tools::run(&call.name, parse_args(&call.arguments), context) => Some(result),
-    };
-
-    match result {
-        Some(Ok(output)) => (output.content, output.summary, output.sources, output.cost),
-        Some(Err(error)) => (format!("error: {error}"), error, Vec::new(), 0.0),
+) -> ToolOutcome {
+    match call_tool(app, &call.name, parse_args(&call.arguments), start_index, cancel).await {
+        Some(Ok(output)) => ToolOutcome {
+            content: output.content,
+            summary: output.summary,
+            sources: output.sources,
+            cost: output.cost,
+        },
+        Some(Err(error)) => ToolOutcome {
+            content: format!("error: {error}"),
+            summary: error,
+            sources: Vec::new(),
+            cost: 0.0,
+        },
         None => {
             let _ = channel.send(StreamEvent::Error {
                 message: "cancelled".to_string(),
             });
-            ("error: cancelled".to_string(), "cancelled".to_string(), Vec::new(), 0.0)
+            ToolOutcome {
+                content: "error: cancelled".to_string(),
+                summary: "cancelled".to_string(),
+                sources: Vec::new(),
+                cost: 0.0,
+            }
         }
     }
 }
@@ -368,13 +394,7 @@ async fn run_web_search(
     start_index: u32,
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
-) -> (String, String, f64, u32) {
-    let settings = app.state::<ConfigState>().get();
-    let context = ToolContext {
-        app: app.clone(),
-        search: settings.search.clone(),
-        start_index,
-    };
+) -> (String, f64, u32) {
     let args = json!({ "query": query });
     let id = "auto_search".to_string();
     let _ = channel.send(StreamEvent::ToolCall {
@@ -383,21 +403,16 @@ async fn run_web_search(
         args: args.clone(),
     });
 
-    let result = tokio::select! {
-        _ = cancel.notify.notified() => None,
-        result = tools::run("web_search", args, context) => Some(result),
-    };
-
-    match result {
+    match call_tool(app, "web_search", args, start_index, cancel).await {
         Some(Ok(output)) => {
             let count = output.sources.len() as u32;
             let _ = channel.send(StreamEvent::ToolResult {
                 id,
                 ok: true,
-                summary: output.summary.clone(),
+                summary: output.summary,
                 sources: output.sources,
             });
-            (output.content, output.summary, output.cost, start_index + count)
+            (output.content, output.cost, start_index + count)
         }
         Some(Err(error)) => {
             let _ = channel.send(StreamEvent::ToolResult {
@@ -406,17 +421,8 @@ async fn run_web_search(
                 summary: error.clone(),
                 sources: Vec::new(),
             });
-            (format!("error: {error}"), error, 0.0, start_index)
+            (format!("error: {error}"), 0.0, start_index)
         }
-        None => (String::new(), String::new(), 0.0, start_index),
+        None => (String::new(), 0.0, start_index),
     }
-}
-
-async fn supports_tools(
-    kind: Kind,
-    model: &str,
-    settings: &crate::config::Settings,
-    key: Option<&str>,
-) -> bool {
-    super::capabilities::supports(kind, model, settings, key).await
 }

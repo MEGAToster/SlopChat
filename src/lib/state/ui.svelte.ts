@@ -2,7 +2,8 @@ import { groupChats, type ChatGroup } from "../chatGroups";
 import { setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, ModelConfig, Profile } from "../types";
-import { activeChatId, chats, isBlank, newChat, openChat } from "./chat.svelte";
+import { newChat, openChat } from "./chatHistory.svelte";
+import { activeChatId, chats, isBlank } from "./chatStore.svelte";
 import { settings } from "./settings.svelte";
 
 export type { ChatGroup };
@@ -171,11 +172,25 @@ export function activeProfileIndex(): number {
 export function activeConfig(): ModelConfig | null {
   const profile = activeProfile();
   if (!profile) return null;
-  const override = modelOverride();
-  if (override) {
-    return settings().models.find((entry) => entry.model === override) ?? profile;
-  }
-  return profile;
+
+  const ref = modelOverride() ?? profile.model;
+  const model =
+    settings().models.find((entry) => entry.model === ref) ?? { model: ref, useContext: true };
+
+  // Per-profile overrides only apply to that profile's own model; a model
+  // picked from the palette uses its registered settings as-is.
+  if (ref !== profile.model) return model;
+
+  return {
+    ...model,
+    system: profile.system ?? model.system,
+    temperature: profile.temperature ?? model.temperature,
+    useContext: profile.useContext ?? model.useContext,
+    tools: profile.tools ?? model.tools,
+    toolCalling: profile.toolCalling ?? model.toolCalling,
+    webSearch: profile.webSearch ?? model.webSearch,
+    reasoning: profile.reasoning ?? model.reasoning,
+  };
 }
 
 export function setProfile(name: string): void {

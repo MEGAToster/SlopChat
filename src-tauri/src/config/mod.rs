@@ -1,263 +1,17 @@
 mod defaults;
 mod keybinds;
+mod settings;
 mod themes;
 mod watch;
 mod write;
 
+pub use settings::*;
 pub use themes::UserTheme;
+pub(crate) use settings::migrate_profiles;
 
-use std::collections::BTreeMap;
 use std::sync::{Mutex, RwLock};
 
-use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct Settings {
-    pub keybinds: Keybinds,
-    pub providers: BTreeMap<String, Provider>,
-    pub profiles: Vec<Profile>,
-    #[serde(default, deserialize_with = "normalize_models")]
-    pub models: Vec<ModelConfig>,
-    pub startup: Startup,
-    pub resume_within_minutes: u64,
-    pub theme: String,
-    #[serde(default = "default_style")]
-    pub style: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub font: Option<Font>,
-    pub search: SearchSettings,
-    pub window: WindowConfig,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", from = "RawSearchSettings")]
-pub struct SearchSettings {
-    pub providers: Vec<String>,
-    pub num_results: u32,
-    pub limits: BTreeMap<String, Limit>,
-    pub exa: ExaSettings,
-}
-
-#[derive(Clone, Default, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct Limit {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub monthly: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub monthly_usd: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<u32>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct ExaSettings {
-    #[serde(rename = "type")]
-    pub search_type: String,
-    pub contents: String,
-    pub max_characters: u32,
-}
-
-// Accepts both the current shape and the legacy flat Exa keys.
-#[derive(Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-struct RawSearchSettings {
-    providers: Vec<String>,
-    num_results: u32,
-    limits: BTreeMap<String, Limit>,
-    exa: Option<ExaSettings>,
-    provider: Option<String>,
-    monthly_budget: Option<f64>,
-    #[serde(rename = "type")]
-    search_type: Option<String>,
-    contents: Option<String>,
-    max_characters: Option<u32>,
-}
-
-impl Default for RawSearchSettings {
-    fn default() -> Self {
-        Self {
-            providers: Vec::new(),
-            num_results: 5,
-            limits: BTreeMap::new(),
-            exa: None,
-            provider: None,
-            monthly_budget: None,
-            search_type: None,
-            contents: None,
-            max_characters: None,
-        }
-    }
-}
-
-impl From<RawSearchSettings> for SearchSettings {
-    fn from(raw: RawSearchSettings) -> Self {
-        let mut limits = defaults::default_search_limits();
-        for (name, limit) in raw.limits {
-            limits.insert(name, limit);
-        }
-        if let Some(budget) = raw.monthly_budget {
-            limits.entry("exa".to_string()).or_default().monthly_usd = Some(budget);
-        }
-
-        let exa = raw.exa.unwrap_or_else(|| ExaSettings {
-            search_type: raw.search_type.unwrap_or_else(|| "instant".to_string()),
-            contents: raw.contents.unwrap_or_else(|| "highlights".to_string()),
-            max_characters: raw.max_characters.unwrap_or(1500),
-        });
-
-        let providers = if raw.providers.is_empty() {
-            defaults::default_search_providers()
-        } else {
-            raw.providers
-        };
-
-        Self {
-            providers,
-            num_results: raw.num_results,
-            limits,
-            exa,
-        }
-    }
-}
-
-#[derive(Clone, Default, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct Font {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ui: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mono: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub size: Option<f64>,
-}
-
-fn default_style() -> String {
-    "auto".to_string()
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct Keybinds {
-    pub toggle: Vec<String>,
-    pub palette: Vec<String>,
-    pub sidebar: Vec<String>,
-    pub prev_chat: Vec<String>,
-    pub next_chat: Vec<String>,
-    pub cycle_profile: Vec<String>,
-    pub sticky: Vec<String>,
-    pub stop: Vec<String>,
-    pub scroll_up: Vec<String>,
-    pub scroll_down: Vec<String>,
-    pub web_toggle: Vec<String>,
-    pub reasoning: Vec<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Provider {
-    pub base_url: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub api_key: Option<String>,
-}
-
-// A model's settings. Profiles are named model configs; `models` entries are
-// the same shape without a name.
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct ModelConfig {
-    pub model: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f32>,
-    #[serde(default = "defaults::default_true")]
-    pub use_context: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
-    #[serde(deserialize_with = "normalize_tools")]
-    pub tools: Vec<String>,
-    #[serde(default = "defaults::default_true")]
-    pub tool_calling: bool,
-    pub web_search: WebSearchMode,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning: Option<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Profile {
-    pub name: String,
-    #[serde(flatten)]
-    pub config: ModelConfig,
-}
-
-// Legacy `models` entries were plain strings.
-fn normalize_models<'de, D>(deserializer: D) -> Result<Vec<ModelConfig>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let raw = Vec::<serde_json::Value>::deserialize(deserializer)?;
-    raw.into_iter()
-        .map(|value| match value {
-            serde_json::Value::String(model) => Ok(ModelConfig {
-                model,
-                ..ModelConfig::default()
-            }),
-            other => serde_json::from_value(other).map_err(serde::de::Error::custom),
-        })
-        .collect()
-}
-
-// `fetch_url` was renamed to `web_fetch`.
-fn normalize_tools<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let tools = Vec::<String>::deserialize(deserializer)?;
-    Ok(tools
-        .into_iter()
-        .map(|tool| {
-            if tool == "fetch_url" {
-                "web_fetch".to_string()
-            } else {
-                tool
-            }
-        })
-        .collect())
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum WebSearchMode {
-    #[default]
-    Auto,
-    Always,
-    Off,
-}
-
-impl WebSearchMode {
-    pub fn is_off(self) -> bool {
-        self == WebSearchMode::Off
-    }
-}
-
-#[derive(Clone, Copy, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Startup {
-    #[default]
-    Last,
-    New,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct WindowConfig {
-    pub compact_width: f64,
-    pub expanded_screen_ratio: f64,
-}
 
 pub struct ConfigState {
     settings: RwLock<Settings>,
@@ -273,10 +27,7 @@ impl ConfigState {
     }
 
     pub fn get(&self) -> Settings {
-        self.settings
-            .read()
-            .expect("config lock poisoned")
-            .clone()
+        self.settings.read().expect("config lock poisoned").clone()
     }
 
     pub fn error(&self) -> Option<String> {
@@ -345,8 +96,12 @@ pub fn ensure_file() -> Result<(), String> {
     write::ensure_file()
 }
 
-pub fn save_model(app: &AppHandle, config: &ModelConfig) -> Result<(), String> {
-    write::save_model(app, config)
+pub fn save_model(
+    app: &AppHandle,
+    config: &ModelConfig,
+    previous: Option<&str>,
+) -> Result<(), String> {
+    write::save_model(app, config, previous)
 }
 
 pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
@@ -373,6 +128,28 @@ pub fn load_user_themes() -> Vec<UserTheme> {
     themes::load_user()
 }
 
+pub fn open_file() -> Result<(), String> {
+    ensure_file()?;
+    let path = crate::paths::settings_path();
+
+    if let Some(editor) = std::env::var("EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .ok()
+        .filter(|editor| !editor.trim().is_empty())
+    {
+        return std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("exec {editor} \"$1\""))
+            .arg("sh")
+            .arg(&path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string());
+    }
+
+    crate::platform::open_path(&path)
+}
+
 fn apply_toggle(app: &AppHandle, keys: &[String]) {
     let result = keybinds::parse(keys).and_then(|shortcuts| keybinds::apply(app, &shortcuts));
     if let Err(error) = result {
@@ -384,84 +161,4 @@ fn report_error(app: &AppHandle, error: String) {
     let message = format!("Config not applied, still using previous settings — {error}");
     app.state::<ConfigState>().set_error(Some(message.clone()));
     let _ = app.emit("config://error", &message);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn empty_object_yields_documented_defaults() {
-        let settings: Settings = serde_json::from_str("{}").unwrap();
-        assert_eq!(settings.keybinds.toggle, vec!["Alt+Space".to_string()]);
-        assert_eq!(settings.keybinds.stop, vec!["Ctrl+C".to_string()]);
-        assert_eq!(settings.keybinds.scroll_up, vec!["Ctrl+U".to_string()]);
-        assert!(settings.providers.contains_key("openrouter"));
-        assert_eq!(settings.profiles.len(), 4);
-        assert!(settings.models.is_empty());
-        assert_eq!(settings.theme, "default-dark");
-        assert_eq!(settings.window.compact_width, 680.0);
-    }
-
-    #[test]
-    fn partial_keybinds_keep_other_defaults() {
-        let settings: Settings =
-            serde_json::from_str(r#"{"keybinds":{"toggle":["Ctrl+Space"]}}"#).unwrap();
-        assert_eq!(settings.keybinds.toggle, vec!["Ctrl+Space".to_string()]);
-        assert_eq!(settings.keybinds.palette, Keybinds::default().palette);
-        assert_eq!(settings.resume_within_minutes, 10);
-    }
-
-    #[test]
-    fn profiles_default_to_using_context() {
-        let settings: Settings =
-            serde_json::from_str(r#"{"profiles":[{"name":"x","model":"y"}]}"#).unwrap();
-        assert!(settings.profiles[0].config.use_context);
-        assert!(settings.profiles[0].config.tool_calling);
-        assert_eq!(settings.profiles[0].config.model, "y");
-    }
-
-    #[test]
-    fn legacy_string_models_become_configs() {
-        let settings: Settings =
-            serde_json::from_str(r#"{"models":["openrouter/a","openrouter/b"]}"#).unwrap();
-        assert_eq!(settings.models.len(), 2);
-        assert_eq!(settings.models[0].model, "openrouter/a");
-        assert!(settings.models[0].tool_calling);
-    }
-
-    #[test]
-    fn legacy_search_keys_map_onto_the_new_shape() {
-        let settings: Settings = serde_json::from_str(
-            r#"{"search":{"provider":"exa","monthlyBudget":3.5,"type":"fast","contents":"text","maxCharacters":900}}"#,
-        )
-        .unwrap();
-        assert_eq!(settings.search.providers.len(), 4);
-        assert_eq!(settings.search.providers[0], "exa");
-        assert_eq!(settings.search.limits["exa"].monthly_usd, Some(3.5));
-        assert_eq!(settings.search.limits["serper"].total, Some(2500));
-        assert_eq!(settings.search.exa.search_type, "fast");
-        assert_eq!(settings.search.exa.contents, "text");
-        assert_eq!(settings.search.exa.max_characters, 900);
-    }
-
-    #[test]
-    fn legacy_fetch_url_tool_is_renamed() {
-        let settings: Settings = serde_json::from_str(
-            r#"{"profiles":[{"name":"x","model":"y","tools":["web_search","fetch_url"]}]}"#,
-        )
-        .unwrap();
-        assert_eq!(
-            settings.profiles[0].config.tools,
-            vec!["web_search".to_string(), "web_fetch".to_string()]
-        );
-    }
-
-    #[test]
-    fn raw_api_keys_are_rejected() {
-        let settings: Settings =
-            serde_json::from_str(r#"{"providers":{"openrouter":{"baseUrl":"x","apiKey":"sk-123"}}}"#)
-                .unwrap();
-        assert!(crate::providers::api_key(&settings, "openrouter").is_err());
-    }
 }

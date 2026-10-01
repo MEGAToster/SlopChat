@@ -2,7 +2,7 @@ import { tick } from "svelte";
 
 import { focusComposer } from "../dom";
 import { hidePanel, resizePanel } from "../ipc";
-import { removeChat } from "./chat.svelte";
+import { removeChat } from "./chatHistory.svelte";
 import {
   close as paletteClose,
   isOpen as paletteIsOpen,

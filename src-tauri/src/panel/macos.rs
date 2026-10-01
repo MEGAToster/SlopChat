@@ -1,8 +1,6 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 
-use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Monitor, Position, Size, WebviewUrl,
-};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, Position, Size, WebviewUrl};
 use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelBuilder, PanelLevel, StyleMask,
 };
@@ -55,7 +53,7 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     let panel = PanelBuilder::<_, SlopPanel>::new(app, LABEL)
         .url(WebviewUrl::App("index.html".into()))
         .title("SlopChat")
-        .position(compact_position(app))
+        .position(super::compact_position(app))
         .size(Size::Logical(LogicalSize::new(
             DEFAULT_COMPACT_WIDTH,
             MIN_HEIGHT,
@@ -96,7 +94,7 @@ pub fn show(app: &AppHandle) {
 
     if !super::is_expanded(app) {
         if let Some(window) = app.get_webview_window(LABEL) {
-            let _ = window.set_position(compact_position(app));
+            let _ = window.set_position(super::compact_position(app));
         }
     }
 
@@ -114,21 +112,13 @@ pub fn hide(app: &AppHandle, restore: bool) {
     }
 }
 
-pub fn toggle(app: &AppHandle) {
-    if is_visible(app) {
-        hide(app, true);
-    } else {
-        show(app);
-    }
-}
-
 pub fn is_visible(app: &AppHandle) -> bool {
     app.get_webview_panel(LABEL)
         .map(|panel| panel.is_visible())
         .unwrap_or(false)
 }
 
-pub fn set_window_style(app: &AppHandle, scheme: &str, vibrancy: &str, _opacity: f64) {
+pub fn set_window_style(app: &AppHandle, scheme: &str, vibrancy: &str) {
     use tauri::window::{Effect, EffectState, EffectsBuilder};
 
     let Some(window) = app.get_webview_window(LABEL) else {
@@ -169,37 +159,4 @@ pub fn resize(app: &AppHandle, position: Position, width: f64, height: f64) {
     }
 }
 
-pub fn work_area(app: &AppHandle) -> (f64, f64, f64, f64) {
-    match active_monitor(app) {
-        Some(monitor) => {
-            let scale = monitor.scale_factor();
-            let area = monitor.work_area();
-            let position = area.position.to_logical::<f64>(scale);
-            let size = area.size.to_logical::<f64>(scale);
-            (position.x, position.y, size.width, size.height)
-        }
-        None => (0.0, 0.0, 1440.0, 900.0),
-    }
-}
 
-fn active_monitor(app: &AppHandle) -> Option<Monitor> {
-    app.cursor_position()
-        .ok()
-        .and_then(|cursor| app.monitor_from_point(cursor.x, cursor.y).ok().flatten())
-        .or_else(|| app.primary_monitor().ok().flatten())
-}
-
-pub fn compact_position(app: &AppHandle) -> Position {
-    let Some(monitor) = active_monitor(app) else {
-        return Position::Logical(LogicalPosition::new(0.0, 0.0));
-    };
-
-    let scale = monitor.scale_factor();
-    let origin = monitor.position().to_logical::<f64>(scale);
-    let size = monitor.size().to_logical::<f64>(scale);
-
-    Position::Logical(LogicalPosition::new(
-        origin.x + (size.width - DEFAULT_COMPACT_WIDTH) / 2.0,
-        origin.y + size.height * 0.18,
-    ))
-}

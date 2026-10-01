@@ -8,7 +8,7 @@ export const DEFAULT_KEYBINDS: Keybinds = {
   nextChat: ["Ctrl+J"],
   cycleProfile: ["Shift+Tab"],
   sticky: ["Ctrl+Shift+P"],
-  stop: ["Ctrl+C"],
+  stop: ["Ctrl+Q"],
   scrollUp: ["Ctrl+U"],
   scrollDown: ["Ctrl+D"],
   webToggle: ["Ctrl+W"],
