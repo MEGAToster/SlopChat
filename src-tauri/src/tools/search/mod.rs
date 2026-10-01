@@ -24,7 +24,7 @@ pub fn schema() -> Value {
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Search the web. Results are short snippets; call fetch_url on the most relevant URLs for details.",
+            "description": "Search the web. Returns numbered results with short snippets. Use specific queries; snippets are not enough for exact numbers — fetch the page.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -188,7 +188,7 @@ fn format_output(
         }
         content.push('\n');
 
-        let snippet = truncate(&html::to_text(&hit.snippet), cap);
+        let snippet = truncate(&html::to_line(&hit.snippet), cap);
         if !snippet.is_empty() {
             content.push_str("  ");
             content.push_str(&snippet);

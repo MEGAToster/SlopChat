@@ -83,6 +83,7 @@ fn main() {
             commands::save_advanced,
             commands::set_startup,
             commands::set_resume_within,
+            commands::set_reader_fallback,
             commands::load_user_themes,
             commands::open_url,
             commands::search_usage,

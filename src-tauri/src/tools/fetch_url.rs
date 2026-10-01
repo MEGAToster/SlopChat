@@ -1,135 +1,81 @@
-use std::net::{IpAddr, Ipv4Addr, ToSocketAddrs};
-use std::time::Duration;
-
 use serde_json::{json, Value};
 
-use super::{html, ToolContext, ToolOutput};
-
-const MAX_BYTES: usize = 2 * 1024 * 1024;
-const MAX_CHARS: usize = 8000;
+use super::fetch_client::{self, Fetched};
+use super::{ToolContext, ToolOutput};
 
 pub fn schema() -> Value {
     json!({
         "type": "function",
         "function": {
             "name": "web_fetch",
-            "description": "Fetch a web page and return its text. Read-only.",
+            "description": "Fetch the readable text of a URL (usually from search results). Use for details such as pricing tables, specs and changelogs. Supports `start` for long pages.",
             "parameters": {
                 "type": "object",
-                "properties": { "url": { "type": "string" } },
+                "properties": {
+                    "url": { "type": "string" },
+                    "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Character offset to continue from on long pages"
+                    },
+                    "maxChars": { "type": "integer", "minimum": 1, "maximum": 20000 }
+                },
                 "required": ["url"]
             }
         }
     })
 }
 
-pub async fn run(args: Value, _context: ToolContext) -> Result<ToolOutput, String> {
+pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String> {
     let url = args
         .get("url")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    guard(&url)?;
+    let start = args.get("start").and_then(Value::as_u64).unwrap_or(0) as usize;
+    let max_chars = args
+        .get("maxChars")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .unwrap_or(fetch_client::DEFAULT_CHARS);
 
-    let response = crate::providers::client()
-        .get(&url)
-        .timeout(Duration::from_secs(10))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        return Err(format!("fetch failed: {}", response.status()));
-    }
-
-    let content_type = response
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    if !content_type.contains("text/html") && !content_type.contains("text/plain") {
-        return Err(format!("unsupported content type: {content_type}"));
-    }
-
-    let bytes = response.bytes().await.map_err(|error| error.to_string())?;
-    if bytes.len() > MAX_BYTES {
-        return Err("page too large".to_string());
-    }
-
-    let text = html::to_text(&String::from_utf8_lossy(&bytes));
-    let content: String = text.chars().take(MAX_CHARS).collect();
+    let page = fetch_client::get(&url, start, max_chars, context.search.reader_fallback).await?;
 
     Ok(ToolOutput {
-        content,
-        summary: "page fetched".to_string(),
+        content: format_content(&page),
+        summary: format_summary(&page),
         sources: Vec::new(),
         cost: 0.0,
     })
 }
 
-fn guard(url: &str) -> Result<(), String> {
-    let rest = url
-        .strip_prefix("http://")
-        .or_else(|| url.strip_prefix("https://"))
-        .ok_or_else(|| "only http/https URLs are allowed".to_string())?;
-
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-    let host_port = authority.rsplit('@').next().unwrap_or(authority);
-    let host = host_port.split(':').next().unwrap_or(host_port);
-
-    if host.is_empty() || host.eq_ignore_ascii_case("localhost") || host.ends_with(".local") {
-        return Err("refusing to fetch a local address".to_string());
+fn format_content(page: &Fetched) -> String {
+    let mut content = String::new();
+    if let Some(title) = &page.title {
+        content.push_str(&format!("Title: {title}\n"));
     }
-
-    let addresses = (host, 0)
-        .to_socket_addrs()
-        .map_err(|error| error.to_string())?;
-
-    for address in addresses {
-        if blocked(address.ip()) {
-            return Err("refusing to fetch a private address".to_string());
-        }
-    }
-
-    Ok(())
+    let first = page.start + 1;
+    let last = page.start + page.text.chars().count();
+    content.push_str(&format!(
+        "URL: {} (chars {first}-{last} of {})\n\n",
+        page.url, page.total
+    ));
+    content.push_str(&page.text);
+    content
 }
 
-fn blocked(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(ip) => {
-            ip.is_loopback()
-                || ip.is_private()
-                || ip.is_link_local()
-                || ip.is_unspecified()
-                || ip.is_broadcast()
-                || is_cgnat(ip)
-        }
-        IpAddr::V6(ip) => {
-            ip.is_loopback()
-                || ip.is_unspecified()
-                || ip.is_unique_local()
-                || ip.is_unicast_link_local()
-        }
+fn format_summary(page: &Fetched) -> String {
+    let mut summary = format!("{} chars", compact(page.total));
+    if page.via_reader {
+        summary.push_str(" · via reader");
     }
+    summary
 }
 
-fn is_cgnat(ip: Ipv4Addr) -> bool {
-    let octets = ip.octets();
-    octets[0] == 100 && (64..128).contains(&octets[1])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rejects_local_and_non_http() {
-        assert!(guard("http://localhost:11434").is_err());
-        assert!(guard("http://192.168.1.1").is_err());
-        assert!(guard("http://[::1]/").is_err());
-        assert!(guard("file:///etc/passwd").is_err());
-        assert!(guard("http://127.0.0.1").is_err());
+fn compact(total: usize) -> String {
+    if total >= 1000 {
+        format!("{:.1}k", total as f64 / 1000.0)
+    } else {
+        total.to_string()
     }
 }

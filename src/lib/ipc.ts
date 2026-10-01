@@ -159,6 +159,10 @@ export function setResumeWithin(minutes: number): Promise<void> {
   return invoke("set_resume_within", { minutes });
 }
 
+export function setReaderFallback(enabled: boolean): Promise<void> {
+  return invoke("set_reader_fallback", { enabled });
+}
+
 export function loadUserThemes(): Promise<ThemeInfo[]> {
   return invoke("load_user_themes");
 }

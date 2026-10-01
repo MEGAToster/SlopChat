@@ -136,6 +136,10 @@ pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
     write::set_resume_within(app, minutes)
 }
 
+pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    write::set_reader_fallback(app, enabled)
+}
+
 pub fn load_user_themes() -> Vec<UserTheme> {
     themes::load_user()
 }

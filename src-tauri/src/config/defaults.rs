@@ -37,6 +37,7 @@ impl Default for SearchSettings {
             num_results: 5,
             limits: default_search_limits(),
             exa: ExaSettings::default(),
+            reader_fallback: true,
         }
     }
 }

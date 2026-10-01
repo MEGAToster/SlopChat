@@ -1,4 +1,5 @@
 pub mod budget;
+mod fetch_client;
 mod fetch_url;
 mod html;
 mod search;

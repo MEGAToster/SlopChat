@@ -187,6 +187,14 @@ pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
     })
 }
 
+pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    patch(app, move |value| {
+        if let Some(search) = value.get_mut("search").and_then(Value::as_object_mut) {
+            search.insert("readerFallback".to_string(), json!(enabled));
+        }
+    })
+}
+
 fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
     let parent = path
         .parent()

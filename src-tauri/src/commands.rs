@@ -271,6 +271,11 @@ pub fn set_resume_within(app: AppHandle, minutes: u64) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+pub fn set_reader_fallback(app: AppHandle, enabled: bool) -> Result<(), String> {
+    config::set_reader_fallback(&app, enabled)
+}
+
+#[tauri::command(async)]
 pub fn load_user_themes() -> Vec<config::UserTheme> {
     config::load_user_themes()
 }

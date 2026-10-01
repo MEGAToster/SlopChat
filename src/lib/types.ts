@@ -63,6 +63,10 @@ export type Advanced = {
   maxRounds: number;
 };
 
+export type SearchSettings = {
+  readerFallback: boolean;
+};
+
 export type WindowConfig = {
   compactWidth: number;
   expandedScreenRatio: number;
@@ -78,6 +82,7 @@ export type Settings = {
   theme: string;
   style: "auto" | ThemeStyles;
   font?: FontSettings;
+  search: SearchSettings;
   advanced: Advanced;
   window: WindowConfig;
 };

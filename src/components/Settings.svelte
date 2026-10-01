@@ -7,6 +7,7 @@
     saveModel,
     saveProfile,
     searchUsage,
+    setReaderFallback,
     setResumeWithin,
     setStartup,
   } from "../lib/ipc";
@@ -231,6 +232,21 @@
           </div>
 
           <div class="adv-row">
+            <span class="adv-label">
+              Reader fallback
+              <span class="adv-unit">(r.jina.ai for blocked pages)</span>
+            </span>
+            <input
+              class="check"
+              type="checkbox"
+              title="Read blocked or JS-only pages through r.jina.ai, which sees the URL"
+              checked={settings().search.readerFallback}
+              onchange={(event) =>
+                void setReaderFallback((event.currentTarget as HTMLInputElement).checked)}
+            />
+          </div>
+
+          <div class="adv-row">
             <span class="adv-label">Max web searches / reply</span>
             <input
               class="control"
@@ -430,6 +446,14 @@
 
   .control:focus {
     outline: 1px solid var(--accent);
+  }
+
+  .check {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
 
   select.control {

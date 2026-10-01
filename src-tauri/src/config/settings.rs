@@ -39,6 +39,7 @@ pub struct SearchSettings {
     pub num_results: u32,
     pub limits: BTreeMap<String, Limit>,
     pub exa: ExaSettings,
+    pub reader_fallback: bool,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -68,6 +69,7 @@ struct RawSearchSettings {
     num_results: u32,
     limits: BTreeMap<String, Limit>,
     exa: Option<ExaSettings>,
+    reader_fallback: bool,
     provider: Option<String>,
     monthly_budget: Option<f64>,
     #[serde(rename = "type")]
@@ -83,6 +85,7 @@ impl Default for RawSearchSettings {
             num_results: 5,
             limits: BTreeMap::new(),
             exa: None,
+            reader_fallback: true,
             provider: None,
             monthly_budget: None,
             search_type: None,
@@ -119,6 +122,7 @@ impl From<RawSearchSettings> for SearchSettings {
             num_results: raw.num_results,
             limits,
             exa,
+            reader_fallback: raw.reader_fallback,
         }
     }
 }
