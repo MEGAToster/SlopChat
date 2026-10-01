@@ -8,7 +8,7 @@ type StreamRequest = Omit<SendRequest, "chatId">;
 
 type StreamCallbacks = {
   onUpdate: (content: string) => void;
-  onReasoning: () => void;
+  onThinking: (active: boolean) => void;
   onUsage: (usage: Usage) => void;
   onSteps: (steps: ToolStep[]) => void;
   onSources: (sources: Source[]) => void;
@@ -43,6 +43,7 @@ export async function run(
   channel.onmessage = (event) => {
     switch (event.type) {
       case "delta":
+        callbacks.onThinking(false);
         if (event.round !== round) {
           round = event.round;
           answer = "";
@@ -53,9 +54,10 @@ export async function run(
         break;
       case "reasoning":
         reasoning = true;
-        callbacks.onReasoning();
+        callbacks.onThinking(true);
         break;
       case "toolCall": {
+        callbacks.onThinking(false);
         const note = notePending && answer.trim() ? answer.trim() : undefined;
         if (note) {
           answer = "";

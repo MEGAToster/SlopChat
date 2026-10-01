@@ -12,7 +12,17 @@ const DEFAULT_SETTINGS: Settings = {
   theme: "default-dark",
   style: "auto",
   search: { readerFallback: true },
-  advanced: { maxSearches: 5, maxFetches: 50, maxRounds: 6 },
+  advanced: {
+    maxSearches: 5,
+    maxFetches: 50,
+    maxRounds: 5,
+    responseTimeoutSecs: 60,
+    maxTurnSecs: 300,
+    maxFetchedChars: 60000,
+    reasoningMaxTokens: 0,
+    frequencyPenalty: 0.2,
+    presencePenalty: 0.2,
+  },
   debug: { agentLog: false },
   window: { compactWidth: 680, expandedScreenRatio: 0.7 },
 };

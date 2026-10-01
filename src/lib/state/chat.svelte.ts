@@ -117,6 +117,7 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       webToggle: options.webToggle,
       reasoning: options.reasoning,
       fallback: options.fallback,
+      maxCompletionTokens: options.maxCompletionTokens,
       messages: history,
     },
     {
@@ -125,8 +126,8 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
         const message = find();
         if (message) message.content = content;
       },
-      onReasoning: () => {
-        chatState.thinking = true;
+      onThinking: (active) => {
+        chatState.thinking = active;
       },
       onUsage: (usage) => {
         if (chatState.activeChatId !== chatId) return;

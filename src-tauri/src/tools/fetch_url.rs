@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 
 use super::fetch_client::{self, Fetched};
-use super::{ToolContext, ToolOutput};
+use super::ToolOutput;
 
 pub fn schema() -> Value {
     json!({
@@ -26,7 +26,9 @@ pub fn schema() -> Value {
     })
 }
 
-pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String> {
+// `reader_fallback` is the only setting fetch needs; it must never reach a
+// search provider, since fetching is free (local + optional Jina reader).
+pub async fn run(args: Value, reader_fallback: bool) -> Result<ToolOutput, String> {
     let url = args
         .get("url")
         .and_then(Value::as_str)
@@ -39,7 +41,7 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
         .map(|value| value as usize)
         .unwrap_or(fetch_client::DEFAULT_CHARS);
 
-    let page = fetch_client::get(&url, start, max_chars, context.search.reader_fallback).await?;
+    let page = fetch_client::get(&url, start, max_chars, reader_fallback).await?;
 
     Ok(ToolOutput {
         content: format_content(&page),
@@ -61,6 +63,11 @@ fn format_content(page: &Fetched) -> String {
         page.url, page.total
     ));
     content.push_str(&page.text);
+    if page.text.trim().is_empty() {
+        content.push_str(
+            "(no readable text found at this URL; try another URL or answer from the snippets.)",
+        );
+    }
     content
 }
 

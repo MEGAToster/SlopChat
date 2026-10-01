@@ -31,6 +31,7 @@ export type ModelConfig = {
   toolCalling?: boolean;
   webSearch?: WebSearchMode;
   reasoning?: string;
+  maxCompletionTokens?: number;
 };
 
 export type ProfileOverrides = {
@@ -61,6 +62,12 @@ export type Advanced = {
   maxSearches: number;
   maxFetches: number;
   maxRounds: number;
+  responseTimeoutSecs: number;
+  maxTurnSecs: number;
+  maxFetchedChars: number;
+  reasoningMaxTokens: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
 };
 
 type SearchSettings = {
@@ -155,6 +162,7 @@ export type SendRequest = {
   webToggle?: boolean;
   reasoning?: string;
   fallback?: string;
+  maxCompletionTokens?: number;
   messages: RequestMessage[];
 };
 

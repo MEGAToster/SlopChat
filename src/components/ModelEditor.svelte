@@ -37,6 +37,9 @@
   let reasoning = $state(start.reasoning ?? "");
   let system = $state(start.system ?? "");
   let temperature = $state(start.temperature !== undefined ? String(start.temperature) : "");
+  let maxTokens = $state(
+    start.maxCompletionTokens !== undefined ? String(start.maxCompletionTokens) : "",
+  );
   let useContext = $state(start.useContext);
   let toolCalling = $state(start.toolCalling !== false);
   let webSearch = $state<WebSearchMode>(start.webSearch ?? "auto");
@@ -63,6 +66,7 @@
         toolCalling,
         webSearch,
         reasoning: reasoning || undefined,
+        maxCompletionTokens: maxTokens.trim() ? Number(maxTokens) : undefined,
       },
       previous,
     );
@@ -117,6 +121,11 @@
   <label class="row">
     <span class="label">Temperature</span>
     <input class="control" bind:value={temperature} placeholder="provider default" />
+  </label>
+
+  <label class="row">
+    <span class="label">Max completion tokens</span>
+    <input class="control" bind:value={maxTokens} placeholder="8192" />
   </label>
 
   <label class="row">

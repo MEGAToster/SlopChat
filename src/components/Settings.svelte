@@ -32,13 +32,14 @@
 
   const searchProviders = [
     { name: "exa", label: "Exa", placeholder: "exa-…", hint: "$10 free credit / month" },
-    { name: "serper", label: "Serper", placeholder: "…", hint: "2,500 free queries once" },
     { name: "tavily", label: "Tavily", placeholder: "tvly-…", hint: "1,000 free credits / month" },
     { name: "brave", label: "Brave", placeholder: "…", hint: "$5 free credit / month" },
+    { name: "firecrawl", label: "Firecrawl", placeholder: "fc-…", hint: "500 free credits once" },
+    { name: "serper", label: "Serper", placeholder: "…", hint: "2,500 free queries once" },
   ];
 
   let usage = $state<Record<string, SearchProviderUsage>>({});
-  let order = $state("exa → serper → tavily → brave");
+  let order = $state("exa → tavily → brave → firecrawl → serper");
 
   let editingModel = $state<ModelConfig | null>(null);
   let modelPrevious = $state<string | null>(null);
@@ -47,7 +48,14 @@
   let advancedEl = $state<HTMLDetailsElement | null>(null);
 
   function blankModel(): ModelConfig {
-    return { model: "", useContext: true, tools: [], toolCalling: true, webSearch: "auto" };
+    return {
+      model: "",
+      useContext: true,
+      tools: [],
+      toolCalling: true,
+      webSearch: "auto",
+      maxCompletionTokens: 8192,
+    };
   }
 
   function openModel(entry: ModelConfig): void {
@@ -121,6 +129,11 @@
   function clamp(event: Event, min: number, max: number): number {
     const value = Number((event.currentTarget as HTMLInputElement).value);
     return Math.min(max, Math.max(min, Math.round(value)));
+  }
+
+  function clampFloat(event: Event, min: number, max: number): number {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    return Math.min(max, Math.max(min, value));
   }
 
   function saveLimits(patch: Partial<Advanced>): void {
@@ -295,6 +308,92 @@
               max="10"
               value={settings().advanced.maxRounds}
               onchange={(event) => saveLimits({ maxRounds: clamp(event, 1, 10) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">
+              Response timeout <span class="adv-unit">(s, no output)</span>
+            </span>
+            <input
+              class="control"
+              type="number"
+              min="5"
+              max="600"
+              value={settings().advanced.responseTimeoutSecs}
+              onchange={(event) => saveLimits({ responseTimeoutSecs: clamp(event, 5, 600) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">
+              Max turn <span class="adv-unit">(s)</span>
+            </span>
+            <input
+              class="control"
+              type="number"
+              min="30"
+              max="3600"
+              value={settings().advanced.maxTurnSecs}
+              onchange={(event) => saveLimits({ maxTurnSecs: clamp(event, 30, 3600) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">
+              Max fetched chars <span class="adv-unit">(0 = unlimited)</span>
+            </span>
+            <input
+              class="control"
+              type="number"
+              min="0"
+              max="500000"
+              value={settings().advanced.maxFetchedChars}
+              onchange={(event) => saveLimits({ maxFetchedChars: clamp(event, 0, 500000) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">
+              Reasoning token cap <span class="adv-unit">(0 = off)</span>
+            </span>
+            <input
+              class="control"
+              type="number"
+              min="0"
+              max="100000"
+              value={settings().advanced.reasoningMaxTokens}
+              onchange={(event) => saveLimits({ reasoningMaxTokens: clamp(event, 0, 100000) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">
+              Frequency penalty <span class="adv-unit">(0-2)</span>
+            </span>
+            <input
+              class="control"
+              type="number"
+              min="0"
+              max="2"
+              step="0.1"
+              value={settings().advanced.frequencyPenalty}
+              onchange={(event) => saveLimits({ frequencyPenalty: clampFloat(event, 0, 2) })}
+            />
+          </div>
+
+          <div class="adv-row">
+            <span class="adv-label">
+              Presence penalty <span class="adv-unit">(0-2)</span>
+            </span>
+            <input
+              class="control"
+              type="number"
+              min="0"
+              max="2"
+              step="0.1"
+              value={settings().advanced.presencePenalty}
+              onchange={(event) => saveLimits({ presencePenalty: clampFloat(event, 0, 2) })}
             />
           </div>
 

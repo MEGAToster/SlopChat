@@ -72,6 +72,7 @@ pub struct StepOutcome {
     pub tool_calls: Vec<ToolCall>,
     pub usage: Option<Usage>,
     pub provider: Option<String>,
+    pub finish_reason: Option<String>,
 }
 
 pub enum StreamError {
@@ -90,6 +91,8 @@ fn unavailable(status: u16) -> bool {
 pub async fn run_step(
     plan: &RequestPlan<'_>,
     round: u32,
+    inactivity: Duration,
+    hard_deadline: tokio::time::Instant,
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
 ) -> Result<StepOutcome, StreamError> {
@@ -121,17 +124,21 @@ pub async fn run_step(
     let mut usage = None;
     let mut provider = None;
     let mut reasoned = false;
+    let mut finish_reason: Option<String> = None;
     let mut calls: Vec<ToolCall> = Vec::new();
+
+    // Idle deadline advances only on real events; keep-alive comments (and other
+    // empty chunks) don't count, so a provider that stops producing content is
+    // caught instead of hanging forever.
+    let mut idle_deadline = tokio::time::Instant::now() + inactivity;
 
     loop {
         let chunk = tokio::select! {
             _ = cancel.cancelled() => return Err(StreamError::Cancelled),
-            result = tokio::time::timeout(Duration::from_secs(90), response.chunk()) => {
-                match result {
-                    Ok(chunk) => chunk.map_err(|error| StreamError::Failed(error.to_string()))?,
-                    Err(_) => return Err(StreamError::Failed("provider timed out".to_string())),
-                }
+            _ = tokio::time::sleep_until(idle_deadline.min(hard_deadline)) => {
+                return Err(StreamError::Failed("provider stalled".to_string()));
             }
+            result = response.chunk() => result.map_err(|error| StreamError::Failed(error.to_string()))?,
         };
 
         let Some(bytes) = chunk else {
@@ -139,6 +146,7 @@ pub async fn run_step(
         };
 
         let mut done = false;
+        let mut activity = false;
         for data in parser.push(&bytes) {
             if data.trim() == "[DONE]" {
                 done = true;
@@ -151,26 +159,40 @@ pub async fn run_step(
                 return Err(StreamError::Failed(message));
             }
             if let Some(part) = parsed.content {
+                activity = true;
                 content.push_str(&part);
                 if !leaked {
                     forward(&content, &mut forwarded, &mut leaked, round, channel);
                 }
             }
-            if parsed.reasoning && !reasoned {
-                reasoned = true;
-                let _ = channel.send(StreamEvent::Reasoning);
+            if parsed.reasoning {
+                activity = true;
+                if !reasoned {
+                    reasoned = true;
+                    let _ = channel.send(StreamEvent::Reasoning);
+                }
             }
             if parsed.usage.is_some() {
+                activity = true;
                 usage = parsed.usage;
             }
             if parsed.provider.is_some() {
                 provider = parsed.provider;
             }
-            for call in parsed.tool_calls {
-                chunks::merge_call(&mut calls, call);
+            if parsed.finish_reason.is_some() {
+                finish_reason = parsed.finish_reason;
+            }
+            if !parsed.tool_calls.is_empty() {
+                activity = true;
+                for call in parsed.tool_calls {
+                    chunks::merge_call(&mut calls, call);
+                }
             }
         }
 
+        if activity {
+            idle_deadline = tokio::time::Instant::now() + inactivity;
+        }
         if done {
             break;
         }
@@ -188,6 +210,7 @@ pub async fn run_step(
         tool_calls: calls,
         usage,
         provider,
+        finish_reason,
     })
 }
 

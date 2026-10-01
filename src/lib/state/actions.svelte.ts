@@ -62,6 +62,7 @@ export function createActions(text: TextRef) {
       webSearch,
       reasoning: reasoningOverride() ?? config.reasoning,
       fallback: modelOverride() ? undefined : profile.fallback,
+      maxCompletionTokens: config.maxCompletionTokens,
     };
     const editing = editingId();
     const value = text.get();

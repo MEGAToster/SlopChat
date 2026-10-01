@@ -10,6 +10,14 @@ pub enum Kind {
     Gemini,
 }
 
+pub struct Limits<'a> {
+    pub reasoning: Option<&'a str>,
+    pub reasoning_max_tokens: u32,
+    pub max_completion_tokens: Option<u32>,
+    pub frequency_penalty: f32,
+    pub presence_penalty: f32,
+}
+
 impl Kind {
     pub fn from_name(name: &str) -> Option<Self> {
         [Kind::OpenRouter, Kind::Ollama, Kind::Gemini]
@@ -102,6 +110,26 @@ impl Kind {
         }
 
         body
+    }
+
+    // OpenRouter-only generation controls: reasoning budget, completion cap,
+    // and mild repetition penalties for models that otherwise loop.
+    pub fn apply_limits(self, body: &mut Value, limits: &Limits<'_>) {
+        if !matches!(self, Kind::OpenRouter) {
+            return;
+        }
+        if limits.reasoning.is_some() && limits.reasoning_max_tokens > 0 {
+            body["reasoning"]["max_tokens"] = json!(limits.reasoning_max_tokens);
+        }
+        if let Some(max) = limits.max_completion_tokens {
+            body["max_completion_tokens"] = json!(max);
+        }
+        if limits.frequency_penalty > 0.0 {
+            body["frequency_penalty"] = json!(limits.frequency_penalty);
+        }
+        if limits.presence_penalty > 0.0 {
+            body["presence_penalty"] = json!(limits.presence_penalty);
+        }
     }
 
     pub(crate) fn models_url(self, settings: &Settings) -> String {

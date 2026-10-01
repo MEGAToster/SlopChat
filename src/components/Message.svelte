@@ -18,8 +18,28 @@
   const stream = new MarkdownStream();
   let html = $state("");
   let markdown = $state<HTMLElement | null>(null);
+  let elapsed = $state(0);
 
   const rendered = $derived(applyCitations(html, message.sources ?? []));
+
+  // Ticks while this message streams so a long turn doesn't look frozen.
+  $effect(() => {
+    if (!streaming) {
+      elapsed = 0;
+      return;
+    }
+    const started = Date.now();
+    const timer = setInterval(() => {
+      elapsed = Math.floor((Date.now() - started) / 1000);
+    }, 1000);
+    return () => clearInterval(timer);
+  });
+
+  function duration(seconds: number): string {
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return minutes > 0 ? `${minutes}:${String(rest).padStart(2, "0")}` : `${rest}s`;
+  }
 
   // `mathState.ready` re-renders once KaTeX finishes lazy-loading.
   $effect(() => {
@@ -99,7 +119,7 @@
 
     {#if streaming && !message.content}
       {#if thinking}
-        <span class="thinking">thinking…</span>
+        <span class="thinking">thinking… {duration(elapsed)}</span>
       {:else}
         <span class="caret">▍</span>
       {/if}

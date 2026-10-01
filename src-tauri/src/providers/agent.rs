@@ -1,10 +1,13 @@
+use std::time::Duration;
+
 use serde_json::{json, Value};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager};
 
+use super::kinds::{Kind, Limits};
 use super::prompt::{assistant_tool_message, build_messages, last_user_text, parse_args};
 use super::stream::{self, Cancel, RequestPlan, StepOutcome, StreamError, ToolCall};
-use super::{kinds::Kind, leak, ModelRef, StreamEvent};
+use super::{leak, ModelRef, StreamEvent};
 use crate::config::{ConfigState, WebSearchMode};
 use crate::tools;
 
@@ -14,6 +17,7 @@ use exec::{execute_tool, run_web_search, ToolOutcome};
 const STOP_HINT: &str =
     "web_search is used up for this turn — you may still call web_fetch, or answer now using the results above";
 const LEAK_NOTE: &str = "_(the model tried to call tools in an unsupported format)_";
+const LENGTH_NOTE: &str = "_(the answer hit the token limit and may be cut off)_";
 
 fn wrap_up_message() -> Value {
     json!({
@@ -95,6 +99,11 @@ async fn run_turn(
     let max_rounds = settings.advanced.max_rounds.clamp(1, 10) as usize;
     let max_searches = settings.advanced.max_searches.clamp(1, 20) as usize;
     let max_fetches = settings.advanced.max_fetches.clamp(0, 100) as usize;
+    let max_fetched_chars = settings.advanced.max_fetched_chars;
+    let reasoning_max_tokens = settings.advanced.reasoning_max_tokens;
+    let inactivity = Duration::from_secs(settings.advanced.response_timeout_secs.clamp(5, 600) as u64);
+    let turn_deadline = tokio::time::Instant::now()
+        + Duration::from_secs(settings.advanced.max_turn_secs.clamp(30, 3600) as u64);
 
     let key = if kind.needs_auth() {
         Some(
@@ -174,6 +183,16 @@ async fn run_turn(
     let temperature = request
         .temperature
         .or_else(|| (!tool_names.is_empty() && !reasoning_model).then_some(0.3));
+    // Reasoning endpoints reject sampling penalties too; apply them only
+    // elsewhere, where weak models tend to fall into repetition loops.
+    let (frequency_penalty, presence_penalty) = if reasoning_model {
+        (0.0, 0.0)
+    } else {
+        (
+            settings.advanced.frequency_penalty.clamp(0.0, 2.0),
+            settings.advanced.presence_penalty.clamp(0.0, 2.0),
+        )
+    };
 
     let turn = Turn {
         kind,
@@ -181,6 +200,12 @@ async fn run_turn(
         model: model.model.as_str(),
         temperature,
         reasoning: request.reasoning.as_deref(),
+        reasoning_max_tokens,
+        max_completion_tokens: request.max_completion_tokens,
+        frequency_penalty,
+        presence_penalty,
+        inactivity,
+        deadline: turn_deadline,
         key: key.as_deref(),
     };
 
@@ -192,11 +217,20 @@ async fn run_turn(
     let mut wrap_up = false;
     let mut searches = 0usize;
     let mut fetches = 0usize;
+    let mut fetched_chars = 0u64;
     let mut round = 0u32;
 
     for _ in 0..max_rounds {
         if cancel.is_cancelled() {
             return Ok(());
+        }
+        if tokio::time::Instant::now() >= turn_deadline {
+            let _ = channel.send(StreamEvent::Delta {
+                content: "\n\n_(stopped: research took too long)_".to_string(),
+                round,
+            });
+            finished = true;
+            break;
         }
         round += 1;
         let can_search = tool_names.iter().any(|name| name == "web_search");
@@ -240,6 +274,7 @@ async fn run_turn(
             super::trace::append(&json!({
                 "turn": turn_id, "round": round,
                 "finish": if outcome.tool_calls.is_empty() { "stop" } else { "tool_calls" },
+                "finishReason": outcome.finish_reason,
                 "usage": outcome.usage.as_ref().map(|usage| json!({
                     "in": usage.prompt_tokens, "out": usage.completion_tokens,
                 })),
@@ -259,6 +294,12 @@ async fn run_turn(
             if leaked {
                 let _ = channel.send(StreamEvent::Delta {
                     content: LEAK_NOTE.to_string(),
+                    round,
+                });
+            }
+            if outcome.finish_reason.as_deref() == Some("length") {
+                let _ = channel.send(StreamEvent::Delta {
+                    content: LENGTH_NOTE.to_string(),
                     round,
                 });
             }
@@ -282,7 +323,7 @@ async fn run_turn(
             for chunk in calls.chunks(3) {
                 let mut handles = Vec::new();
                 for call in chunk {
-                    if fetches >= max_fetches {
+                    if fetches >= max_fetches || fetched_chars >= max_fetched_chars {
                         hit_limit = true;
                         emit_call(channel, call, true);
                         messages.push(json!({
@@ -312,6 +353,7 @@ async fn run_turn(
                         sources: Vec::new(),
                         cost: 0.0,
                     });
+                    fetched_chars += result.content.chars().count() as u64;
                     search_cost += result.cost;
                     if tracing {
                         trace_result(&turn_id, round, &name, &result);
@@ -330,7 +372,8 @@ async fn run_turn(
             for call in &calls {
                 let search = call.name == "web_search";
                 let fetch = is_fetch(call);
-                let allowed = (!search || searches < max_searches) && (!fetch || fetches < max_fetches);
+                let allowed = (!search || searches < max_searches)
+                    && (!fetch || (fetches < max_fetches && fetched_chars < max_fetched_chars));
 
                 if !allowed {
                     hit_limit = true;
@@ -362,6 +405,9 @@ async fn run_turn(
                 if cancel.is_cancelled() {
                     return Ok(());
                 }
+                if fetch {
+                    fetched_chars += result.content.chars().count() as u64;
+                }
                 search_cost += result.cost;
                 source_counter += result.sources.len() as u32;
                 if tracing {
@@ -387,7 +433,7 @@ async fn run_turn(
 
     // The round cap was hit mid tool-loop; ask once more for prose with tools
     // still defined (some models ignore a missing tool list and leak markup).
-    if !finished && !cancel.is_cancelled() {
+    if !finished && !cancel.is_cancelled() && tokio::time::Instant::now() < turn_deadline {
         round += 1;
         if !wrap_up {
             messages.push(wrap_up_message());
@@ -401,6 +447,12 @@ async fn run_turn(
                 if leak::has(&outcome.content) {
                     let _ = channel.send(StreamEvent::Delta {
                         content: LEAK_NOTE.to_string(),
+                        round,
+                    });
+                }
+                if outcome.finish_reason.as_deref() == Some("length") {
+                    let _ = channel.send(StreamEvent::Delta {
+                        content: LENGTH_NOTE.to_string(),
                         round,
                     });
                 }
@@ -489,6 +541,12 @@ struct Turn<'a> {
     model: &'a str,
     temperature: Option<f32>,
     reasoning: Option<&'a str>,
+    reasoning_max_tokens: u32,
+    max_completion_tokens: Option<u32>,
+    frequency_penalty: f32,
+    presence_penalty: f32,
+    inactivity: Duration,
+    deadline: tokio::time::Instant,
     key: Option<&'a str>,
 }
 
@@ -502,19 +560,31 @@ impl Turn<'_> {
         channel: &Channel<StreamEvent>,
         cancel: &Cancel,
     ) -> Result<StepOutcome, StreamError> {
+        let mut body = self.kind.body(
+            self.model,
+            messages,
+            self.temperature,
+            self.reasoning,
+            tools,
+            tool_choice,
+        );
+        self.kind.apply_limits(
+            &mut body,
+            &Limits {
+                reasoning: self.reasoning,
+                reasoning_max_tokens: self.reasoning_max_tokens,
+                max_completion_tokens: self.max_completion_tokens,
+                frequency_penalty: self.frequency_penalty,
+                presence_penalty: self.presence_penalty,
+            },
+        );
+
         let plan = RequestPlan {
             endpoint: self.kind.endpoint(self.settings),
-            body: self.kind.body(
-                self.model,
-                messages,
-                self.temperature,
-                self.reasoning,
-                tools,
-                tool_choice,
-            ),
+            body,
             key: self.key,
         };
-        stream::run_step(&plan, round, channel, cancel).await
+        stream::run_step(&plan, round, self.inactivity, self.deadline, channel, cancel).await
     }
 }
 

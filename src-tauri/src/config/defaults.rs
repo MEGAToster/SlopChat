@@ -10,7 +10,13 @@ impl Default for Advanced {
         Self {
             max_searches: 5,
             max_fetches: 50,
-            max_rounds: 6,
+            max_rounds: 5,
+            response_timeout_secs: 60,
+            max_turn_secs: 300,
+            max_fetched_chars: 60_000,
+            reasoning_max_tokens: 0,
+            frequency_penalty: 0.2,
+            presence_penalty: 0.2,
         }
     }
 }
@@ -26,6 +32,7 @@ impl Default for ModelConfig {
             tool_calling: true,
             web_search: WebSearchMode::Auto,
             reasoning: None,
+            max_completion_tokens: Some(8192),
         }
     }
 }
@@ -54,7 +61,7 @@ impl Default for ExaSettings {
 }
 
 pub(super) fn default_search_providers() -> Vec<String> {
-    ["exa", "serper", "tavily", "brave"]
+    ["exa", "tavily", "brave", "firecrawl", "serper"]
         .iter()
         .map(|name| name.to_string())
         .collect()
@@ -87,6 +94,13 @@ pub(super) fn default_search_limits() -> BTreeMap<String, Limit> {
         "brave".to_string(),
         Limit {
             monthly_usd: Some(5.0),
+            ..Limit::default()
+        },
+    );
+    limits.insert(
+        "firecrawl".to_string(),
+        Limit {
+            total: Some(500),
             ..Limit::default()
         },
     );

@@ -36,8 +36,10 @@ pub fn schemas(names: &[String]) -> Vec<Value> {
 
 pub async fn run(name: &str, args: Value, context: ToolContext) -> Result<ToolOutput, String> {
     match name {
+        // Only web_search may call a paid search API; web_fetch stays local (and
+        // free) so it never spends provider credits.
         "web_search" => search::run(args, context).await,
-        "web_fetch" | "fetch_url" => fetch_url::run(args, context).await,
+        "web_fetch" | "fetch_url" => fetch_url::run(args, context.search.reader_fallback).await,
         other => Err(format!("unknown tool {other}")),
     }
 }

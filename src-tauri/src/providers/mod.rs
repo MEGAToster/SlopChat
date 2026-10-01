@@ -78,6 +78,8 @@ pub struct ChatRequest {
     pub reasoning: Option<String>,
     #[serde(default)]
     pub fallback: Option<String>,
+    #[serde(default)]
+    pub max_completion_tokens: Option<u32>,
     pub messages: Vec<ChatMessage>,
 }
 

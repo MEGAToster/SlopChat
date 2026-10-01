@@ -31,6 +31,12 @@ pub struct Advanced {
     pub max_searches: u32,
     pub max_fetches: u32,
     pub max_rounds: u32,
+    pub response_timeout_secs: u32,
+    pub max_turn_secs: u32,
+    pub max_fetched_chars: u64,
+    pub reasoning_max_tokens: u32,
+    pub frequency_penalty: f32,
+    pub presence_penalty: f32,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -121,11 +127,16 @@ impl From<RawSearchSettings> for SearchSettings {
             max_characters: raw.max_characters.unwrap_or(1500),
         });
 
-        let providers = if raw.providers.is_empty() {
+        let mut providers = if raw.providers.is_empty() {
             defaults::default_search_providers()
         } else {
             raw.providers
         };
+        // Serper's free tier doesn't refill, so always try it last.
+        if let Some(index) = providers.iter().position(|name| name == "serper") {
+            let serper = providers.remove(index);
+            providers.push(serper);
+        }
 
         Self {
             providers,
@@ -201,6 +212,8 @@ pub struct ModelConfig {
     pub web_search: WebSearchMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_completion_tokens: Option<u32>,
 }
 
 // Per-profile overrides; `None` inherits from the pointed registered model.
@@ -261,6 +274,7 @@ pub(crate) fn migrate_profiles(settings: &mut Settings) -> bool {
             tool_calling: overrides.tool_calling.take().unwrap_or(true),
             web_search: overrides.web_search.take().unwrap_or_default(),
             reasoning: overrides.reasoning.take(),
+            max_completion_tokens: ModelConfig::default().max_completion_tokens,
         });
         changed = true;
     }
@@ -384,7 +398,7 @@ mod tests {
         let settings: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(settings.advanced.max_searches, 5);
         assert_eq!(settings.advanced.max_fetches, 50);
-        assert_eq!(settings.advanced.max_rounds, 6);
+        assert_eq!(settings.advanced.max_rounds, 5);
         assert_eq!(settings.startup, Startup::Latest);
         assert!(!settings.debug.agent_log);
     }
@@ -452,8 +466,9 @@ mod tests {
             r#"{"search":{"provider":"exa","monthlyBudget":3.5,"type":"fast","contents":"text","maxCharacters":900}}"#,
         )
         .unwrap();
-        assert_eq!(settings.search.providers.len(), 4);
+        assert_eq!(settings.search.providers.len(), 5);
         assert_eq!(settings.search.providers[0], "exa");
+        assert_eq!(settings.search.providers.last().unwrap(), "serper");
         assert_eq!(settings.search.limits["exa"].monthly_usd, Some(3.5));
         assert_eq!(settings.search.limits["serper"].total, Some(2500));
         assert_eq!(settings.search.exa.search_type, "fast");

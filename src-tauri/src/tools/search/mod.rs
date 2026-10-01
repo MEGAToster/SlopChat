@@ -1,5 +1,6 @@
 mod brave;
 mod exa;
+mod firecrawl;
 mod hit;
 mod serper;
 mod tavily;
@@ -166,6 +167,7 @@ async fn dispatch(
         "serper" => serper::search(query, n, ctx).await,
         "tavily" => tavily::search(query, n, ctx).await,
         "brave" => brave::search(query, n, ctx).await,
+        "firecrawl" => firecrawl::search(query, n, ctx).await,
         other => Err(SearchError::Failed(format!("unknown provider {other}"))),
     }
 }

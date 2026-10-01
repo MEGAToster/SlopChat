@@ -25,6 +25,7 @@ pub struct Parsed {
     pub tool_calls: Vec<PartialCall>,
     pub usage: Option<Usage>,
     pub provider: Option<String>,
+    pub finish_reason: Option<String>,
     pub error: Option<String>,
 }
 
@@ -70,6 +71,8 @@ struct Chunk {
 struct Choice {
     #[serde(default)]
     delta: Option<Delta>,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -113,11 +116,11 @@ pub fn parse_chunk(data: &str) -> Option<Parsed> {
         .error
         .map(|error| error.message.unwrap_or_else(|| "provider error".to_string()));
 
-    let delta = chunk
-        .choices
-        .into_iter()
-        .next()
-        .and_then(|choice| choice.delta);
+    let choice = chunk.choices.into_iter().next();
+    let finish_reason = choice
+        .as_ref()
+        .and_then(|choice| choice.finish_reason.clone());
+    let delta = choice.and_then(|choice| choice.delta);
 
     let (content, reasoning, tool_calls) = match delta {
         Some(delta) => {
@@ -146,6 +149,7 @@ pub fn parse_chunk(data: &str) -> Option<Parsed> {
         tool_calls,
         usage: chunk.usage,
         provider: chunk.provider,
+        finish_reason,
         error,
     })
 }
