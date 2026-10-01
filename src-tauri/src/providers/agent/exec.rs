@@ -33,7 +33,7 @@ async fn call_tool(
 ) -> Option<Result<ToolOutput, String>> {
     let context = tool_context(app, start_index);
     tokio::select! {
-        _ = cancel.notify.notified() => None,
+        _ = cancel.cancelled() => None,
         result = tools::run(name, args, context) => Some(result),
     }
 }
@@ -42,7 +42,6 @@ pub(super) async fn execute_tool(
     app: &AppHandle,
     call: &ToolCall,
     start_index: u32,
-    channel: &Channel<StreamEvent>,
     cancel: &Cancel,
 ) -> ToolOutcome {
     match call_tool(app, &call.name, super::parse_args(&call.arguments), start_index, cancel).await {
@@ -58,17 +57,12 @@ pub(super) async fn execute_tool(
             sources: Vec::new(),
             cost: 0.0,
         },
-        None => {
-            let _ = channel.send(StreamEvent::Error {
-                message: "cancelled".to_string(),
-            });
-            ToolOutcome {
-                content: "error: cancelled".to_string(),
-                summary: "cancelled".to_string(),
-                sources: Vec::new(),
-                cost: 0.0,
-            }
-        }
+        None => ToolOutcome {
+            content: "error: cancelled".to_string(),
+            summary: "cancelled".to_string(),
+            sources: Vec::new(),
+            cost: 0.0,
+        },
     }
 }
 

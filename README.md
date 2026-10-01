@@ -74,7 +74,7 @@ If the app is unsigned, macOS asks for keychain access on every chat send, Setti
      security add-trusted-cert -r trustRoot -p codeSign \
        -k ~/Library/Keychains/login.keychain-db ~/slopchat-cert.pem
      ```
-3. Re-run `./scripts/install.sh` — it prints `Signing as: SlopChat Local Code Signing`. Or build with `APPLE_SIGNING_IDENTITY="SlopChat Local Code Signing" npm run tauri build`.
+3. Re-run `./scripts/install.sh`. It aborts until the certificate is trusted, then prints `Signing as: SlopChat Local Code Signing` and installs to `/Applications`. (Builds sign with this identity by default via `tauri.conf.json`; override with `APPLE_SIGNING_IDENTITY` if your cert has another name.)
 4. On the first run after switching from an older build, click **Always Allow** (not just Allow) once per item; that one click asks for your password.
 5. Run the **installed** `/Applications/SlopChat.app`. `npm run tauri dev` and the raw build output are unsigned, so they always prompt.
 

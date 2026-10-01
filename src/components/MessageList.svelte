@@ -16,14 +16,12 @@
     }
   }
 
-  $effect.pre(() => {
+  // Reads the last message's content so it re-runs on every streamed token,
+  // after the DOM update, keeping the bottom in view while following.
+  $effect(() => {
     const last = all.at(-1);
     void last?.content;
     void all.length;
-    updatePinned();
-  });
-
-  $effect(() => {
     if (view.tracking && pinned && viewport) viewport.scrollTop = viewport.scrollHeight;
   });
 </script>

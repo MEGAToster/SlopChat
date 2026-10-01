@@ -165,11 +165,15 @@ async fn run_turn(
         Some(json!(schemas))
     };
 
-    // Multi-step research drifts at high temperature; only default it once
-    // tools are in play, and never override a profile's own value.
+    // Multi-step research drifts at high temperature, so default it once tools
+    // are in play — but not for reasoning models, which reject `temperature`.
+    let reasoning_model = !tool_names.is_empty()
+        && super::capabilities::reasoning(kind, &model.model, &settings, key.as_deref())
+            .await
+            .is_some();
     let temperature = request
         .temperature
-        .or_else(|| (!tool_names.is_empty()).then_some(0.3));
+        .or_else(|| (!tool_names.is_empty() && !reasoning_model).then_some(0.3));
 
     let turn = Turn {
         kind,
@@ -191,6 +195,9 @@ async fn run_turn(
     let mut round = 0u32;
 
     for _ in 0..max_rounds {
+        if cancel.is_cancelled() {
+            return Ok(());
+        }
         round += 1;
         let can_search = tool_names.iter().any(|name| name == "web_search");
         // Tools stay available after the wrap-up so web_fetch keeps working;
@@ -288,13 +295,12 @@ async fn run_turn(
                     emit_call(channel, call, false);
                     let worker = app.clone();
                     let owned = call.clone();
-                    let inner = channel.clone();
                     let stop = cancel.clone();
                     handles.push((
                         call.name.clone(),
                         call.id.clone(),
                         tauri::async_runtime::spawn(async move {
-                            execute_tool(&worker, &owned, 0, &inner, &stop).await
+                            execute_tool(&worker, &owned, 0, &stop).await
                         }),
                     ));
                 }
@@ -314,6 +320,10 @@ async fn run_turn(
                     messages.push(json!({
                         "role": "tool", "tool_call_id": id, "content": result.content,
                     }));
+                }
+
+                if cancel.is_cancelled() {
+                    return Ok(());
                 }
             }
         } else {
@@ -348,7 +358,10 @@ async fn run_turn(
                     }));
                 }
 
-                let result = execute_tool(app, call, source_counter, channel, cancel).await;
+                let result = execute_tool(app, call, source_counter, cancel).await;
+                if cancel.is_cancelled() {
+                    return Ok(());
+                }
                 search_cost += result.cost;
                 source_counter += result.sources.len() as u32;
                 if tracing {
@@ -374,7 +387,7 @@ async fn run_turn(
 
     // The round cap was hit mid tool-loop; ask once more for prose with tools
     // still defined (some models ignore a missing tool list and leak markup).
-    if !finished {
+    if !finished && !cancel.is_cancelled() {
         round += 1;
         if !wrap_up {
             messages.push(wrap_up_message());

@@ -31,8 +31,26 @@ impl Cancel {
     }
 
     pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
-        self.notify.notify_one();
+        // Wake every waiter, not just one: a tool round can have several in
+        // flight, and the flag makes cancellation stick for later waits too.
+        if !self.cancelled.swap(true, Ordering::SeqCst) {
+            self.notify.notify_waiters();
+        }
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+
+    // Resolves immediately if already cancelled; otherwise waits for `cancel`.
+    pub async fn cancelled(&self) {
+        let notified = self.notify.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+        if self.is_cancelled() {
+            return;
+        }
+        notified.await;
     }
 }
 
@@ -107,7 +125,7 @@ pub async fn run_step(
 
     loop {
         let chunk = tokio::select! {
-            _ = cancel.notify.notified() => return Err(StreamError::Cancelled),
+            _ = cancel.cancelled() => return Err(StreamError::Cancelled),
             result = tokio::time::timeout(Duration::from_secs(90), response.chunk()) => {
                 match result {
                     Ok(chunk) => chunk.map_err(|error| StreamError::Failed(error.to_string()))?,
