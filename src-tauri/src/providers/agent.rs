@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use super::prompt::{assistant_tool_message, build_messages, last_user_text, parse_args};
 use super::stream::{self, Cancel, RequestPlan, StepOutcome, StreamError, ToolCall};
@@ -30,20 +30,85 @@ pub async fn run(
     cancel: Cancel,
 ) -> Result<(), String> {
     let model = ModelRef::parse(&request.model)?;
-    let kind = Kind::from_name(&model.provider)
-        .ok_or_else(|| format!("provider {:?} is not supported", model.provider))?;
+
+    match run_turn(app, &request, &channel, &cancel, &model).await {
+        Ok(()) => Ok(()),
+        Err(TurnError::Unavailable(message)) => {
+            let fallback = request
+                .fallback
+                .as_deref()
+                .filter(|value| !value.is_empty());
+            let Some(fallback) = fallback else {
+                let _ = channel.send(StreamEvent::Error { message });
+                return Ok(());
+            };
+
+            let fallback_model = match ModelRef::parse(fallback) {
+                Ok(model) => model,
+                Err(error) => {
+                    let _ = channel.send(StreamEvent::Error { message: error });
+                    return Ok(());
+                }
+            };
+
+            let _ = app.emit(
+                "model://fallback",
+                format!("{} unavailable — using {fallback}", request.model),
+            );
+
+            match run_turn(app, &request, &channel, &cancel, &fallback_model).await {
+                Ok(()) => Ok(()),
+                Err(error) => {
+                    let _ = channel.send(StreamEvent::Error {
+                        message: error.message(),
+                    });
+                    Ok(())
+                }
+            }
+        }
+        Err(TurnError::Failed(message)) => {
+            let _ = channel.send(StreamEvent::Error { message });
+            Ok(())
+        }
+    }
+}
+
+enum TurnError {
+    Unavailable(String),
+    Failed(String),
+}
+
+impl TurnError {
+    fn message(self) -> String {
+        match self {
+            TurnError::Unavailable(message) | TurnError::Failed(message) => message,
+        }
+    }
+}
+
+async fn run_turn(
+    app: &AppHandle,
+    request: &super::ChatRequest,
+    channel: &Channel<StreamEvent>,
+    cancel: &Cancel,
+    model: &ModelRef,
+) -> Result<(), TurnError> {
+    let kind = Kind::from_name(&model.provider).ok_or_else(|| {
+        TurnError::Failed(format!("provider {:?} is not supported", model.provider))
+    })?;
     let settings = app.state::<ConfigState>().get();
 
     let key = if kind.needs_auth() {
         Some(
-            super::api_key(&settings, kind.name())?
-                .ok_or_else(|| format!("no API key stored for {}", kind.name()))?,
+            super::api_key(&settings, kind.name())
+                .map_err(TurnError::Failed)?
+                .ok_or_else(|| TurnError::Failed(format!("no API key stored for {}", kind.name())))?,
         )
     } else {
         None
     };
 
-    let mut messages = build_messages(&request);
+    let mut messages = build_messages(request);
 
     // Tool calling is opt-in per profile; web search follows the mode and
     // toggle, not the tools list, so it works even when no tools are listed.
@@ -81,9 +146,9 @@ pub async fn run(
     let mut source_counter = 0u32;
 
     if forced && !supports {
-        let query = last_user_text(&request);
+        let query = last_user_text(request);
         let (content, cost, next) =
-            run_web_search(app, &query, source_counter, &channel, &cancel).await;
+            run_web_search(app, &query, source_counter, channel, cancel).await;
         search_cost += cost;
         source_counter = next;
         messages.push(json!({ "role": "system", "content": format!("Web results (cite as [n]):\n{content}") }));
@@ -104,7 +169,7 @@ pub async fn run(
     let turn = Turn {
         kind,
         settings: &settings,
-        model: &model.model,
+        model: model.model.as_str(),
         temperature: request.temperature,
         reasoning: request.reasoning.as_deref(),
         key: key.as_deref(),
@@ -132,12 +197,17 @@ pub async fn run(
         };
 
         let outcome = match turn
-            .step(&messages, tools_value.as_ref(), &tool_choice, &channel, &cancel)
+            .step(&messages, tools_value.as_ref(), &tool_choice, channel, cancel)
             .await
         {
             Ok(outcome) => outcome,
             Err(StreamError::Cancelled) => return Ok(()),
-            Err(StreamError::Failed(message)) => {
+            // The initial request failing means the model is unavailable; the
+            // caller may retry with a fallback. Later failures are reported.
+            Err(StreamError::Unavailable(message)) if first => {
+                return Err(TurnError::Unavailable(message));
+            }
+            Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
                 let _ = channel.send(StreamEvent::Error { message });
                 return Ok(());
             }
@@ -201,7 +271,7 @@ pub async fn run(
                 args: parse_args(&call.arguments),
             });
 
-            let result = execute_tool(app, call, source_counter, &channel, &cancel).await;
+            let result = execute_tool(app, call, source_counter, channel, cancel).await;
             search_cost += result.cost;
             source_counter += result.sources.len() as u32;
 
@@ -234,7 +304,7 @@ pub async fn run(
             messages.push(wrap_up_message());
         }
         match turn
-            .step(&messages, tools_value.as_ref(), &json!("none"), &channel, &cancel)
+            .step(&messages, tools_value.as_ref(), &json!("none"), channel, cancel)
             .await
         {
             Ok(outcome) => {
@@ -246,7 +316,7 @@ pub async fn run(
                 }
             }
             Err(StreamError::Cancelled) => return Ok(()),
-            Err(StreamError::Failed(message)) => {
+            Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
                 let _ = channel.send(StreamEvent::Error { message });
                 return Ok(());
             }

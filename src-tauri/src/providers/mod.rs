@@ -75,6 +75,8 @@ pub struct ChatRequest {
     pub web_toggle: bool,
     #[serde(default)]
     pub reasoning: Option<String>,
+    #[serde(default)]
+    pub fallback: Option<String>,
     pub messages: Vec<ChatMessage>,
 }
 

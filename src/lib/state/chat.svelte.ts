@@ -116,6 +116,7 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       webSearch: options.webSearch,
       webToggle: options.webToggle,
       reasoning: options.reasoning,
+      fallback: options.fallback,
       messages: history,
     },
     {

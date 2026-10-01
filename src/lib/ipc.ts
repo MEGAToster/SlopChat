@@ -169,6 +169,10 @@ export function onSearchUnavailable(handler: (message: string) => void): Promise
   return listen<string>("search://unavailable", (event) => handler(event.payload));
 }
 
+export function onModelFallback(handler: (message: string) => void): Promise<UnlistenFn> {
+  return listen<string>("model://fallback", (event) => handler(event.payload));
+}
+
 export function saveAttachment(name: string, mime: string, data: string): Promise<Attachment> {
   return invoke("save_attachment", { name, mime, data });
 }

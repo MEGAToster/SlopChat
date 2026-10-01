@@ -205,6 +205,8 @@ pub struct Profile {
     pub name: String,
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     #[serde(flatten)]
     pub overrides: ProfileOverrides,

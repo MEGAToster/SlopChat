@@ -21,6 +21,7 @@ export type SendOptions = {
   webSearch?: "auto" | "always" | "off";
   webToggle?: boolean;
   reasoning?: string;
+  fallback?: string;
 };
 
 export type WebOverride = "on" | "off";

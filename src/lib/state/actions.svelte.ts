@@ -18,6 +18,7 @@ import {
   editingId,
   endEdit,
   isExpanded,
+  modelOverride,
   moveSelection,
   openChatWithProfile,
   schedulePreview,
@@ -56,6 +57,7 @@ export function createActions(text: TextRef) {
       toolCalling,
       webSearch,
       reasoning: reasoningOverride() ?? config.reasoning,
+      fallback: modelOverride() ? undefined : profile.fallback,
     };
     const editing = editingId();
     const value = text.get();

@@ -190,6 +190,7 @@ fn profile(name: &str, model: &str) -> Profile {
     Profile {
         name: name.to_string(),
         model: model.to_string(),
+        fallback: None,
         color: None,
         overrides: ProfileOverrides::default(),
     }

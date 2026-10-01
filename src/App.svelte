@@ -11,6 +11,7 @@
   import {
     hasApiKey,
     isSticky,
+    onModelFallback,
     onPanelShown,
     onSearchUnavailable,
     onStickyChanged,
@@ -29,7 +30,10 @@
   } from "./lib/state/palette.svelte";
   import { configError, initSettings, setConfigError, settings } from "./lib/state/settings.svelte";
   import { measurePanel } from "./lib/state/overlays.svelte";
-  import { isOpen as settingsPanelIsOpen } from "./lib/state/settingsPanel.svelte";
+  import {
+    backFromEditor,
+    isOpen as settingsPanelIsOpen,
+  } from "./lib/state/settingsPanel.svelte";
   import { applyThemeFor, loadUser } from "./lib/state/theme.svelte";
   import {
     clearNotice,
@@ -144,6 +148,7 @@
       }),
       onStickyChanged((value) => (sticky = value)),
       onSearchUnavailable((message) => notify(message, "warning")),
+      onModelFallback((message) => notify(message, "warning")),
     ];
 
     return () => {
@@ -173,6 +178,7 @@
     paletteOpen: paletteIsOpen,
     paletteMode,
     settingsOpen: settingsPanelIsOpen,
+    settingsBack: backFromEditor,
     blocked: () => !ready || needsKey,
     filterActive: filtering,
     confirmActive: () => pendingDelete() !== null,

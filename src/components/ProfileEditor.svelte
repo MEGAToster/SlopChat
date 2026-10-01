@@ -38,6 +38,7 @@
   );
   let webSearch = $state(start.webSearch ?? "");
   let reasoning = $state(start.reasoning ?? "");
+  let fallback = $state(start.fallback ?? "");
 
   function save(): void {
     if (!name.trim() || !model) return;
@@ -50,7 +51,16 @@
     if (webSearch) overrides.webSearch = webSearch as WebSearchMode;
     if (reasoning) overrides.reasoning = reasoning;
 
-    onsave({ name: name.trim(), model, color: color || undefined, ...overrides }, previous);
+    onsave(
+      {
+        name: name.trim(),
+        model,
+        fallback: fallback || undefined,
+        color: color || undefined,
+        ...overrides,
+      },
+      previous,
+    );
   }
 </script>
 
@@ -68,6 +78,22 @@
       {#each models as entry (entry.model)}<option value={entry.model}>{entry.model}</option>{/each}
     </select>
   </label>
+
+  <details class="fallback">
+    <summary>
+      <span class="label">Fallback model</span>
+      <span class="value">{fallback || "none"}</span>
+    </summary>
+    <label class="row">
+      <span class="label">If unavailable</span>
+      <select class="control" bind:value={fallback}>
+        <option value="">none</option>
+        {#each models as entry (entry.model)}
+          <option value={entry.model}>{entry.model}</option>
+        {/each}
+      </select>
+    </label>
+  </details>
 
   <label class="row">
     <span class="label">Color</span>
@@ -190,6 +216,30 @@
 
   .control:focus {
     border-color: var(--accent);
+  }
+
+  .fallback > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    min-height: 40px;
+    padding: 0 var(--sp-2);
+    cursor: default;
+    list-style: none;
+  }
+
+  .fallback > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .value {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .actions {

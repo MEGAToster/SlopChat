@@ -129,13 +129,15 @@
     <input type="checkbox" bind:checked={toolCalling} />
   </label>
 
-  <div class="row">
-    <span class="label">Tools</span>
-    <span class="checks">
-      <label><input type="checkbox" checked={tools.has("web_search")} onchange={() => toggleTool("web_search")} /> web_search</label>
-      <label><input type="checkbox" checked={tools.has("web_fetch")} onchange={() => toggleTool("web_fetch")} /> web_fetch</label>
-    </span>
-  </div>
+  {#if toolCalling}
+    <div class="row">
+      <span class="label">Tools</span>
+      <span class="checks">
+        <label><input type="checkbox" checked={tools.has("web_search")} onchange={() => toggleTool("web_search")} /> web_search</label>
+        <label><input type="checkbox" checked={tools.has("web_fetch")} onchange={() => toggleTool("web_fetch")} /> web_fetch</label>
+      </span>
+    </div>
+  {/if}
 
   <label class="row block">
     <span class="label">System prompt</span>

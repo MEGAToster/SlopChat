@@ -57,7 +57,15 @@ pub struct StepOutcome {
 
 pub enum StreamError {
     Cancelled,
+    // The model itself is unavailable (gone, rate-limited, provider down);
+    // the caller may retry with a fallback model.
+    Unavailable(String),
     Failed(String),
+}
+
+// Statuses that mean the model, not the request, is the problem.
+fn unavailable(status: u16) -> bool {
+    matches!(status, 402 | 404 | 429 | 503)
 }
 
 pub async fn run_step(
@@ -76,9 +84,14 @@ pub async fn run_step(
         .map_err(|error| StreamError::Failed(error.to_string()))?;
 
     if !response.status().is_success() {
-        let status = response.status();
+        let code = response.status().as_u16();
         let body = response.text().await.unwrap_or_default();
-        return Err(StreamError::Failed(format!("{status}: {body}")));
+        let message = format!("HTTP {code}: {body}");
+        return Err(if unavailable(code) {
+            StreamError::Unavailable(message)
+        } else {
+            StreamError::Failed(message)
+        });
     }
 
     let mut parser = SseParser::default();
@@ -180,5 +193,21 @@ fn forward(content: &str, forwarded: &mut usize, leaked: &mut bool, channel: &Ch
             content: content[*forwarded..safe].to_string(),
         });
         *forwarded = safe;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn models_outage_statuses_are_unavailable() {
+        assert!(unavailable(404));
+        assert!(unavailable(429));
+        assert!(unavailable(402));
+        assert!(unavailable(503));
+        assert!(!unavailable(400));
+        assert!(!unavailable(401));
+        assert!(!unavailable(500));
     }
 }

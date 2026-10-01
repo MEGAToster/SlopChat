@@ -22,6 +22,7 @@ export type KeyHandlerDeps = {
   paletteOpen: () => boolean;
   paletteMode: () => string;
   settingsOpen: () => boolean;
+  settingsBack: () => boolean;
   blocked: () => boolean;
   filterActive: () => boolean;
   confirmActive: () => boolean;
@@ -35,7 +36,8 @@ export function createKeyHandler(deps: KeyHandlerDeps): (event: KeyboardEvent) =
     if (deps.settingsOpen()) {
       if (event.key === "Escape") {
         event.preventDefault();
-        actions.closeSettings();
+        // An open editor pops back to the settings list; otherwise close.
+        if (!deps.settingsBack()) actions.closeSettings();
       }
       return;
     }

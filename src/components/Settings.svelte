@@ -2,7 +2,11 @@
   import { onMount } from "svelte";
   import { removeModel, removeProfile, saveModel, saveProfile, searchUsage } from "../lib/ipc";
   import type { ModelConfig, Profile, SearchProviderUsage } from "../lib/types";
-  import { composedModel, modelId } from "../lib/state/settingsPanel.svelte";
+  import {
+    composedModel,
+    modelId,
+    registerEditorBack,
+  } from "../lib/state/settingsPanel.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import ApiKeyRow from "./ApiKeyRow.svelte";
   import Frame from "./Frame.svelte";
@@ -81,9 +85,20 @@
   }
 
   onMount(() => {
+    registerEditorBack(() => {
+      if (editingModel || editingProfile) {
+        editingModel = null;
+        editingProfile = null;
+        return true;
+      }
+      return false;
+    });
+
     void refreshUsage();
     // Opened from the palette's "Add models…" with a prefilled provider/model.
     if (modelId()) openModel({ ...blankModel(), model: composedModel() });
+
+    return () => registerEditorBack(null);
   });
 
   function dim(name: string): boolean {

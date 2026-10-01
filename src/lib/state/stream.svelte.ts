@@ -14,6 +14,7 @@ export type StreamRequest = {
   webSearch?: "auto" | "always" | "off";
   webToggle?: boolean;
   reasoning?: string;
+  fallback?: string;
   messages: RequestMessage[];
 };
 

@@ -39,7 +39,12 @@ export type ProfileOverrides = {
   reasoning?: string;
 };
 
-export type Profile = { name: string; model: string; color?: string } & ProfileOverrides;
+export type Profile = {
+  name: string;
+  model: string;
+  fallback?: string;
+  color?: string;
+} & ProfileOverrides;
 
 export type ReasoningInfo = {
   supportedEfforts: string[];
@@ -118,6 +123,7 @@ export type SendRequest = {
   webSearch?: WebSearchMode;
   webToggle?: boolean;
   reasoning?: string;
+  fallback?: string;
   messages: RequestMessage[];
 };
 
