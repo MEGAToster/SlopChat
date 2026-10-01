@@ -12,13 +12,14 @@ import {
   reportError,
   stop,
   submit,
+  toggleWeb,
+  webOverride,
 } from "./chat.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
 import {
   activeProfile,
   beginEdit,
-  clearWebArmed,
   cycleProfile,
   editingId,
   endEdit,
@@ -33,8 +34,6 @@ import {
   setMode,
   setPendingDelete,
   syncProfileFromActive,
-  toggleWebArmed,
-  webArmed,
 } from "./ui.svelte";
 
 export type TextRef = {
@@ -51,6 +50,9 @@ export function createActions(text: TextRef) {
       reportError("No profile configured in settings.json");
       return;
     }
+    const override = webOverride();
+    const webSearch =
+      override === "off" ? "off" : override === "on" ? "always" : profile.webSearch;
     const options = {
       profileName: profile.name,
       model: modelOverride() ?? profile.model,
@@ -58,10 +60,8 @@ export function createActions(text: TextRef) {
       temperature: profile.temperature,
       useContext: profile.useContext,
       tools: profile.tools,
-      webSearch: profile.webSearch,
-      webToggle: webArmed(),
+      webSearch,
     };
-    clearWebArmed();
     const editing = editingId();
     const value = text.get();
     text.set("");
@@ -131,7 +131,7 @@ export function createActions(text: TextRef) {
         void toggleSticky();
         break;
       case "webToggle":
-        toggleWebArmed();
+        toggleWeb();
         break;
       case "send":
         void handleSend();

@@ -1,6 +1,12 @@
 <script lang="ts">
   import { profileColor } from "../lib/profileColor";
-  import { isStreamingHere, lastUsage, messages } from "../lib/state/chat.svelte";
+  import {
+    isStreamingHere,
+    lastUsage,
+    messages,
+    toggleWeb,
+    webOverride,
+  } from "../lib/state/chat.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import {
     activeProfile,
@@ -8,7 +14,6 @@
     editingId,
     keyContext,
     modelOverride,
-    webArmed,
   } from "../lib/state/ui.svelte";
   import { toggleSticky } from "../lib/ipc";
   import Icon from "./Icon.svelte";
@@ -25,6 +30,21 @@
   const keybinds = $derived(settings().keybinds);
   const sidebar = $derived(keyContext() === "sidebar");
   const editing = $derived(editingId() !== null);
+
+  const web = $derived.by(() => {
+    const override = webOverride();
+    if (override === "off") return "off";
+    if (override === "on") return "on";
+    return profile?.webSearch === "off" ? "off" : "auto";
+  });
+
+  const webTitle = $derived(
+    web === "off"
+      ? "Web search off for this chat"
+      : web === "on"
+        ? "Web search forced on for this chat"
+        : "Web search available (the model decides)",
+  );
 
   const total = $derived.by(() => {
     let tokensIn = 0;
@@ -67,7 +87,6 @@
 <footer class="footer">
   <div class="column inner">
     <span class="mode" data-tone={mode.tone}>{mode.label}</span>
-    {#if webArmed()}<span class="web">WEB</span>{/if}
 
     <div class="profile">
       <span class="dot" style={`background: var(--c-${color})`}></span>
@@ -101,6 +120,10 @@
         <span>Sticky</span>
       </button>
     </div>
+
+    <button type="button" class="web" data-state={web} title={webTitle} onclick={toggleWeb}>
+      {web === "off" ? "WEB OFF" : web === "on" ? "WEB ON" : "WEB"}
+    </button>
   </div>
 </footer>
 
@@ -123,12 +146,26 @@
   }
 
   .web {
+    margin-left: auto;
     padding: 0 6px;
+    border: none;
     border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-tertiary);
+    font: inherit;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: default;
+  }
+
+  .web[data-state="on"] {
     background: var(--c-purple, var(--accent));
     color: var(--bg);
-    font-weight: 600;
-    font-size: var(--fs-xs);
+  }
+
+  .web[data-state="off"] {
+    text-decoration: line-through;
   }
 
   .profile {

@@ -2,7 +2,7 @@ import { appendMessage, getChat, readAttachment, rewindTo, saveAttachment } from
 import type { Attachment, ContentPart, NewAttachment, RequestMessage } from "../types";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
-import { chatState, type SendOptions } from "./chatStore.svelte";
+import { adoptWebDraft, chatState, type SendOptions } from "./chatStore.svelte";
 import { toChatMessage } from "./messages";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
 
@@ -15,6 +15,7 @@ export async function submit(text: string, options: SendOptions): Promise<void> 
   if (chatState.streaming || (!content && attachments.length === 0)) return;
 
   const chatId = await ensureChat(options.profileName);
+  adoptWebDraft(chatId);
 
   const saved: NewAttachment[] = [];
   for (const item of attachments) {

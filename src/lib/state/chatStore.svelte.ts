@@ -21,6 +21,8 @@ export type SendOptions = {
   webToggle?: boolean;
 };
 
+export type WebOverride = "on" | "off";
+
 export const chatState = $state<{
   chats: Chat[];
   activeChatId: string | null;
@@ -30,6 +32,8 @@ export const chatState = $state<{
   thinking: boolean;
   usage: Usage | null;
   error: string | null;
+  webOverrides: Record<string, WebOverride>;
+  webDraft: WebOverride | null;
 }>({
   chats: [],
   activeChatId: null,
@@ -39,7 +43,28 @@ export const chatState = $state<{
   thinking: false,
   usage: null,
   error: null,
+  webOverrides: {},
+  webDraft: null,
 });
+
+// null means the chat follows its profile's webSearch mode.
+export function webOverride(): WebOverride | null {
+  const id = chatState.activeChatId;
+  return id ? (chatState.webOverrides[id] ?? null) : chatState.webDraft;
+}
+
+export function toggleWeb(): void {
+  const next: WebOverride = webOverride() === "off" ? "on" : "off";
+  const id = chatState.activeChatId;
+  if (id) chatState.webOverrides[id] = next;
+  else chatState.webDraft = next;
+}
+
+export function adoptWebDraft(chatId: string): void {
+  if (chatState.webDraft === null) return;
+  chatState.webOverrides[chatId] = chatState.webDraft;
+  chatState.webDraft = null;
+}
 
 export function chats(): Chat[] {
   return chatState.chats;

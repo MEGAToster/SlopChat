@@ -28,8 +28,10 @@
 
 <div class="toast" class:warning={kind === "warning"} class:success={kind === "success"}>
   <Frame title={titles[kind]} tone={tones[kind]}>
-    <span class="icon" class:info={kind === "info"}><Icon name={icons[kind]} size={14} /></span>
-    <span>{message}</span>
+    <span class="content">
+      <span class="icon" class:info={kind === "info"}><Icon name={icons[kind]} size={14} /></span>
+      <span>{message}</span>
+    </span>
   </Frame>
 </div>
 
@@ -51,6 +53,14 @@
     color: var(--text-secondary);
     font-size: var(--fs-sm);
     animation: rise-in var(--dur) var(--ease);
+  }
+
+  /* A row even inside the TUI frame body, which is a column. */
+  .content {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
   }
 
   .icon {
