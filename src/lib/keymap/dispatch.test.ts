@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_KEYBINDS } from "./defaults";
-import { resolve, type KeymapState } from "./dispatch";
+import { resolve, resolveSettings, type KeymapState } from "./dispatch";
 
 function key(init: Partial<KeyboardEvent>): KeyboardEvent {
   return {
@@ -71,6 +71,44 @@ describe("context handling", () => {
     expect(resolve("filter", key({ key: "Escape" }), bindings, state())).toBe("filterClose");
     expect(resolve("confirm", key({ key: "y" }), bindings, state())).toBe("confirmDelete");
     expect(resolve("confirm", key({ key: "n" }), bindings, state())).toBe("cancelDelete");
+  });
+});
+
+describe("resolveSettings", () => {
+  it("backs out on Escape", () => {
+    expect(resolveSettings(key({ key: "Escape" }), "control")).toBe("settingsBack");
+  });
+
+  it("moves with Tab and Shift+Tab, including WebKitGTK's Unidentified", () => {
+    expect(resolveSettings(key({ key: "Tab" }), "control")).toBe("settingsNext");
+    expect(resolveSettings(key({ key: "Tab", shiftKey: true }), "control")).toBe("settingsPrev");
+    expect(
+      resolveSettings(
+        key({ key: "Unidentified", code: "Tab", keyCode: 9, shiftKey: true }),
+        "control",
+      ),
+    ).toBe("settingsPrev");
+  });
+
+  it("navigates with arrows except in native fields", () => {
+    expect(resolveSettings(key({ key: "ArrowDown" }), "control")).toBe("settingsNext");
+    expect(resolveSettings(key({ key: "ArrowUp" }), "control")).toBe("settingsPrev");
+    expect(resolveSettings(key({ key: "ArrowDown" }), "textarea")).toBeNull();
+    expect(resolveSettings(key({ key: "ArrowUp" }), "select")).toBeNull();
+    expect(resolveSettings(key({ key: "ArrowDown" }), "number")).toBeNull();
+  });
+
+  it("expands or collapses only a focused summary", () => {
+    expect(resolveSettings(key({ key: "ArrowRight" }), "summary")).toBe("settingsExpand");
+    expect(resolveSettings(key({ key: "ArrowLeft" }), "summary")).toBe("settingsCollapse");
+    expect(resolveSettings(key({ key: "ArrowRight" }), "control")).toBeNull();
+  });
+
+  it("activates controls and summaries, not fields", () => {
+    expect(resolveSettings(key({ key: "Enter" }), "control")).toBe("settingsActivate");
+    expect(resolveSettings(key({ key: " " }), "control")).toBe("settingsActivate");
+    expect(resolveSettings(key({ key: "Enter" }), "text")).toBeNull();
+    expect(resolveSettings(key({ key: " " }), "textarea")).toBeNull();
   });
 });
 

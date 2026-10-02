@@ -35,7 +35,53 @@ export type Action =
   | "openChat"
   | "pinChat"
   | "deleteChat"
-  | "filterChats";
+  | "filterChats"
+  | "settingsNext"
+  | "settingsPrev"
+  | "settingsActivate"
+  | "settingsExpand"
+  | "settingsCollapse"
+  | "settingsBack";
+
+export type SettingsFocus = "text" | "textarea" | "select" | "number" | "summary" | "control";
+
+// Settings is a form, not a list, so keep native focus and only route the keys
+// its controls don't consume themselves.
+export function resolveSettings(event: KeyboardEvent, focus: SettingsFocus): Action | null {
+  const key = eventToBinding(event);
+  if (key === "Esc") return "settingsBack";
+
+  if (
+    event.code === "Tab" ||
+    event.keyCode === 9 ||
+    event.key === "Tab" ||
+    event.key === "ISO_Left_Tab"
+  ) {
+    return event.shiftKey ? "settingsPrev" : "settingsNext";
+  }
+
+  if (key === "Down") {
+    return isTextField(focus) ? null : "settingsNext";
+  }
+  if (key === "Up") {
+    return isTextField(focus) ? null : "settingsPrev";
+  }
+
+  if (focus === "summary") {
+    if (key === "Right") return "settingsExpand";
+    if (key === "Left") return "settingsCollapse";
+  }
+
+  if ((focus === "control" || focus === "summary") && (key === "Enter" || key === "Space")) {
+    return "settingsActivate";
+  }
+
+  return null;
+}
+
+function isTextField(focus: SettingsFocus): boolean {
+  return focus === "textarea" || focus === "select" || focus === "number";
+}
 
 export type KeymapState = {
   composerEmpty: boolean;

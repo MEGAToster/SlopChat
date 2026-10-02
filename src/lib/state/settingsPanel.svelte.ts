@@ -1,4 +1,4 @@
-import { resizePanel } from "../ipc";
+import { resizeOverlay } from "../ipc";
 import { composeModelRef, splitModelRef } from "../modelRef";
 import { isExpanded, OVERLAY_HEIGHT } from "./ui.svelte";
 
@@ -22,7 +22,7 @@ export function openPanel(prefill?: { provider?: string; modelId?: string; tag?:
   state.modelId = prefill?.modelId ?? "";
   state.tag = prefill?.tag ?? "";
   state.open = true;
-  if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
+  if (!isExpanded()) void resizeOverlay(OVERLAY_HEIGHT);
 }
 
 export function openFromProvider(provider: string, modelRef: string): void {

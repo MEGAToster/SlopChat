@@ -30,6 +30,11 @@ pub fn resize_panel(app: AppHandle, height: f64) {
 }
 
 #[tauri::command]
+pub fn resize_overlay(app: AppHandle, height: f64) {
+    panel::resize_overlay(&app, height);
+}
+
+#[tauri::command]
 pub fn set_panel_expanded(app: AppHandle, expanded: bool) {
     panel::set_expanded(&app, expanded);
 }

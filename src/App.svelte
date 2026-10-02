@@ -18,6 +18,12 @@
     setPanelExpanded,
   } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
+  import {
+    activateSettingsFocus,
+    classifyElement,
+    moveSettingsFocus,
+    setFocusedSummary,
+  } from "./lib/settingsFocus";
   import { createActions } from "./lib/state/actions.svelte";
   import { init as initChat, resumeOnShow } from "./lib/state/chatHistory.svelte";
   import { chatError, isStreaming, messages } from "./lib/state/chatStore.svelte";
@@ -199,6 +205,7 @@
     paletteMode,
     settingsOpen: settingsPanelIsOpen,
     settingsBack: backFromEditor,
+    settingsFocus: () => classifyElement(document.activeElement),
     blocked: () => !ready || needsKey,
     filterActive: filtering,
     confirmActive: () => pendingDelete() !== null,
@@ -214,6 +221,10 @@
       confirmDelete: actions.confirmDelete,
       cancelDelete: actions.cancelDelete,
       escChain: actions.escChain,
+      settingsMove: moveSettingsFocus,
+      settingsActivate: activateSettingsFocus,
+      settingsExpand: () => setFocusedSummary(true),
+      settingsCollapse: () => setFocusedSummary(false),
     },
   });
 

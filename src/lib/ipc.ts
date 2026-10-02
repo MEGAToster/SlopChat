@@ -44,6 +44,10 @@ export function resizePanel(height: number): Promise<void> {
   return invoke("resize_panel", { height });
 }
 
+export function resizeOverlay(height: number): Promise<void> {
+  return invoke("resize_overlay", { height });
+}
+
 export function hasApiKey(provider: string): Promise<boolean> {
   return invoke("has_api_key", { provider });
 }

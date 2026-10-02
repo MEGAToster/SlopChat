@@ -27,6 +27,7 @@
     registerEditorBack,
   } from "../lib/state/settingsPanel.svelte";
   import { settings } from "../lib/state/settings.svelte";
+  import { moveSettingsFocus } from "../lib/settingsFocus";
   import ApiKeyRow from "./ApiKeyRow.svelte";
   import Frame from "./Frame.svelte";
   import ModelEditor from "./ModelEditor.svelte";
@@ -125,6 +126,9 @@
     void refreshUsage();
     // Opened from the palette's "Add models…" with a prefilled provider/model.
     if (modelId()) openModel({ ...blankModel(), model: composedModel() });
+
+    // Put focus inside the panel so keyboard navigation starts here.
+    void tick().then(() => moveSettingsFocus(0));
 
     return () => registerEditorBack(null);
   });
@@ -518,7 +522,8 @@
     cursor: default;
   }
 
-  .item:hover {
+  .item:hover,
+  .item:focus-visible {
     background: var(--surface-hover);
   }
 

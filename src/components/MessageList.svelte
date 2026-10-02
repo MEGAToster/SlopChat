@@ -62,8 +62,9 @@
   .messages {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     gap: var(--sp-4);
-    max-height: 320px;
     padding-bottom: var(--sp-2);
     overflow-y: auto;
   }

@@ -52,6 +52,7 @@ fn main() {
             commands::get_settings,
             commands::config_error,
             commands::resize_panel,
+            commands::resize_overlay,
             commands::set_panel_expanded,
             commands::toggle_panel_expanded,
             commands::is_panel_expanded,

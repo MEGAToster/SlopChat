@@ -59,6 +59,17 @@ pub fn resize_compact(app: &AppHandle, height: f64) {
     resize(app, compact_position(app), compact_width(app), height);
 }
 
+// Overlays are sized to the work area, not the compact-chat height cap.
+pub fn resize_overlay(app: &AppHandle, height: f64) {
+    let state = app.state::<PanelState>();
+    if state.expanded.load(Ordering::SeqCst) {
+        return;
+    }
+    let (_, _, _, area_height) = work_area(app);
+    let height = height.clamp(MIN_HEIGHT, area_height);
+    resize(app, compact_position(app), compact_width(app), height);
+}
+
 pub fn set_expanded(app: &AppHandle, expanded: bool) {
     let state = app.state::<PanelState>();
     state.expanded.store(expanded, Ordering::SeqCst);

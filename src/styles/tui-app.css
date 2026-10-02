@@ -62,6 +62,14 @@
   display: none;
 }
 
+/* Expanded TUI: the frame spans the panel, so let the composer and status bar
+   fill it instead of the 760px reading column. */
+[data-style="tui"] .panel.expanded .composer-box,
+[data-style="tui"] .panel.expanded .footer .inner {
+  max-width: none;
+  margin-inline: 0;
+}
+
 /* --- Palette ---------------------------------------------------------- */
 /* Higher specificity than Frame.svelte's scoped `display: contents`, so the
    palette keeps a real flex column in TUI regardless of stylesheet order. */

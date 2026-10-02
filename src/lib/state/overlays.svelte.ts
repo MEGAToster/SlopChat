@@ -1,7 +1,7 @@
 import { tick } from "svelte";
 
 import { focusComposer } from "../dom";
-import { hidePanel, resizePanel } from "../ipc";
+import { hidePanel, resizeOverlay, resizePanel } from "../ipc";
 import { removeChat } from "./chatHistory.svelte";
 import {
   close as paletteClose,
@@ -25,28 +25,80 @@ import {
   setPendingDelete,
 } from "./ui.svelte";
 
+// Natural height of the transcript + composer + footer, so the panel can grow
+// with content up to the configured ceiling (the backend clamps it).
+function contentHeight(): number {
+  const content = document.querySelector<HTMLElement>(".content");
+  if (!content) return 0;
+
+  const style = getComputedStyle(content);
+  const gap = parseFloat(style.rowGap || style.gap) || 0;
+  let total = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+  let blocks = 0;
+
+  const add = (height: number) => {
+    if (height <= 0) return;
+    if (blocks > 0) total += gap;
+    total += height;
+    blocks += 1;
+  };
+
+  const messages = content.querySelector<HTMLElement>(".messages");
+  if (messages) {
+    const frame = messages.closest<HTMLElement>(".frame");
+    const chrome = frame
+      ? frame.getBoundingClientRect().height - messages.getBoundingClientRect().height
+      : 0;
+    add(messages.scrollHeight + chrome);
+  }
+
+  const composer = content.querySelector<HTMLElement>(".composer-box");
+  if (composer) add((composer.closest<HTMLElement>(".frame") ?? composer).getBoundingClientRect().height);
+
+  const footer = content.querySelector<HTMLElement>(".footer");
+  if (footer) add(footer.getBoundingClientRect().height);
+
+  if (blocks === 0) {
+    for (const child of Array.from(content.children) as HTMLElement[]) {
+      if (child.classList.contains("toast")) continue;
+      add(child.scrollHeight);
+    }
+  }
+
+  return Math.ceil(total);
+}
+
+let lastHeight = -1;
+
 // Overlays are absolutely positioned inside the panel, so while one is open the
 // compact height must not follow the (hidden) thread underneath it.
 export function measurePanel(): void {
-  if (isExpanded()) return;
-  if (paletteIsOpen() || settingsPanelIsOpen()) {
-    void resizePanel(OVERLAY_HEIGHT);
+  if (isExpanded()) {
+    lastHeight = -1;
     return;
   }
-  const content = document.querySelector<HTMLElement>(".content");
-  if (content) void resizePanel(Math.ceil(content.getBoundingClientRect().height));
+  if (paletteIsOpen() || settingsPanelIsOpen()) {
+    lastHeight = -1;
+    void resizeOverlay(OVERLAY_HEIGHT);
+    return;
+  }
+
+  const height = contentHeight();
+  if (Math.abs(height - lastHeight) < 2) return;
+  lastHeight = height;
+  void resizePanel(height);
 }
 
 export function createOverlays() {
   async function openPalette(): Promise<void> {
-    if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
+    if (!isExpanded()) void resizeOverlay(OVERLAY_HEIGHT);
     setContext("palette");
     await paletteOpen();
     await tick();
   }
 
   async function openModels(): Promise<void> {
-    if (!isExpanded()) void resizePanel(OVERLAY_HEIGHT);
+    if (!isExpanded()) void resizeOverlay(OVERLAY_HEIGHT);
     setContext("palette");
     await paletteOpenModels();
     await tick();

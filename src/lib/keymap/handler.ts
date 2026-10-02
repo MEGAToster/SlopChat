@@ -1,5 +1,12 @@
 import type { Keybinds } from "../types";
-import { resolve, type Action, type Context, type KeymapState } from "./dispatch";
+import {
+  resolve,
+  resolveSettings,
+  type Action,
+  type Context,
+  type KeymapState,
+  type SettingsFocus,
+} from "./dispatch";
 
 type KeyHandlerActions = {
   perform: (action: Action) => void;
@@ -13,6 +20,10 @@ type KeyHandlerActions = {
   confirmDelete: () => void;
   cancelDelete: () => void;
   escChain: () => void;
+  settingsMove: (delta: number) => void;
+  settingsActivate: () => void;
+  settingsExpand: () => void;
+  settingsCollapse: () => void;
 };
 
 type KeyHandlerDeps = {
@@ -23,6 +34,7 @@ type KeyHandlerDeps = {
   paletteMode: () => string;
   settingsOpen: () => boolean;
   settingsBack: () => boolean;
+  settingsFocus: () => SettingsFocus;
   blocked: () => boolean;
   filterActive: () => boolean;
   confirmActive: () => boolean;
@@ -34,10 +46,31 @@ export function createKeyHandler(deps: KeyHandlerDeps): (event: KeyboardEvent) =
 
   return (event: KeyboardEvent) => {
     if (deps.settingsOpen()) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        // An open editor pops back to the settings list; otherwise close.
-        if (!deps.settingsBack()) actions.closeSettings();
+      const action = resolveSettings(event, deps.settingsFocus());
+      if (!action) return;
+      event.preventDefault();
+      switch (action) {
+        case "settingsBack":
+          // An open editor pops back to the settings list; otherwise close.
+          if (!deps.settingsBack()) actions.closeSettings();
+          break;
+        case "settingsNext":
+          actions.settingsMove(1);
+          break;
+        case "settingsPrev":
+          actions.settingsMove(-1);
+          break;
+        case "settingsActivate":
+          actions.settingsActivate();
+          break;
+        case "settingsExpand":
+          actions.settingsExpand();
+          break;
+        case "settingsCollapse":
+          actions.settingsCollapse();
+          break;
+        default:
+          break;
       }
       return;
     }
