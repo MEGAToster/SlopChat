@@ -10,7 +10,7 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 - **Providers** — OpenRouter, Ollama, and Gemini (all via the OpenAI chat-completions format). API keys live in the OS keychain.
 - **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per rotation entry.
 - **Streaming answers** — markdown, syntax highlighting, KaTeX math, Mermaid diagrams, inline citations, and copy buttons; long threads stay smooth.
-- **Web research** — `web_search` (Exa, Tavily, Brave, Firecrawl, Serper, tried in order with free-allowance budgets) and `web_fetch` (readable text with an SSRF guard and a Jina Reader fallback for blocked/JS-only pages). Only `web_search` uses provider APIs; `web_fetch` is always the free local fetch.
+- **Web research** — `web_search` (Exa, Tavily, Brave, Firecrawl, Serper, tried in order as **fallbacks** — see [Web search billing](#web-search-billing)) and `web_fetch` (readable text with an SSRF guard and a Jina Reader fallback for blocked/JS-only pages). Only `web_search` uses provider APIs; `web_fetch` is always the free local fetch.
 - **Reasoning** — cycle effort levels for models that expose them.
 - **History** — SQLite + FTS5 search, pinning, edit-last-message, and configurable startup/resume behavior.
 - **Attachments** — drop or paste images and text files.
@@ -55,6 +55,16 @@ Build from source and install:
 The script checks for Node and Rust, builds the app, and installs it (macOS: `/Applications/SlopChat.app`; Linux: the `.deb` or AppImage). To build manually instead: `npm install && npm run tauri build`, then use the artifact under `src-tauri/target/release/bundle/`.
 
 On first launch, paste an OpenRouter API key (stored in the keychain). Add other providers and keys under **Settings → Web search**.
+
+### Web search billing
+
+The web-search providers are **fallbacks**, not a budget you can rely on:
+
+- SlopChat tries the configured providers **in order** and only moves to the next one when the current provider **rejects the request** (auth failure, quota exhausted, HTTP error). A provider that answers successfully is used even if it means paying.
+- The per-provider "free allowance" values in Settings are a **best-effort estimate** based on the requests *SlopChat itself has made*. They are **not** a hard cap: SlopChat never queries the provider's real balance, cannot see usage from other apps or devices, and cannot know your account status.
+- **If a provider is set to pay-as-you-go / overage on demand, exceeding its free tier will be charged to you.** SlopChat will keep using it (and you may be billed) until the provider itself starts rejecting requests — only then does it fall back.
+
+To avoid surprise charges, disable pay-on-demand at the provider, or don't store that provider's key in SlopChat. `web_fetch` is always free (local + optional Jina reader) and never touches these providers.
 
 ### macOS keychain prompts
 

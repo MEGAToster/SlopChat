@@ -144,6 +144,10 @@ pub fn set_agent_log(app: &AppHandle, enabled: bool) -> Result<(), String> {
     write::set_agent_log(app, enabled)
 }
 
+pub fn save_window(app: &AppHandle, window: &WindowConfig) -> Result<(), String> {
+    write::save_window(app, window)
+}
+
 pub fn load_user_themes() -> Vec<UserTheme> {
     themes::load_user()
 }

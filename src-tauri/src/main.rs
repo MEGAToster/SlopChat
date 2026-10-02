@@ -86,6 +86,7 @@ fn main() {
             commands::set_reader_fallback,
             commands::set_agent_log,
             commands::open_agent_log,
+            commands::save_window,
             commands::load_user_themes,
             commands::open_url,
             commands::search_usage,
@@ -94,8 +95,8 @@ fn main() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            panel::init(app.handle())?;
             config::init(app.handle())?;
+            panel::init(app.handle())?;
             setup_tray(app.handle())?;
 
             let store = store::Store::open(&paths::chats_db_path()).unwrap_or_else(|error| {

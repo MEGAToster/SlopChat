@@ -6,13 +6,21 @@
     saveAdvanced,
     saveModel,
     saveProfile,
+    saveWindow,
     searchUsage,
     setAgentLog,
     setReaderFallback,
     setResumeWithin,
     setStartup,
   } from "../lib/ipc";
-  import type { Advanced, ModelConfig, Profile, SearchProviderUsage, Startup } from "../lib/types";
+  import type {
+    Advanced,
+    ModelConfig,
+    Profile,
+    SearchProviderUsage,
+    Startup,
+    WindowConfig,
+  } from "../lib/types";
   import {
     composedModel,
     modelId,
@@ -34,7 +42,7 @@
     { name: "exa", label: "Exa", placeholder: "exa-…", hint: "$10 free credit / month" },
     { name: "tavily", label: "Tavily", placeholder: "tvly-…", hint: "1,000 free credits / month" },
     { name: "brave", label: "Brave", placeholder: "…", hint: "$5 free credit / month" },
-    { name: "firecrawl", label: "Firecrawl", placeholder: "fc-…", hint: "500 free credits once" },
+    { name: "firecrawl", label: "Firecrawl", placeholder: "fc-…", hint: "500 free credits / month" },
     { name: "serper", label: "Serper", placeholder: "…", hint: "2,500 free queries once" },
   ];
 
@@ -140,6 +148,10 @@
     void saveAdvanced({ ...settings().advanced, ...patch });
   }
 
+  function saveWindowSize(patch: Partial<WindowConfig>): void {
+    void saveWindow({ ...settings().window, ...patch });
+  }
+
   function changeStartup(event: Event): void {
     void setStartup((event.currentTarget as HTMLSelectElement).value as Startup);
   }
@@ -220,6 +232,51 @@
           />
         {/each}
         <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>
+
+        <div class="section-title">Window</div>
+
+        <div class="adv-row">
+          <span class="adv-label">
+            Compact width <span class="adv-unit">(px)</span>
+          </span>
+          <input
+            class="control"
+            type="number"
+            min="400"
+            max="1200"
+            step="10"
+            value={settings().window.compactWidth}
+            onchange={(event) => saveWindowSize({ compactWidth: clamp(event, 400, 1200) })}
+          />
+        </div>
+
+        <div class="adv-row">
+          <span class="adv-label">
+            Compact height <span class="adv-unit">(px, filled chat)</span>
+          </span>
+          <input
+            class="control"
+            type="number"
+            min="400"
+            max="1200"
+            step="10"
+            value={settings().window.compactHeight}
+            onchange={(event) => saveWindowSize({ compactHeight: clamp(event, 400, 1200) })}
+          />
+        </div>
+
+        <div class="adv-row">
+          <span class="adv-label">Expanded screen ratio</span>
+          <input
+            class="control"
+            type="number"
+            min="0.3"
+            max="1"
+            step="0.05"
+            value={settings().window.expandedScreenRatio}
+            onchange={(event) => saveWindowSize({ expandedScreenRatio: clampFloat(event, 0.3, 1) })}
+          />
+        </div>
 
         <details class="advanced" bind:this={advancedEl} ontoggle={onAdvancedToggle}>
           <summary class="section-title">Advanced</summary>

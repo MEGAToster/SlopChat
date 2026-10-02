@@ -80,8 +80,9 @@ type Debug = {
 
 export type WebOverride = "on" | "off";
 
-type WindowConfig = {
+export type WindowConfig = {
   compactWidth: number;
+  compactHeight: number;
   expandedScreenRatio: number;
 };
 

@@ -17,6 +17,7 @@ import type {
   StoredMessage,
   StreamEvent,
   ThemeInfo,
+  WindowConfig,
 } from "./types";
 
 export function hidePanel(): Promise<void> {
@@ -149,6 +150,10 @@ export function setStyle(style: string): Promise<void> {
 
 export function saveAdvanced(advanced: Advanced): Promise<void> {
   return invoke("save_advanced", { advanced });
+}
+
+export function saveWindow(window: WindowConfig): Promise<void> {
+  return invoke("save_window", { window });
 }
 
 export function setStartup(startup: Startup): Promise<void> {

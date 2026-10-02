@@ -5,22 +5,20 @@ import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import { regenerate, stop, submit } from "./chat.svelte";
 import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
-import { cycleWeb, lastUserMessage, reportError, webOverride } from "./chatStore.svelte";
+import { cycleWeb, lastUserMessage, reportError } from "./chatStore.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
 import { openPanel } from "./settingsPanel.svelte";
 import { followOutput } from "./view.svelte";
-import { cycleReasoningFor, reasoningOverride } from "./reasoning.svelte";
-import { effectiveWebMode } from "../webSearch";
+import { cycleReasoningFor } from "./reasoning.svelte";
 import {
   activeConfig,
-  activeProfile,
   beginEdit,
+  currentSendOptions,
   cycleProfile,
   editingId,
   endEdit,
   isExpanded,
-  modelOverride,
   moveSelection,
   newChatWithProfile,
   openChatWithProfile,
@@ -43,27 +41,11 @@ export function createActions(text: TextRef) {
   const overlays = createOverlays();
 
   async function handleSend(): Promise<void> {
-    const profile = activeProfile();
-    const config = activeConfig();
-    if (!profile || !config) {
+    const options = currentSendOptions();
+    if (!options) {
       reportError("No profile configured in settings.json");
       return;
     }
-    const toolCalling = config.toolCalling !== false;
-    const webSearch = effectiveWebMode(toolCalling, webOverride(), config.webSearch);
-    const options = {
-      profileName: profile.name,
-      model: config.model,
-      system: config.system,
-      temperature: config.temperature,
-      useContext: config.useContext,
-      tools: toolCalling ? config.tools : [],
-      toolCalling,
-      webSearch,
-      reasoning: reasoningOverride() ?? config.reasoning,
-      fallback: modelOverride() ? undefined : profile.fallback,
-      maxCompletionTokens: config.maxCompletionTokens,
-    };
     const editing = editingId();
     const value = text.get();
     text.set("");

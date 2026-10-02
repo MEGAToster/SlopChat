@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
     presencePenalty: 0.2,
   },
   debug: { agentLog: false },
-  window: { compactWidth: 680, expandedScreenRatio: 0.7 },
+  window: { compactWidth: 680, compactHeight: 480, expandedScreenRatio: 0.7 },
 };
 
 const store = $state<{ value: Settings; error: string | null }>({

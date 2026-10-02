@@ -3,7 +3,8 @@ import type { Attachment, ContentPart, NewAttachment, RequestMessage } from "../
 import { basename } from "../text";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
-import { adoptWebDraft, chatState, type SendOptions } from "./chatStore.svelte";
+import { adoptWebDraft, chatState, lastUserMessage, type SendOptions } from "./chatStore.svelte";
+import { currentSendOptions } from "./ui.svelte";
 import { adoptReasoningDraft } from "./reasoning.svelte";
 import { toChatMessage } from "./messages";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
@@ -50,6 +51,14 @@ export async function regenerate(
 
 export async function stop(): Promise<void> {
   if (chatState.streamingChatId) await stopStream(chatState.streamingChatId);
+}
+
+// Re-answer the last user message with the current profile/model.
+export async function retryLast(): Promise<void> {
+  const options = currentSendOptions();
+  const last = lastUserMessage();
+  if (!options || !last?.id) return;
+  await regenerate(last.id, last.content, options);
 }
 
 async function messageContent(

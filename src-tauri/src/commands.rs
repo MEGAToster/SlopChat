@@ -286,6 +286,11 @@ pub fn open_agent_log() -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+pub fn save_window(app: AppHandle, window: config::WindowConfig) -> Result<(), String> {
+    config::save_window(&app, &window)
+}
+
+#[tauri::command(async)]
 pub fn load_user_themes() -> Vec<config::UserTheme> {
     config::load_user_themes()
 }

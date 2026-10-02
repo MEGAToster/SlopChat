@@ -158,6 +158,7 @@ impl Default for WindowConfig {
     fn default() -> Self {
         Self {
             compact_width: 680.0,
+            compact_height: 480.0,
             expanded_screen_ratio: 0.7,
         }
     }

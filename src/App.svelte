@@ -15,6 +15,7 @@
     onPanelShown,
     onSearchUnavailable,
     onStickyChanged,
+    setPanelExpanded,
   } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
   import { createActions } from "./lib/state/actions.svelte";
@@ -74,6 +75,17 @@
 
   $effect(() => {
     applyThemeFor(settings().theme);
+  });
+
+  // Re-apply window sizing (width/height/ratio) when the config changes.
+  $effect(() => {
+    void settings().window.compactWidth;
+    void settings().window.compactHeight;
+    void settings().window.expandedScreenRatio;
+    requestAnimationFrame(() => {
+      if (isExpanded()) void setPanelExpanded(true);
+      else measurePanel();
+    });
   });
 
   // Compact panel follows the thread height after each change.

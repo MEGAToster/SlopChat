@@ -53,6 +53,7 @@
       {message}
       streaming={streamingHere && index === all.length - 1 && message.role === "assistant"}
       thinking={thinking && index === all.length - 1}
+      last={index === all.length - 1}
     />
   {/each}
 </div>

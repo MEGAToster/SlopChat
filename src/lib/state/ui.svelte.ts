@@ -2,8 +2,10 @@ import { groupChats, type ChatGroup } from "../chatGroups";
 import { setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, ModelConfig, Profile } from "../types";
+import { effectiveWebMode } from "../webSearch";
 import { newChat, openChat } from "./chatHistory.svelte";
-import { activeChatId, chats, isBlank } from "./chatStore.svelte";
+import { activeChatId, chats, isBlank, webOverride, type SendOptions } from "./chatStore.svelte";
+import { reasoningOverride } from "./reasoning.svelte";
 import { settings } from "./settings.svelte";
 
 export type { ChatGroup };
@@ -189,6 +191,28 @@ export function activeConfig(): ModelConfig | null {
     toolCalling: profile.toolCalling ?? model.toolCalling,
     webSearch: profile.webSearch ?? model.webSearch,
     reasoning: profile.reasoning ?? model.reasoning,
+  };
+}
+
+// The request options for the active profile/model, shared by send and retry.
+export function currentSendOptions(): SendOptions | null {
+  const profile = activeProfile();
+  const config = activeConfig();
+  if (!profile || !config) return null;
+
+  const toolCalling = config.toolCalling !== false;
+  return {
+    profileName: profile.name,
+    model: config.model,
+    system: config.system,
+    temperature: config.temperature,
+    useContext: config.useContext,
+    tools: toolCalling ? config.tools : [],
+    toolCalling,
+    webSearch: effectiveWebMode(toolCalling, webOverride(), config.webSearch),
+    reasoning: reasoningOverride() ?? config.reasoning,
+    fallback: modelOverride() ? undefined : profile.fallback,
+    maxCompletionTokens: config.maxCompletionTokens,
   };
 }
 

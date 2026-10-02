@@ -4,7 +4,7 @@ use std::path::Path;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
-use super::{Advanced, ModelConfig, Profile, Settings, Startup};
+use super::{Advanced, ModelConfig, Profile, Settings, Startup, WindowConfig};
 use crate::paths;
 
 pub(super) fn load() -> Result<Settings, String> {
@@ -191,6 +191,15 @@ pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String>
     patch(app, move |value| {
         if let Some(search) = value.get_mut("search").and_then(Value::as_object_mut) {
             search.insert("readerFallback".to_string(), json!(enabled));
+        }
+    })
+}
+
+pub fn save_window(app: &AppHandle, window: &WindowConfig) -> Result<(), String> {
+    let entry = serde_json::to_value(window).map_err(|error| error.to_string())?;
+    patch(app, move |value| {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("window".to_string(), entry);
         }
     })
 }

@@ -364,6 +364,7 @@ pub enum Startup {
 #[serde(default, rename_all = "camelCase")]
 pub struct WindowConfig {
     pub compact_width: f64,
+    pub compact_height: f64,
     pub expanded_screen_ratio: f64,
 }
 

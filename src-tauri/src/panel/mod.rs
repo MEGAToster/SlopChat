@@ -15,7 +15,6 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, LogicalPosition, Manager, Monitor, Position};
 
 pub const MIN_HEIGHT: f64 = 88.0;
-pub const MAX_HEIGHT: f64 = 480.0;
 pub const DEFAULT_COMPACT_WIDTH: f64 = 680.0;
 
 pub struct PanelState {
@@ -53,7 +52,7 @@ pub fn resize_compact(app: &AppHandle, height: f64) {
     if state.expanded.load(Ordering::SeqCst) {
         return;
     }
-    let height = height.clamp(MIN_HEIGHT, MAX_HEIGHT);
+    let height = height.clamp(MIN_HEIGHT, compact_height(app));
     *state.compact_height.lock().expect("panel lock poisoned") = height;
     resize(app, compact_position(app), compact_width(app), height);
 }
@@ -82,7 +81,7 @@ pub fn set_expanded(app: &AppHandle, expanded: bool) {
             app,
             compact_position(app),
             compact_width(app),
-            height.clamp(MIN_HEIGHT, MAX_HEIGHT),
+            height.clamp(MIN_HEIGHT, compact_height(app)),
         );
     }
 }
@@ -122,7 +121,7 @@ pub fn compact_position(app: &AppHandle) -> Position {
     let size = monitor.size().to_logical::<f64>(scale);
 
     Position::Logical(LogicalPosition::new(
-        origin.x + (size.width - DEFAULT_COMPACT_WIDTH) / 2.0,
+        origin.x + (size.width - compact_width(app)) / 2.0,
         origin.y + size.height * 0.18,
     ))
 }
@@ -139,6 +138,16 @@ fn compact_width(app: &AppHandle) -> f64 {
         .get()
         .window
         .compact_width
+        .clamp(400.0, 1200.0)
+}
+
+// Max height for a filled chat; the empty chat still sizes to its content.
+fn compact_height(app: &AppHandle) -> f64 {
+    app.state::<crate::config::ConfigState>()
+        .get()
+        .window
+        .compact_height
+        .clamp(400.0, 1200.0)
 }
 
 #[derive(Default)]
