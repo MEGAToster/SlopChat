@@ -19,6 +19,10 @@ pub fn settings_path() -> PathBuf {
     config_dir().join("settings.json")
 }
 
+pub fn models_path() -> PathBuf {
+    config_dir().join("models.json")
+}
+
 pub fn context_path() -> PathBuf {
     config_dir().join("context.md")
 }

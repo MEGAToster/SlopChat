@@ -161,6 +161,7 @@
   .inner {
     display: flex;
     align-items: center;
+    flex-wrap: nowrap;
     gap: var(--sp-2);
     height: 36px;
     font-size: var(--fs-sm);
@@ -235,6 +236,7 @@
   .profile {
     display: inline-flex;
     align-items: center;
+    flex: 0 1 auto;
     gap: 6px;
     min-width: 0;
   }
@@ -255,6 +257,8 @@
   }
 
   .model {
+    flex: 0 1 auto;
+    min-width: 0;
     overflow: hidden;
     color: var(--text-tertiary);
     text-overflow: ellipsis;

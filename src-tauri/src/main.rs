@@ -76,6 +76,7 @@ fn main() {
             commands::read_attachment,
             commands::list_models,
             commands::open_settings_file,
+            commands::open_models_file,
             commands::reload_config,
             commands::save_model,
             commands::remove_model,

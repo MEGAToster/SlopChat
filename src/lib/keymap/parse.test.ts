@@ -33,4 +33,15 @@ describe("matches", () => {
     expect(matches("Alt+Space", key({ key: " ", altKey: true }))).toBe(true);
     expect(eventToBinding(key({ key: " ", altKey: true }))).toBe("Alt+Space");
   });
+
+  it("treats WebKitGTK's ISO_Left_Tab as Shift+Tab", () => {
+    expect(matches("Shift+Tab", key({ key: "ISO_Left_Tab", shiftKey: true }))).toBe(true);
+    expect(eventToBinding(key({ key: "ISO_Left_Tab", shiftKey: true }))).toBe("Shift+Tab");
+  });
+
+  it("falls back to code/keyCode when WebKitGTK reports key Unidentified", () => {
+    const event = key({ key: "Unidentified", code: "Tab", keyCode: 9, shiftKey: true });
+    expect(eventToBinding(event)).toBe("Shift+Tab");
+    expect(matches("Shift+Tab", event)).toBe(true);
+  });
 });

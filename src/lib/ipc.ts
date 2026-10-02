@@ -116,6 +116,10 @@ export function openSettingsFile(): Promise<void> {
   return invoke("open_settings_file");
 }
 
+export function openModelsFile(): Promise<void> {
+  return invoke("open_models_file");
+}
+
 export function reloadConfig(): Promise<void> {
   return invoke("reload_config");
 }

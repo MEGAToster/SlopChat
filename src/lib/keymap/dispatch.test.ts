@@ -99,6 +99,14 @@ describe("configured bindings", () => {
     ).toBe("stop");
   });
 
+  it("cycles profiles regardless of composer content", () => {
+    const event = key({ key: "Unidentified", code: "Tab", keyCode: 9, shiftKey: true });
+    expect(resolve("composer", event, bindings, state({ composerEmpty: false }))).toBe(
+      "cycleProfile",
+    );
+    expect(resolve("composer", event, bindings, state())).toBe("cycleProfile");
+  });
+
   it("toggles the sidebar from both contexts", () => {
     expect(resolve("composer", key({ key: "ArrowLeft" }), bindings, state())).toBe(
       "toggleSidebar",

@@ -7,6 +7,8 @@ Documentation for how SlopChat works internally.
 | [[agent]] | The research turn: flow, system prompt, injected instructions, tool loop, final answer guarantee. |
 | [[limits]] | Every budget, cap and timeout — defaults, clamps, and where each is enforced. |
 | [[tools]] | Tool schemas, web-search providers, and the fetch client (SSRF guard, reader fallback). |
+| [[secrets]] | Where provider API keys come from and how they are stored — settings `env:VAR`, OS keychain, Linux Secret Service. |
+| [[linux]] | Linux/Wayland platform: layer-shell overlay, resident CLI, tray, global shortcuts, build deps. |
 
 ## Conventions
 

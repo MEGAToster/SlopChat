@@ -19,3 +19,7 @@ const target = document.getElementById("app");
 if (!target) throw new Error("missing #app mount point");
 
 mount(App, { target });
+
+// Once the panel is painted, drop the startup black so vibrancy/compositor
+// effects can show through the translucent theme background.
+document.documentElement.style.background = "transparent";

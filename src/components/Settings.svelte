@@ -598,7 +598,7 @@
     padding: 4px var(--sp-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    background: var(--surface);
+    background-color: var(--surface);
     color: var(--text);
     font: inherit;
     font-size: var(--fs-sm);

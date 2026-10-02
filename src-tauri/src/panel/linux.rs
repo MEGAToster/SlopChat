@@ -14,6 +14,10 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(true)
+        // Black behind the webview avoids a white flash before first paint on
+        // X11; on Wayland the surface is transparent for compositor effects.
+        .background_color(tauri::window::Color(0, 0, 0, 255))
+        .transparent(crate::platform::is_wayland())
         .visible(false)
         .build()?;
 

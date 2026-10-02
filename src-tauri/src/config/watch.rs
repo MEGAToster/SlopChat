@@ -23,7 +23,7 @@ pub fn start(app: AppHandle) -> notify::Result<()> {
     std::thread::spawn(move || {
         let _watcher = watcher;
         while let Ok(event) = rx.recv() {
-            if !touches_settings(&event) {
+            if !touches_config(&event) {
                 continue;
             }
             // Editors write in several steps; debounce and drop the queued
@@ -37,10 +37,11 @@ pub fn start(app: AppHandle) -> notify::Result<()> {
     Ok(())
 }
 
-fn touches_settings(event: &notify::Result<notify::Event>) -> bool {
-    matches!(event, Ok(event) if event.paths.iter().any(|path| is_settings_file(path)))
+fn touches_config(event: &notify::Result<notify::Event>) -> bool {
+    matches!(event, Ok(event) if event.paths.iter().any(|path| is_config_file(path)))
 }
 
-fn is_settings_file(path: &std::path::Path) -> bool {
-    path.file_name().is_some_and(|name| name == "settings.json")
+fn is_config_file(path: &std::path::Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| name == "settings.json" || name == "models.json")
 }

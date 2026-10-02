@@ -196,6 +196,11 @@ pub fn open_settings_file() -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+pub fn open_models_file() -> Result<(), String> {
+    config::open_models_file()
+}
+
+#[tauri::command(async)]
 pub fn open_url(url: String) -> Result<(), String> {
     if !(url.starts_with("http://") || url.starts_with("https://") || url.starts_with("mailto:")) {
         return Err(format!("refusing to open unsupported URL: {url}"));

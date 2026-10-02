@@ -1,5 +1,6 @@
 mod defaults;
 mod keybinds;
+mod models_file;
 mod settings;
 mod themes;
 mod watch;
@@ -158,8 +159,15 @@ pub fn load_user_themes() -> Vec<UserTheme> {
 
 pub fn open_file() -> Result<(), String> {
     ensure_file()?;
-    let path = crate::paths::settings_path();
+    open_in_editor(&crate::paths::settings_path())
+}
 
+pub fn open_models_file() -> Result<(), String> {
+    ensure_file()?;
+    open_in_editor(&crate::paths::models_path())
+}
+
+fn open_in_editor(path: &std::path::Path) -> Result<(), String> {
     if let Some(editor) = std::env::var("EDITOR")
         .or_else(|_| std::env::var("VISUAL"))
         .ok()
@@ -169,13 +177,13 @@ pub fn open_file() -> Result<(), String> {
             .arg("-c")
             .arg(format!("exec {editor} \"$1\""))
             .arg("sh")
-            .arg(&path)
+            .arg(path)
             .spawn()
             .map(|_| ())
             .map_err(|error| error.to_string());
     }
 
-    crate::platform::open_path(&path)
+    crate::platform::open_path(path)
 }
 
 fn apply_toggle(app: &AppHandle, keys: &[String]) {

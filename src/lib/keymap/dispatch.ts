@@ -60,6 +60,7 @@ export function resolve(
   if (matchesAny(keybinds.follow, event)) return "follow";
   if (matchesAny(keybinds.focusSidebar, event)) return "focusSidebar";
   if (state.streaming && matchesAny(keybinds.stop, event)) return "stop";
+  if (matchesAny(keybinds.cycleProfile, event)) return "cycleProfile";
 
   if (context === "composer" || context === "sidebar") {
     if (matchesAny(keybinds.scrollUp, event)) return "scrollUp";
@@ -98,7 +99,6 @@ function resolveComposer(
   if (matchesAny(keybinds.nextChat, event)) return "nextChat";
   if (state.composerEmpty && key === "Down") return "nextChat";
 
-  if (state.composerEmpty && matchesAny(keybinds.cycleProfile, event)) return "cycleProfile";
   if (key === "Enter" && !event.shiftKey) return "send";
 
   return null;

@@ -122,21 +122,14 @@ hl.layer_rule({
 
 ```
 
-On Wayland, SlopChat uses the `wlr-layer-shell` overlay layer (Hyprland, sway, KDE Plasma, Mir), so the compositor does not tile it and the `layer_rule` above can blur it. GNOME-on-Wayland and X11 do not support layer shell, so there SlopChat falls back to a normal window — float it with a rule (sway: `for_window [app_id="slopchat"] floating enable, border none`; i3: `for_window [class="Slopchat"] floating enable, border none`).
-
-API keys use the OS keychain (a Secret Service such as GNOME Keyring or KWallet). A bare Hyprland session may not provide one; instead reference an environment variable in `settings.json` and export it:
-
-```json
-{ "providers": { "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", "apiKey": "env:OPENROUTER_API_KEY" } } }
-```
+The panel uses the `wlr-layer-shell` overlay layer on Wayland (Hyprland, sway, KDE Plasma, Mir) so the compositor does not tile it; GNOME-on-Wayland and X11 fall back to a normal window. See [docs/linux.md](docs/linux.md) for the layer-shell internals, the tray, the Wayland global-shortcut caveat and fallback rules. API-key storage is in [docs/secrets.md](docs/secrets.md).
 
 Build dependencies (Fedora): `webkit2gtk4.1-devel`, `libsoup3-devel`, `librsvg2-devel`, `libayatana-appindicator-gtk3-devel`, `gtk-layer-shell-devel`, `patchelf`.
 
-The tray icon needs `libayatana-appindicator-gtk3` at runtime. Without it SlopChat still runs, just without a tray entry; use `slopchat quit` to stop it.
-
 ## Configuration
 
-- `~/.config/SlopChat/settings.json` — keybinds, providers, profiles, models, theme, limits (hot-reloaded).
+- `~/.config/SlopChat/settings.json` — keybinds, providers, theme, limits (hot-reloaded).
+- `~/.config/SlopChat/models.json` — registered models and rotation profiles (hot-reloaded; safe to git-sync).
 - `~/.config/SlopChat/context.md` — personal context prepended to the system prompt.
 - `~/.config/SlopChat/themes/*.json` — user themes.
 - `~/.local/share/SlopChat/history/` — chats database and attachments.

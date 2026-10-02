@@ -65,6 +65,11 @@ export function createKeyHandler(deps: KeyHandlerDeps): (event: KeyboardEvent) =
       } else if (action === "paletteDown") {
         event.preventDefault();
         actions.paletteMove(1);
+      } else if (action === "settings") {
+        event.preventDefault();
+        // Open first so closing the palette skips its composer-focus restore.
+        actions.perform("settings");
+        actions.paletteClose();
       }
       return;
     }
@@ -96,7 +101,9 @@ export function createKeyHandler(deps: KeyHandlerDeps): (event: KeyboardEvent) =
       return;
     }
 
-    if (event.key === "Tab") event.preventDefault();
+    if (event.code === "Tab" || event.keyCode === 9 || event.key === "Tab" || event.key === "ISO_Left_Tab") {
+      event.preventDefault();
+    }
 
     const action = resolve(deps.context(), event, deps.keybinds(), deps.state());
     if (!action) return;

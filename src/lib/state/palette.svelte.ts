@@ -2,6 +2,7 @@ import {
   listChats,
   listModels,
   openAgentLog,
+  openModelsFile,
   openSettingsFile,
   reloadConfig,
   searchChats,
@@ -259,6 +260,9 @@ async function runAction(id: string): Promise<void> {
       break;
     case "config-file":
       await openSettingsFile();
+      break;
+    case "models-file":
+      await openModelsFile();
       break;
     case "agent-log":
       await openAgentLog();

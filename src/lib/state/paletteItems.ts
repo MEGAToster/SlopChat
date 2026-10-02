@@ -61,6 +61,7 @@ function actionItems(settings: Settings): PaletteItem[] {
     { id: "add-models", label: "Add models…" },
     { id: "settings-panel", label: "Settings" },
     { id: "config-file", label: "Edit config file" },
+    { id: "models-file", label: "Edit models file" },
     { id: "agent-log", label: "Open agent log" },
     { id: "reload", label: "Reload config" },
   ];
