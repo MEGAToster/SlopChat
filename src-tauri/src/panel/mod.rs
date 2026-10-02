@@ -39,6 +39,8 @@ pub fn set_suppressed(app: &AppHandle, value: bool) {
         .store(value, Ordering::SeqCst);
 }
 
+// Only macOS hides on focus loss; the suppression flag is unused elsewhere.
+#[cfg(target_os = "macos")]
 pub fn is_suppressed(app: &AppHandle) -> bool {
     app.state::<PanelState>().suppressed.load(Ordering::SeqCst)
 }

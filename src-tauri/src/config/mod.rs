@@ -82,8 +82,12 @@ pub(crate) fn reload(app: &AppHandle) {
 
     if toggle_changed {
         if let Err(error) = keybinds::apply(app, &shortcuts) {
-            report_error(app, error);
-            return;
+            // Wayland compositors handle keybinds themselves; a failed X11 grab
+            // is expected and should not block the settings update.
+            if !crate::platform::is_wayland() {
+                report_error(app, error);
+                return;
+            }
         }
     }
 
@@ -175,9 +179,17 @@ pub fn open_file() -> Result<(), String> {
 }
 
 fn apply_toggle(app: &AppHandle, keys: &[String]) {
-    let result = keybinds::parse(keys).and_then(|shortcuts| keybinds::apply(app, &shortcuts));
-    if let Err(error) = result {
-        report_error(app, error);
+    let shortcuts = match keybinds::parse(keys) {
+        Ok(shortcuts) => shortcuts,
+        Err(error) => {
+            report_error(app, error);
+            return;
+        }
+    };
+    if let Err(error) = keybinds::apply(app, &shortcuts) {
+        if !crate::platform::is_wayland() {
+            report_error(app, error);
+        }
     }
 }
 

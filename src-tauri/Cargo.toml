@@ -25,6 +25,11 @@ serde_json = { version = "1", features = ["preserve_order"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = "2.1"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+glib = "0.18"
+gtk = "0.18"
+gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
+
 [lints.clippy]
 too_many_arguments = "deny"
 new_without_default = "deny"

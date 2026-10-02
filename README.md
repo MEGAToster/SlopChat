@@ -2,7 +2,7 @@
 
 DISCLAIMER: This project has been written by AI and only had a human guiding it and testing the product. This is made by slop to better prompt more slop.
 
-A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Raycast panel layer and expands into a full chat window. Linux support is planned (`LINUX_PLAN.md`).
+A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Raycast panel layer and expands into a full chat window. It also builds and runs on Linux (Hyprland/Wayland; see [Linux](#linux)).
 
 ## Features
 
@@ -52,7 +52,7 @@ Build from source and install:
 ./scripts/install.sh
 ```
 
-The script checks for Node and Rust, builds the app, and installs it (macOS: `/Applications/SlopChat.app`; Linux: the `.deb` or AppImage). To build manually instead: `npm install && npm run tauri build`, then use the artifact under `src-tauri/target/release/bundle/`.
+The script checks for Node and Rust, builds the app, and installs it (macOS: `/Applications/SlopChat.app`; Linux: `~/.local/bin/slopchat` plus a desktop entry). To build manually instead: `npm install && npm run tauri build`, then use the artifact under `src-tauri/target/release/bundle/`.
 
 On first launch, paste an OpenRouter API key (stored in the keychain). Add other providers and keys under **Settings → Web search**.
 
@@ -92,7 +92,47 @@ If the app is unsigned, macOS asks for keychain access on every chat send, Setti
 
 ### Linux
 
-Global shortcuts do not work on Wayland — bind a compositor keybind to `slopchat toggle` instead, and set the window float rules. See `LINUX_PLAN.md`.
+Global shortcuts only work on X11. On Wayland (Hyprland, sway, …), run a resident instance and toggle it from a compositor keybind:
+
+```sh
+slopchat          # start a hidden resident instance
+slopchat toggle   # show/hide the running instance
+slopchat show     # show it
+slopchat hide     # hide it
+slopchat quit     # stop the resident instance
+```
+
+Hyprland (`hyprland.conf`):
+
+``` lua
+hl.on("hyprland.start", function () {
+    hl.exec_cmd("slopchat")
+}
+
+hl.bind("ALT + SHIFT + Space", hl.dsp.exec_cmd("slopchat show"))
+
+hl.layer_rule({
+    name = "SlopChat",
+    match = { namespace = "slopchat" },
+    blur = true,
+    ignore_alpha = 0,
+    no_anim = true,
+})
+
+
+```
+
+On Wayland, SlopChat uses the `wlr-layer-shell` overlay layer (Hyprland, sway, KDE Plasma, Mir), so the compositor does not tile it and the `layer_rule` above can blur it. GNOME-on-Wayland and X11 do not support layer shell, so there SlopChat falls back to a normal window — float it with a rule (sway: `for_window [app_id="slopchat"] floating enable, border none`; i3: `for_window [class="Slopchat"] floating enable, border none`).
+
+API keys use the OS keychain (a Secret Service such as GNOME Keyring or KWallet). A bare Hyprland session may not provide one; instead reference an environment variable in `settings.json` and export it:
+
+```json
+{ "providers": { "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", "apiKey": "env:OPENROUTER_API_KEY" } } }
+```
+
+Build dependencies (Fedora): `webkit2gtk4.1-devel`, `libsoup3-devel`, `librsvg2-devel`, `libayatana-appindicator-gtk3-devel`, `gtk-layer-shell-devel`, `patchelf`.
+
+The tray icon needs `libayatana-appindicator-gtk3` at runtime. Without it SlopChat still runs, just without a tray entry; use `slopchat quit` to stop it.
 
 ## Configuration
 

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod cli;
 mod commands;
 mod config;
 mod panel;
@@ -18,9 +19,12 @@ use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    platform::silence_appindicator_deprecation();
+
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            panel::show(app);
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            cli::run(app, &argv);
         }))
         .manage(panel::Sticky::default())
         .manage(panel::PanelState::default())
@@ -97,13 +101,23 @@ fn main() {
 
             config::init(app.handle())?;
             panel::init(app.handle())?;
-            setup_tray(app.handle())?;
+            if platform::tray_available() {
+                if let Err(error) = setup_tray(app.handle()) {
+                    eprintln!("tray unavailable: {error}");
+                }
+            } else {
+                eprintln!("tray unavailable: libayatana-appindicator3 not found");
+            }
 
             let store = store::Store::open(&paths::chats_db_path()).unwrap_or_else(|error| {
                 eprintln!("history unavailable, using in-memory store: {error}");
                 store::Store::in_memory().expect("in-memory store")
             });
             app.manage(store);
+
+            let argv: Vec<String> = std::env::args().collect();
+            let handle = app.handle().clone();
+            let _ = app.run_on_main_thread(move || cli::cold_start(&handle, &argv));
 
             Ok(())
         })
