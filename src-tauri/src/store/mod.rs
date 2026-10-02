@@ -3,6 +3,8 @@ pub mod chats;
 pub mod messages;
 pub mod search;
 
+mod migrations;
+
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
@@ -42,7 +44,7 @@ impl Store {
             .map_err(db_err)?;
         conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))
             .map_err(db_err)?;
-        migrate(&conn)?;
+        migrations::migrate(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -52,100 +54,6 @@ impl Store {
         self.conn.lock().expect("store lock poisoned")
     }
 }
-
-const SCHEMA_V1: &str = "
-CREATE TABLE chats (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL DEFAULT '',
-  profile TEXT NOT NULL DEFAULT '',
-  pinned INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-CREATE TABLE messages (
-  id TEXT PRIMARY KEY,
-  chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-  role TEXT NOT NULL,
-  content TEXT NOT NULL,
-  model TEXT,
-  tokens_in INTEGER,
-  tokens_out INTEGER,
-  cost REAL,
-  created_at INTEGER NOT NULL
-);
-CREATE INDEX messages_chat_idx ON messages(chat_id, created_at);
-CREATE TABLE attachments (
-  id TEXT PRIMARY KEY,
-  message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-  path TEXT NOT NULL,
-  mime TEXT
-);
-CREATE VIRTUAL TABLE messages_fts USING fts5(content, content='messages', content_rowid='rowid');
-CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN
-  INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
-END;
-CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
-END;
-CREATE TRIGGER messages_au AFTER UPDATE ON messages BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
-  INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
-END;
-";
-
-fn migrate(conn: &Connection) -> Result<(), String> {
-    let version: i64 = conn
-        .query_row("PRAGMA user_version", [], |row| row.get(0))
-        .map_err(db_err)?;
-
-    if version < 1 {
-        conn.execute_batch(SCHEMA_V1)
-            .map_err(|error| format!("migrating schema: {error}"))?;
-        conn.pragma_update(None, "user_version", 1)
-            .map_err(db_err)?;
-    }
-
-    if version < 2 {
-        conn.execute_batch(SCHEMA_V2)
-            .map_err(|error| format!("migrating schema: {error}"))?;
-        conn.pragma_update(None, "user_version", 2)
-            .map_err(db_err)?;
-    }
-
-    if version < 3 {
-        conn.execute_batch(SCHEMA_V3)
-            .map_err(|error| format!("migrating schema: {error}"))?;
-        conn.pragma_update(None, "user_version", 3)
-            .map_err(db_err)?;
-    }
-
-    Ok(())
-}
-
-const SCHEMA_V2: &str = "
-ALTER TABLE messages ADD COLUMN sources TEXT;
-CREATE TABLE search_usage (
-  month TEXT PRIMARY KEY,
-  requests INTEGER NOT NULL DEFAULT 0,
-  cost REAL NOT NULL DEFAULT 0
-);
-";
-
-const SCHEMA_V3: &str = "
-CREATE TABLE search_usage_v3 (
-  month TEXT NOT NULL,
-  provider TEXT NOT NULL,
-  requests INTEGER NOT NULL DEFAULT 0,
-  units INTEGER NOT NULL DEFAULT 0,
-  cost REAL NOT NULL DEFAULT 0,
-  PRIMARY KEY (month, provider)
-);
-INSERT INTO search_usage_v3 (month, provider, requests, units, cost)
-  SELECT month, 'exa', requests, requests, cost FROM search_usage;
-DROP TABLE search_usage;
-ALTER TABLE search_usage_v3 RENAME TO search_usage;
-CREATE TABLE search_exhausted (provider TEXT PRIMARY KEY, month TEXT NOT NULL);
-";
 
 pub fn now_millis() -> i64 {
     SystemTime::now()
@@ -175,6 +83,7 @@ mod tests {
             tokens_in: None,
             tokens_out: None,
             cost: None,
+            provider: None,
             sources: None,
             attachments: Vec::new(),
         }
@@ -209,6 +118,20 @@ mod tests {
 
         let chat = chats::get(&conn, &chat.id).unwrap().unwrap();
         assert_eq!(chat.title, "hello world");
+    }
+
+    #[test]
+    fn appending_messages_round_trips_the_provider() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "default").unwrap();
+
+        let mut new = message(&chat.id, "assistant", "hi");
+        new.provider = Some("DeepInfra".to_string());
+        messages::append(&conn, &new).unwrap();
+
+        let listed = messages::list(&conn, &chat.id).unwrap();
+        assert_eq!(listed[0].provider.as_deref(), Some("DeepInfra"));
     }
 
     #[test]
@@ -266,36 +189,6 @@ mod tests {
             chats::initial(&conn, Startup::Latest, 0).unwrap().unwrap().chat.id,
             chat.id
         );
-    }
-
-    #[test]
-    fn v3_preserves_exa_usage_rows() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(SCHEMA_V1).unwrap();
-        conn.execute_batch(SCHEMA_V2).unwrap();
-        conn.pragma_update(None, "user_version", 2).unwrap();
-        conn.execute(
-            "INSERT INTO search_usage (month, requests, cost) VALUES ('2024-01', 7, 1.5)",
-            [],
-        )
-        .unwrap();
-
-        migrate(&conn).unwrap();
-
-        let (provider, requests, units, cost): (String, i64, i64, f64) = conn
-            .query_row(
-                "SELECT provider, requests, units, cost FROM search_usage WHERE month = '2024-01'",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )
-            .unwrap();
-        assert_eq!(provider, "exa");
-        assert_eq!((requests, units, cost), (7, 7, 1.5));
-
-        let version: i64 = conn
-            .query_row("PRAGMA user_version", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(version, 3);
     }
 
     #[test]

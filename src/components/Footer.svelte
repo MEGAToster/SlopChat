@@ -4,7 +4,6 @@
   import {
     isStreamingHere,
     lastUsage,
-    messages,
     cycleWeb,
     webOverride,
   } from "../lib/state/chatStore.svelte";
@@ -27,6 +26,7 @@
   import { toggleSticky } from "../lib/ipc";
   import Icon from "./Icon.svelte";
   import Kbd from "./Kbd.svelte";
+  import UsageInfo from "./UsageInfo.svelte";
 
   let { sticky = false }: { sticky?: boolean } = $props();
 
@@ -37,7 +37,6 @@
   const ref = $derived(splitModelRef(fullModel));
   const model = $derived(ref.modelId.split("/").pop() ?? "");
   const usage = $derived(lastUsage());
-  const provider = $derived(usage?.provider ?? ref.provider);
   const keybinds = $derived(settings().keybinds);
   const sidebar = $derived(keyContext() === "sidebar");
   const editing = $derived(editingId() !== null);
@@ -70,27 +69,6 @@
           : "Web search available (the model decides)",
   );
 
-  const total = $derived.by(() => {
-    let tokensIn = 0;
-    let tokensOut = 0;
-    let cost = 0;
-    let hasCost = false;
-    for (const message of messages()) {
-      if (!message.usage) continue;
-      tokensIn += message.usage.tokensIn;
-      tokensOut += message.usage.tokensOut;
-      if (message.usage.cost !== null) {
-        cost += message.usage.cost;
-        hasCost = true;
-      }
-    }
-    return { tokensIn, tokensOut, cost, hasCost };
-  });
-
-  const totalText = $derived(
-    `total ↑${total.tokensIn} ↓${total.tokensOut}${total.hasCost ? ` · ${money(total.cost)}` : ""}`,
-  );
-
   const mode = $derived.by(() => {
     if (isStreamingHere()) return { label: "STREAM", tone: "orange" };
     if (editing) return { label: "EDIT", tone: "yellow" };
@@ -99,13 +77,6 @@
     return { label: "INSERT", tone: "green" };
   });
 
-  function compact(n: number): string {
-    return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-  }
-
-  function money(value: number): string {
-    return `$${value.toFixed(4)}`;
-  }
 </script>
 
 <footer class="footer">
@@ -128,11 +99,7 @@
       {/if}
     </div>
 
-    <div class="usage number" title={totalText}>
-      {#if usage}
-        ↑{compact(usage.tokensIn)} ↓{compact(usage.tokensOut)}{#if usage.cost !== null}{` · ${money(usage.cost)}`}{/if}{#if provider}{` · ${provider}`}{/if}
-      {/if}
-    </div>
+    <UsageInfo {usage} apiProvider={ref.provider} />
 
     <div class="hints">
       {#if sidebar}
@@ -305,15 +272,6 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: default;
-  }
-
-  .usage {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-tertiary);
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
 
   .hints {

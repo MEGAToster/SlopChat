@@ -16,7 +16,7 @@ export function toChatMessage(stored: StoredMessage): ChatMessage {
           tokensIn: stored.tokensIn ?? 0,
           tokensOut: stored.tokensOut ?? 0,
           cost: stored.cost,
-          provider: null,
+          provider: stored.provider,
         }
       : undefined,
   };
@@ -30,7 +30,7 @@ export function lastUsageOf(messages: StoredMessage[]): Usage | null {
         tokensIn: message.tokensIn ?? 0,
         tokensOut: message.tokensOut ?? 0,
         cost: message.cost,
-        provider: null,
+        provider: message.provider,
       };
     }
   }

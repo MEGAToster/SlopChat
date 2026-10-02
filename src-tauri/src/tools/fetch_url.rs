@@ -63,11 +63,6 @@ fn format_content(page: &Fetched) -> String {
         page.url, page.total
     ));
     content.push_str(&page.text);
-    if page.text.trim().is_empty() {
-        content.push_str(
-            "(no readable text found at this URL; try another URL or answer from the snippets.)",
-        );
-    }
     content
 }
 

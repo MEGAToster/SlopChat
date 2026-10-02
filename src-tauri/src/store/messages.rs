@@ -15,6 +15,7 @@ pub struct Message {
     pub tokens_in: Option<i64>,
     pub tokens_out: Option<i64>,
     pub cost: Option<f64>,
+    pub provider: Option<String>,
     pub created_at: i64,
     pub sources: Option<serde_json::Value>,
     pub attachments: Vec<Attachment>,
@@ -35,13 +36,15 @@ pub struct NewMessage {
     #[serde(default)]
     pub cost: Option<f64>,
     #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
     pub sources: Option<serde_json::Value>,
     #[serde(default)]
     pub attachments: Vec<NewAttachment>,
 }
 
 const COLUMNS: &str =
-    "id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at, sources";
+    "id, chat_id, role, content, model, tokens_in, tokens_out, cost, provider, created_at, sources";
 
 fn row_to_message(row: &Row<'_>) -> rusqlite::Result<Message> {
     Ok(Message {
@@ -53,9 +56,10 @@ fn row_to_message(row: &Row<'_>) -> rusqlite::Result<Message> {
         tokens_in: row.get(5)?,
         tokens_out: row.get(6)?,
         cost: row.get(7)?,
-        created_at: row.get(8)?,
+        provider: row.get(8)?,
+        created_at: row.get(9)?,
         sources: row
-            .get::<_, Option<String>>(9)?
+            .get::<_, Option<String>>(10)?
             .and_then(|text| serde_json::from_str(&text).ok()),
         attachments: Vec::new(),
     })
@@ -92,6 +96,7 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
         tokens_in: new.tokens_in,
         tokens_out: new.tokens_out,
         cost: new.cost,
+        provider: new.provider.clone(),
         created_at: super::now_millis(),
         sources: new.sources.clone(),
         attachments: Vec::new(),
@@ -100,8 +105,8 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
     let sources_json = new.sources.as_ref().map(|value| value.to_string());
 
     conn.execute(
-        "INSERT INTO messages (id, chat_id, role, content, model, tokens_in, tokens_out, cost, created_at, sources)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO messages (id, chat_id, role, content, model, tokens_in, tokens_out, cost, provider, created_at, sources)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             message.id,
             message.chat_id,
@@ -111,6 +116,7 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
             message.tokens_in,
             message.tokens_out,
             message.cost,
+            message.provider,
             message.created_at,
             sources_json,
         ],

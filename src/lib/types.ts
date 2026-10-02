@@ -218,6 +218,7 @@ export type StoredMessage = {
   tokensIn: number | null;
   tokensOut: number | null;
   cost: number | null;
+  provider: string | null;
   createdAt: number;
   sources: Source[] | null;
   attachments: Attachment[];
@@ -236,6 +237,7 @@ export type NewMessage = {
   tokensIn?: number;
   tokensOut?: number;
   cost?: number;
+  provider?: string;
   sources?: Source[];
   attachments?: NewAttachment[];
 };

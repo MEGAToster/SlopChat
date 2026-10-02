@@ -3,6 +3,7 @@ import { Channel } from "@tauri-apps/api/core";
 import { send as sendRequest, stop as stopStream } from "../ipc";
 import { stripControlTokens } from "../markdown/clean";
 import type { SendRequest, Source, StreamEvent, ToolStep, Usage } from "../types";
+import { promoteNote } from "./promote";
 
 type StreamRequest = Omit<SendRequest, "chatId">;
 
@@ -107,7 +108,14 @@ export async function run(
     error = String(cause);
   }
 
-  return { content: stripControlTokens(answer), usage, error, reasoning, steps, sources };
+  const stripped = stripControlTokens(answer);
+  const content = promoteNote(stripped, steps);
+  if (content !== stripped) {
+    callbacks.onUpdate(content);
+    callbacks.onSteps([...steps]);
+  }
+
+  return { content, usage, error, reasoning, steps, sources };
 }
 
 export async function stop(chatId: string): Promise<void> {

@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
+use super::super::prompt::parse_args;
 use super::super::stream::{Cancel, ToolCall};
 use super::super::StreamEvent;
 use crate::config::ConfigState;
@@ -44,7 +45,7 @@ pub(super) async fn execute_tool(
     start_index: u32,
     cancel: &Cancel,
 ) -> ToolOutcome {
-    match call_tool(app, &call.name, super::parse_args(&call.arguments), start_index, cancel).await {
+    match call_tool(app, &call.name, parse_args(&call.arguments), start_index, cancel).await {
         Some(Ok(output)) => ToolOutcome {
             content: output.content,
             summary: output.summary,

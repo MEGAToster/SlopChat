@@ -25,6 +25,7 @@ pub struct Parsed {
     pub tool_calls: Vec<PartialCall>,
     pub usage: Option<Usage>,
     pub provider: Option<String>,
+    pub id: Option<String>,
     pub finish_reason: Option<String>,
     pub error: Option<String>,
 }
@@ -63,6 +64,8 @@ struct Chunk {
     usage: Option<Usage>,
     #[serde(default)]
     provider: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
     #[serde(default)]
     error: Option<ProviderError>,
 }
@@ -149,6 +152,7 @@ pub fn parse_chunk(data: &str) -> Option<Parsed> {
         tool_calls,
         usage: chunk.usage,
         provider: chunk.provider,
+        id: chunk.id,
         finish_reason,
         error,
     })
@@ -179,6 +183,23 @@ mod tests {
         assert_eq!(calls[0].id, "call_1");
         assert_eq!(calls[0].name, "web_search");
         assert_eq!(calls[0].arguments, r#"{"query":"hi"}"#);
+    }
+
+    #[test]
+    fn parses_response_id_and_provider() {
+        let parsed = parse_chunk(
+            r#"{"id":"gen-1","provider":"DeepInfra","choices":[{"delta":{"content":"hi"}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.id.as_deref(), Some("gen-1"));
+        assert_eq!(parsed.provider.as_deref(), Some("DeepInfra"));
+    }
+
+    #[test]
+    fn missing_id_and_provider_are_none() {
+        let parsed = parse_chunk(r#"{"choices":[{"delta":{"content":"hi"}}]}"#).unwrap();
+        assert_eq!(parsed.id, None);
+        assert_eq!(parsed.provider, None);
     }
 
     #[test]

@@ -1,30 +1,32 @@
+mod budget;
+mod events;
+mod exec;
+mod final_pass;
+mod instructions;
+mod rounds;
+mod state;
+mod turn;
+
 use std::time::Duration;
 
-use serde_json::{json, Value};
+use serde_json::json;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager};
 
-use super::kinds::{Kind, Limits};
-use super::prompt::{assistant_tool_message, build_messages, last_user_text, parse_args};
-use super::stream::{self, Cancel, RequestPlan, StepOutcome, StreamError, ToolCall};
-use super::{leak, ModelRef, StreamEvent};
+use super::capabilities;
+use super::kinds::Kind;
+use super::prompt::{build_messages, last_user_text, Guidance};
+use super::stream::Cancel;
+use super::trace::Ring;
+use super::{ModelRef, StreamEvent};
 use crate::config::{ConfigState, WebSearchMode};
 use crate::tools;
 
-mod exec;
-use exec::{execute_tool, run_web_search, ToolOutcome};
-
-const STOP_HINT: &str =
-    "web_search is used up for this turn — you may still call web_fetch, or answer now using the results above";
-const LEAK_NOTE: &str = "_(the model tried to call tools in an unsupported format)_";
-const LENGTH_NOTE: &str = "_(the answer hit the token limit and may be cut off)_";
-
-fn wrap_up_message() -> Value {
-    json!({
-        "role": "user",
-        "content": "Web search is used up for this turn. Do not call web_search again. You may still call web_fetch on specific URLs, then answer using the results above.",
-    })
-}
+use budget::Budget;
+use events::emit_error;
+use exec::run_web_search;
+use state::{Ctx, State};
+use turn::{Totals, Turn, TurnError};
 
 pub async fn run(
     app: &AppHandle,
@@ -66,23 +68,6 @@ pub async fn run(
     }
 }
 
-fn emit_error(channel: &Channel<StreamEvent>, message: String) {
-    let _ = channel.send(StreamEvent::Error { message });
-}
-
-enum TurnError {
-    Unavailable(String),
-    Failed(String),
-}
-
-impl TurnError {
-    fn message(self) -> String {
-        match self {
-            TurnError::Unavailable(message) | TurnError::Failed(message) => message,
-        }
-    }
-}
-
 async fn run_turn(
     app: &AppHandle,
     request: &super::ChatRequest,
@@ -92,18 +77,12 @@ async fn run_turn(
 ) -> Result<(), TurnError> {
     let kind = Kind::resolve(&model.provider).map_err(TurnError::Failed)?;
     let settings = app.state::<ConfigState>().get();
-    let tracing = settings.debug.agent_log;
     let turn_id = format!("{}-{}", request.chat_id, now_millis());
 
-    // Clamp so a bad setting can't stall or unbound the turn.
-    let max_rounds = settings.advanced.max_rounds.clamp(1, 10) as usize;
-    let max_searches = settings.advanced.max_searches.clamp(1, 20) as usize;
-    let max_fetches = settings.advanced.max_fetches.clamp(0, 100) as usize;
-    let max_fetched_chars = settings.advanced.max_fetched_chars;
-    let reasoning_max_tokens = settings.advanced.reasoning_max_tokens;
+    let max_turn_secs = settings.advanced.max_turn_secs.clamp(30, 3600);
+    let reserve = Duration::from_secs((max_turn_secs / 4).clamp(15, 45) as u64);
     let inactivity = Duration::from_secs(settings.advanced.response_timeout_secs.clamp(5, 600) as u64);
-    let turn_deadline = tokio::time::Instant::now()
-        + Duration::from_secs(settings.advanced.max_turn_secs.clamp(30, 3600) as u64);
+    let turn_deadline = tokio::time::Instant::now() + Duration::from_secs(max_turn_secs as u64);
 
     let key = if kind.needs_auth() {
         Some(
@@ -124,7 +103,7 @@ async fn run_turn(
     let supports = if request.tools.is_empty() && !web_enabled {
         false
     } else {
-        super::capabilities::supports(kind, &model.model, &settings, key.as_deref()).await
+        capabilities::supports(kind, &model.model, &settings, key.as_deref()).await
     };
 
     let mut tool_names: Vec<String> = if tool_calling {
@@ -138,8 +117,6 @@ async fn run_turn(
         Vec::new()
     };
     if web_enabled {
-        // Fetch accompanies search; both are added even when the profile lists
-        // no tools, since web search is driven by the mode/toggle.
         for tool in ["web_search", "web_fetch"] {
             if !tool_names.iter().any(|name| name == tool) {
                 tool_names.push(tool.to_string());
@@ -147,23 +124,29 @@ async fn run_turn(
         }
     }
 
-    // The guidance only helps when tools are actually offered to the model.
-    let mut messages = build_messages(request, supports && !tool_names.is_empty());
+    let guidance = (supports && !tool_names.is_empty()).then(|| Guidance {
+        max_searches: settings.advanced.max_searches.clamp(1, 20) as usize,
+        max_rounds: settings.advanced.max_rounds.clamp(1, 10) as usize,
+    });
+    let mut messages = build_messages(request, guidance);
 
-    let mut search_cost = 0.0;
     let mut source_counter = 0u32;
+    let mut pre_search_cost = 0.0;
 
     if forced && !supports {
         let query = last_user_text(request);
         let (content, cost, next) =
             run_web_search(app, &query, source_counter, channel, cancel).await;
-        search_cost += cost;
+        pre_search_cost += cost;
         source_counter = next;
         messages.push(json!({ "role": "system", "content": format!("Web results (cite as [n]):\n{content}") }));
         tool_names.clear();
     } else if !supports {
         tool_names.clear();
     }
+
+    // `base` is the prompt without tool traffic, reused for the synthesis pass.
+    let base = messages.clone();
 
     // Tool definitions must stay identical for the whole turn; we stop tool use
     // through results/tool_choice, never by dropping definitions mid-turn.
@@ -177,7 +160,7 @@ async fn run_turn(
     // Multi-step research drifts at high temperature, so default it once tools
     // are in play — but not for reasoning models, which reject `temperature`.
     let reasoning_model = !tool_names.is_empty()
-        && super::capabilities::reasoning(kind, &model.model, &settings, key.as_deref())
+        && capabilities::reasoning(kind, &model.model, &settings, key.as_deref())
             .await
             .is_some();
     let temperature = request
@@ -200,7 +183,7 @@ async fn run_turn(
         model: model.model.as_str(),
         temperature,
         reasoning: request.reasoning.as_deref(),
-        reasoning_max_tokens,
+        reasoning_max_tokens: settings.advanced.reasoning_max_tokens,
         max_completion_tokens: request.max_completion_tokens,
         frequency_penalty,
         presence_penalty,
@@ -209,323 +192,107 @@ async fn run_turn(
         key: key.as_deref(),
     };
 
-    let (mut tokens_in, mut tokens_out) = (0u32, 0u32);
-    let mut cost = 0.0f64;
-    let mut provider = None;
-    let mut first = true;
-    let mut finished = false;
-    let mut wrap_up = false;
-    let mut searches = 0usize;
-    let mut fetches = 0usize;
-    let mut fetched_chars = 0u64;
-    let mut round = 0u32;
+    let ctx = Ctx {
+        app,
+        turn,
+        base,
+        tools: tools_value,
+        tool_names,
+        forced,
+        reserve,
+        turn_id: turn_id.clone(),
+        channel,
+        cancel,
+    };
+    let totals = Totals {
+        search_cost: pre_search_cost,
+        ..Totals::default()
+    };
+    let mut state = State {
+        messages,
+        budget: Budget::from_settings(&settings.advanced),
+        totals,
+        notes: Vec::new(),
+        ring: Ring::new(settings.debug.agent_log),
+        round: 0,
+        source_counter,
+        first: true,
+        wrap_up: false,
+        finished: false,
+        answer_chars: 0,
+    };
 
-    for _ in 0..max_rounds {
-        if cancel.is_cancelled() {
-            return Ok(());
-        }
-        if tokio::time::Instant::now() >= turn_deadline {
-            let _ = channel.send(StreamEvent::Delta {
-                content: "\n\n_(stopped: research took too long)_".to_string(),
-                round,
-            });
-            finished = true;
-            break;
-        }
-        round += 1;
-        let can_search = tool_names.iter().any(|name| name == "web_search");
-        // Tools stay available after the wrap-up so web_fetch keeps working;
-        // further searches are refused per call instead.
-        // The user asked for the web, so make the first call a search.
-        let tool_choice = if first && forced && can_search {
-            json!({ "type": "function", "function": { "name": "web_search" } })
-        } else if tools_value.is_some() {
-            json!("auto")
-        } else {
-            json!("none")
-        };
+    rounds::run(&ctx, &mut state).await?;
+    let report = if !state.finished && !cancel.is_cancelled() {
+        Some(final_pass::run(&ctx, &mut state).await?)
+    } else {
+        None
+    };
 
-        if tracing {
-            super::trace::append(&json!({
-                "turn": turn_id, "round": round, "model": model.model,
-                "provider": kind.name(), "toolChoice": tool_choice, "tools": tool_names,
-            }));
-        }
-
-        let outcome = match turn
-            .step(&messages, tools_value.as_ref(), &tool_choice, round, channel, cancel)
-            .await
-        {
-            Ok(outcome) => outcome,
-            Err(StreamError::Cancelled) => return Ok(()),
-            // The initial request failing means the model is unavailable; the
-            // caller may retry with a fallback. Later failures are reported.
-            Err(StreamError::Unavailable(message)) if first => {
-                return Err(TurnError::Unavailable(message));
-            }
-            Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
-                emit_error(channel, message);
-                return Ok(());
-            }
-        };
-        accumulate(&outcome, kind, &mut tokens_in, &mut tokens_out, &mut cost, &mut provider);
-
-        if tracing {
-            super::trace::append(&json!({
-                "turn": turn_id, "round": round,
-                "finish": if outcome.tool_calls.is_empty() { "stop" } else { "tool_calls" },
-                "finishReason": outcome.finish_reason,
-                "usage": outcome.usage.as_ref().map(|usage| json!({
-                    "in": usage.prompt_tokens, "out": usage.completion_tokens,
-                })),
-                "provider": outcome.provider,
-            }));
-        }
-
-        let leaked = leak::has(&outcome.content);
-
-        if outcome.tool_calls.is_empty() {
-            if leaked && !wrap_up {
-                messages.push(wrap_up_message());
-                wrap_up = true;
-                first = false;
-                continue;
-            }
-            if leaked {
-                let _ = channel.send(StreamEvent::Delta {
-                    content: LEAK_NOTE.to_string(),
-                    round,
-                });
-            }
-            if outcome.finish_reason.as_deref() == Some("length") {
-                let _ = channel.send(StreamEvent::Delta {
-                    content: LENGTH_NOTE.to_string(),
-                    round,
-                });
-            }
-            finished = true;
-            break;
-        }
-
-        let calls: Vec<ToolCall> = outcome
-            .tool_calls
-            .into_iter()
-            .filter(|call| !call.name.is_empty())
-            .collect();
-
-        messages.push(assistant_tool_message(&leak::strip(&outcome.content), &calls));
-
-        let mut hit_limit = false;
-
-        // A research round is usually one search or a batch of page fetches;
-        // fetches are independent, so run them together (max 3 in flight).
-        if calls.len() > 1 && calls.iter().all(is_fetch) {
-            for chunk in calls.chunks(3) {
-                let mut handles = Vec::new();
-                for call in chunk {
-                    if fetches >= max_fetches || fetched_chars >= max_fetched_chars {
-                        hit_limit = true;
-                        emit_call(channel, call, true);
-                        messages.push(json!({
-                            "role": "tool", "tool_call_id": call.id,
-                            "content": format!("error: {STOP_HINT}"),
-                        }));
-                        continue;
-                    }
-                    fetches += 1;
-                    emit_call(channel, call, false);
-                    let worker = app.clone();
-                    let owned = call.clone();
-                    let stop = cancel.clone();
-                    handles.push((
-                        call.name.clone(),
-                        call.id.clone(),
-                        tauri::async_runtime::spawn(async move {
-                            execute_tool(&worker, &owned, 0, &stop).await
-                        }),
-                    ));
-                }
-
-                for (name, id, handle) in handles {
-                    let result = handle.await.unwrap_or_else(|_| ToolOutcome {
-                        content: "error: cancelled".to_string(),
-                        summary: "cancelled".to_string(),
-                        sources: Vec::new(),
-                        cost: 0.0,
-                    });
-                    fetched_chars += result.content.chars().count() as u64;
-                    search_cost += result.cost;
-                    if tracing {
-                        trace_result(&turn_id, round, &name, &result);
-                    }
-                    send_result(channel, &id, &result);
-                    messages.push(json!({
-                        "role": "tool", "tool_call_id": id, "content": result.content,
-                    }));
-                }
-
-                if cancel.is_cancelled() {
-                    return Ok(());
-                }
-            }
-        } else {
-            for call in &calls {
-                let search = call.name == "web_search";
-                let fetch = is_fetch(call);
-                let allowed = (!search || searches < max_searches)
-                    && (!fetch || (fetches < max_fetches && fetched_chars < max_fetched_chars));
-
-                if !allowed {
-                    hit_limit = true;
-                    emit_call(channel, call, true);
-                    messages.push(json!({
-                        "role": "tool",
-                        "tool_call_id": call.id,
-                        "content": format!("error: {STOP_HINT}"),
-                    }));
-                    continue;
-                }
-
-                if search {
-                    searches += 1;
-                }
-                if fetch {
-                    fetches += 1;
-                }
-
-                emit_call(channel, call, false);
-                if tracing {
-                    super::trace::append(&json!({
-                        "turn": turn_id, "round": round,
-                        "call": { "name": call.name, "args": parse_args(&call.arguments) },
-                    }));
-                }
-
-                let result = execute_tool(app, call, source_counter, cancel).await;
-                if cancel.is_cancelled() {
-                    return Ok(());
-                }
-                if fetch {
-                    fetched_chars += result.content.chars().count() as u64;
-                }
-                search_cost += result.cost;
-                source_counter += result.sources.len() as u32;
-                if tracing {
-                    trace_result(&turn_id, round, &call.name, &result);
-                }
-
-                send_result(channel, &call.id, &result);
-                messages.push(json!({
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": result.content,
-                }));
-            }
-        }
-
-        if hit_limit && !wrap_up {
-            messages.push(wrap_up_message());
-            wrap_up = true;
-        }
-
-        first = false;
-    }
-
-    // The round cap was hit mid tool-loop; ask once more for prose with tools
-    // still defined (some models ignore a missing tool list and leak markup).
-    if !finished && !cancel.is_cancelled() && tokio::time::Instant::now() < turn_deadline {
-        round += 1;
-        if !wrap_up {
-            messages.push(wrap_up_message());
-        }
-        match turn
-            .step(&messages, tools_value.as_ref(), &json!("none"), round, channel, cancel)
-            .await
-        {
-            Ok(outcome) => {
-                accumulate(&outcome, kind, &mut tokens_in, &mut tokens_out, &mut cost, &mut provider);
-                if leak::has(&outcome.content) {
-                    let _ = channel.send(StreamEvent::Delta {
-                        content: LEAK_NOTE.to_string(),
-                        round,
-                    });
-                }
-                if outcome.finish_reason.as_deref() == Some("length") {
-                    let _ = channel.send(StreamEvent::Delta {
-                        content: LENGTH_NOTE.to_string(),
-                        round,
-                    });
-                }
-            }
-            Err(StreamError::Cancelled) => return Ok(()),
-            Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
-                emit_error(channel, message);
-                return Ok(());
-            }
-        }
-    }
-
-    let total_cost = Some(cost + search_cost);
-
-    if tracing {
-        super::trace::append(&json!({
-            "turn": turn_id, "done": true, "tokensIn": tokens_in, "tokensOut": tokens_out,
-            "cost": total_cost, "searches": searches, "fetches": fetches,
+    let answer_chars = state
+        .answer_chars
+        .max(report.as_ref().map_or(0, |report| report.content_chars));
+    let final_pass = report.as_ref().map(|report| {
+        json!({
+            "attempt": report.attempt,
+            "toolCallsIgnored": report.tool_calls_ignored,
+            "contentChars": report.content_chars,
+        })
+    });
+    if answer_chars == 0 {
+        state.ring.push(json!({
+            "turn": turn_id, "emptyAnswer": true, "finalPass": final_pass,
         }));
     }
 
+    let total_cost = Some(state.totals.cost + state.totals.search_cost);
+    state.ring.push(json!({
+        "turn": turn_id, "done": true,
+        "tokensIn": state.totals.tokens_in, "tokensOut": state.totals.tokens_out,
+        "cost": total_cost, "searches": state.budget.searches, "fetches": state.budget.fetches,
+        "finalPass": final_pass,
+    }));
+    state.ring.flush();
+
+    let lookup = if state.totals.provider.is_none()
+        && kind == Kind::OpenRouter
+        && !cancel.is_cancelled()
+    {
+        match (key.as_deref(), state.totals.generation_id.as_deref()) {
+            (Some(key), Some(id)) => super::generation::host(&settings, key, id).await,
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let provider = final_provider(state.totals.provider.clone(), lookup, kind);
+    if state.totals.provider.is_none() && kind == Kind::OpenRouter {
+        state.ring.push(json!({
+            "turn": turn_id, "generationId": state.totals.generation_id,
+            "generationHost": provider,
+        }));
+        state.ring.flush();
+    }
     let _ = channel.send(StreamEvent::Usage {
-        tokens_in,
-        tokens_out,
+        tokens_in: state.totals.tokens_in,
+        tokens_out: state.totals.tokens_out,
         cost: total_cost,
-        provider: provider.or_else(|| Some(kind.name().to_string())),
+        provider,
     });
     let _ = channel.send(StreamEvent::Done);
     Ok(())
 }
 
-fn is_fetch(call: &ToolCall) -> bool {
-    call.name == "web_fetch" || call.name == "fetch_url"
-}
-
-fn emit_call(channel: &Channel<StreamEvent>, call: &ToolCall, skipped: bool) {
-    let _ = channel.send(StreamEvent::ToolCall {
-        id: call.id.clone(),
-        name: call.name.clone(),
-        args: parse_args(&call.arguments),
-    });
-    if skipped {
-        let _ = channel.send(StreamEvent::ToolResult {
-            id: call.id.clone(),
-            ok: false,
-            skipped: true,
-            summary: "skipped (limit)".to_string(),
-            sources: Vec::new(),
-        });
+// Only OpenRouter can name its host, and only via a lookup; others never invent one.
+fn final_provider(stream: Option<String>, lookup: Option<String>, kind: Kind) -> Option<String> {
+    if stream.is_some() {
+        return stream;
     }
-}
-
-fn send_result(channel: &Channel<StreamEvent>, id: &str, result: &ToolOutcome) {
-    let _ = channel.send(StreamEvent::ToolResult {
-        id: id.to_string(),
-        ok: !result.content.starts_with("error:"),
-        skipped: false,
-        summary: result.summary.clone(),
-        sources: result.sources.clone(),
-    });
-}
-
-fn trace_result(turn: &str, round: u32, name: &str, result: &ToolOutcome) {
-    super::trace::append(&json!({
-        "turn": turn, "round": round,
-        "result": {
-            "name": name,
-            "ok": !result.content.starts_with("error:"),
-            "summary": result.summary,
-            "bytes": result.content.len(),
-            "head": result.content.chars().take(300).collect::<String>(),
-        },
-    }));
+    if kind == Kind::OpenRouter {
+        lookup
+    } else {
+        None
+    }
 }
 
 fn now_millis() -> u128 {
@@ -535,75 +302,29 @@ fn now_millis() -> u128 {
         .unwrap_or(0)
 }
 
-struct Turn<'a> {
-    kind: Kind,
-    settings: &'a crate::config::Settings,
-    model: &'a str,
-    temperature: Option<f32>,
-    reasoning: Option<&'a str>,
-    reasoning_max_tokens: u32,
-    max_completion_tokens: Option<u32>,
-    frequency_penalty: f32,
-    presence_penalty: f32,
-    inactivity: Duration,
-    deadline: tokio::time::Instant,
-    key: Option<&'a str>,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl Turn<'_> {
-    async fn step(
-        &self,
-        messages: &[Value],
-        tools: Option<&Value>,
-        tool_choice: &Value,
-        round: u32,
-        channel: &Channel<StreamEvent>,
-        cancel: &Cancel,
-    ) -> Result<StepOutcome, StreamError> {
-        let mut body = self.kind.body(
-            self.model,
-            messages,
-            self.temperature,
-            self.reasoning,
-            tools,
-            tool_choice,
+    #[test]
+    fn host_comes_from_the_stream_when_present() {
+        assert_eq!(
+            final_provider(Some("DeepInfra".to_string()), None, Kind::OpenRouter).as_deref(),
+            Some("DeepInfra")
         );
-        self.kind.apply_limits(
-            &mut body,
-            &Limits {
-                reasoning: self.reasoning,
-                reasoning_max_tokens: self.reasoning_max_tokens,
-                max_completion_tokens: self.max_completion_tokens,
-                frequency_penalty: self.frequency_penalty,
-                presence_penalty: self.presence_penalty,
-            },
+    }
+
+    #[test]
+    fn openrouter_uses_the_generation_lookup() {
+        assert_eq!(
+            final_provider(None, Some("Chutes".to_string()), Kind::OpenRouter).as_deref(),
+            Some("Chutes")
         );
-
-        let plan = RequestPlan {
-            endpoint: self.kind.endpoint(self.settings),
-            body,
-            key: self.key,
-        };
-        stream::run_step(&plan, round, self.inactivity, self.deadline, channel, cancel).await
     }
-}
 
-fn accumulate(
-    outcome: &StepOutcome,
-    kind: Kind,
-    tokens_in: &mut u32,
-    tokens_out: &mut u32,
-    cost: &mut f64,
-    provider: &mut Option<String>,
-) {
-    if let Some(usage) = &outcome.usage {
-        *tokens_in += usage.prompt_tokens;
-        *tokens_out += usage.completion_tokens;
-        if !kind.zero_cost() {
-            *cost += usage.cost.unwrap_or(0.0);
-        }
-    }
-    if outcome.provider.is_some() {
-        *provider = outcome.provider.clone();
+    #[test]
+    fn other_providers_never_invent_a_host() {
+        assert_eq!(final_provider(None, None, Kind::Ollama), None);
+        assert_eq!(final_provider(None, None, Kind::Gemini), None);
     }
 }

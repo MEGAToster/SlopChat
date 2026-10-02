@@ -11,6 +11,7 @@ pub const DEFAULT_CHARS: usize = 12_000;
 const MAX_CHARS: usize = 20_000;
 const MAX_BYTES: usize = 2 * 1024 * 1024;
 const MIN_TEXT: usize = 500;
+const MIN_RESULT_CHARS: usize = 50;
 const MAX_REDIRECTS: usize = 5;
 const UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
 
@@ -32,29 +33,57 @@ pub async fn get(
     let max_chars = max_chars.clamp(1, MAX_CHARS);
     let target = resolve_target(url)?;
 
-    match download(&target).await {
+    let (title, text, via_reader) = match download(&target).await {
         Ok(page) => {
             let raw = String::from_utf8_lossy(&page.body).to_string();
-            let title = html::title(&raw);
-            let text = if is_markup(&page.content_type) {
+            let mut title = html::title(&raw);
+            let mut text = if is_markup(&page.content_type) {
                 html::to_text(&raw)
             } else {
                 raw.trim().to_string()
             };
+            let mut via_reader = false;
 
             if text.chars().count() < MIN_TEXT && reader_fallback {
-                if let Ok((title, text)) = reader(url).await {
-                    return Ok(window(title, text, url, start, max_chars, true));
+                if let Ok((reader_title, reader_text)) = reader(url).await {
+                    if !reader_text.is_empty() {
+                        text = reader_text;
+                        via_reader = true;
+                        if title.is_none() {
+                            title = reader_title;
+                        }
+                    }
                 }
+                check_text(&text, start, true)?;
             }
-            Ok(window(title, text, url, start, max_chars, false))
+            (title, text, via_reader)
         }
-        Err(FetchError::Blocked(_)) if reader_fallback => match reader(url).await {
-            Ok((title, text)) => Ok(window(title, text, url, start, max_chars, true)),
-            Err(error) => Err(actionable(&error)),
-        },
-        Err(FetchError::Blocked(reason) | FetchError::Message(reason)) => Err(actionable(&reason)),
+        Err(FetchError::Blocked(_)) if reader_fallback => {
+            let (title, text) = reader(url).await.map_err(|error| actionable(&error))?;
+            check_text(&text, start, true)?;
+            (title, text, true)
+        }
+        Err(FetchError::Blocked(reason) | FetchError::Message(reason)) => {
+            return Err(actionable(&reason))
+        }
+    };
+
+    Ok(window(title, text, url, start, max_chars, via_reader))
+}
+
+// A near-empty page is a failure, not a result, so the model tries another URL.
+fn check_text(text: &str, start: usize, reader_tried: bool) -> Result<(), String> {
+    if start == 0 && text.chars().count() < MIN_RESULT_CHARS {
+        let suffix = if reader_tried {
+            "; reader fallback failed"
+        } else {
+            ""
+        };
+        return Err(actionable(&format!(
+            "no readable text at this URL (likely JS-rendered or a bot check){suffix}"
+        )));
     }
+    Ok(())
 }
 
 fn window(
@@ -266,5 +295,16 @@ mod tests {
     #[test]
     fn redirect_policy_blocks_a_private_hop() {
         assert!(resolve_target("http://127.0.0.1/secret").is_err());
+    }
+
+    #[test]
+    fn near_empty_text_is_an_error() {
+        assert!(check_text("", 0, false).is_err());
+        assert!(check_text("short", 0, true)
+            .unwrap_err()
+            .contains("reader fallback failed"));
+        assert!(check_text(&"x".repeat(60), 0, false).is_ok());
+        // Paging into a long page is not an emptiness failure.
+        assert!(check_text("", 10, false).is_ok());
     }
 }

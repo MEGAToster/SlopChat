@@ -2,6 +2,7 @@ mod agent;
 pub mod capabilities;
 mod chunks;
 pub mod client;
+mod generation;
 pub mod kinds;
 mod leak;
 mod prompt;

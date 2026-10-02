@@ -171,6 +171,7 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       tokensIn: outcome.usage?.tokensIn,
       tokensOut: outcome.usage?.tokensOut,
       cost: outcome.usage?.cost ?? undefined,
+      provider: outcome.usage?.provider ?? undefined,
       sources: outcome.sources,
     });
     const message = find();

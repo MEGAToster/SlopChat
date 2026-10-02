@@ -72,6 +72,7 @@ pub struct StepOutcome {
     pub tool_calls: Vec<ToolCall>,
     pub usage: Option<Usage>,
     pub provider: Option<String>,
+    pub generation_id: Option<String>,
     pub finish_reason: Option<String>,
 }
 
@@ -123,6 +124,7 @@ pub async fn run_step(
     let mut leaked = false;
     let mut usage = None;
     let mut provider = None;
+    let mut generation_id: Option<String> = None;
     let mut reasoned = false;
     let mut finish_reason: Option<String> = None;
     let mut calls: Vec<ToolCall> = Vec::new();
@@ -179,6 +181,9 @@ pub async fn run_step(
             if parsed.provider.is_some() {
                 provider = parsed.provider;
             }
+            if generation_id.is_none() {
+                generation_id = parsed.id.filter(|id| !id.is_empty());
+            }
             if parsed.finish_reason.is_some() {
                 finish_reason = parsed.finish_reason;
             }
@@ -210,6 +215,7 @@ pub async fn run_step(
         tool_calls: calls,
         usage,
         provider,
+        generation_id,
         finish_reason,
     })
 }
