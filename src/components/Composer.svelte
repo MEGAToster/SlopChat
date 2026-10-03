@@ -6,14 +6,10 @@
 
   let {
     value = $bindable(),
-    element = $bindable(null),
-    placeholder = "Ask anything",
     onfocus,
     editing = false,
   }: {
     value: string;
-    element?: HTMLTextAreaElement | null;
-    placeholder?: string;
     onfocus?: () => void;
     editing?: boolean;
   } = $props();
@@ -22,6 +18,7 @@
   const MIN_HEIGHT = LINE_HEIGHT;
   const MAX_HEIGHT = 8 * LINE_HEIGHT;
 
+  let element = $state<HTMLTextAreaElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
   let dragging = $state(false);
 
@@ -117,7 +114,7 @@
       bind:this={element}
       bind:value
       class="input"
-      {placeholder}
+      placeholder="Ask anything"
       rows="1"
       spellcheck="false"
       onpaste={onPaste}

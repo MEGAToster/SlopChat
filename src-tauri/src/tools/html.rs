@@ -63,7 +63,7 @@ fn scan(input: &str) -> String {
                     if skipped.last().map(String::as_str) == Some(name.as_str()) {
                         skipped.pop();
                     }
-                } else if SKIP.contains(&name.as_str()) || (!void && hidden(raw)) {
+                } else if !void && (SKIP.contains(&name.as_str()) || hidden(raw)) {
                     skipped.push(name);
                 } else if skipped.is_empty() && name == "tr" {
                     out.push('\n');
@@ -183,5 +183,10 @@ mod tests {
     #[test]
     fn to_line_flattens_newlines() {
         assert_eq!(to_line("<p>a</p><p>b</p>"), "a b");
+    }
+
+    #[test]
+    fn self_closing_skip_tag_does_not_hide_the_rest() {
+        assert_eq!(to_text("<body><svg/><p>keep</p></body>"), "keep");
     }
 }

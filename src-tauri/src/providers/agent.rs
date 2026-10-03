@@ -39,7 +39,8 @@ pub async fn run(
         Err(error) => return emit_error(&channel, error),
     };
 
-    match run_turn(app, &request, &channel, &cancel, &model).await {
+    let mut pre_search: Option<PreSearch> = None;
+    match run_turn(app, &request, &channel, &cancel, &model, &mut pre_search).await {
         Ok(()) => {}
         Err(TurnError::Unavailable(message)) => {
             let fallback = request
@@ -60,12 +61,29 @@ pub async fn run(
                 format!("{} unavailable — using {fallback}", request.model),
             );
 
-            if let Err(error) = run_turn(app, &request, &channel, &cancel, &fallback_model).await {
+            if let Err(error) = run_turn(
+                app,
+                &request,
+                &channel,
+                &cancel,
+                &fallback_model,
+                &mut pre_search,
+            )
+            .await
+            {
                 emit_error(&channel, error.message());
             }
         }
         Err(TurnError::Failed(message)) => emit_error(&channel, message),
     }
+}
+
+// The paid pre-search is model-independent, so the fallback attempt reuses it
+// instead of paying for the same search twice.
+struct PreSearch {
+    content: String,
+    cost: f64,
+    next: u32,
 }
 
 async fn run_turn(
@@ -74,6 +92,7 @@ async fn run_turn(
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
     model: &ModelRef,
+    pre_search: &mut Option<PreSearch>,
 ) -> Result<(), TurnError> {
     let kind = Kind::resolve(&model.provider).map_err(TurnError::Failed)?;
     let settings = app.state::<ConfigState>().get();
@@ -128,18 +147,24 @@ async fn run_turn(
         max_searches: settings.advanced.max_searches.clamp(1, 20) as usize,
         max_rounds: settings.advanced.max_rounds.clamp(1, 10) as usize,
     });
-    let mut messages = build_messages(request, guidance);
+    let web_offered =
+        (supports && tool_names.iter().any(|name| name == "web_search")) || (forced && !supports);
+    let mut messages = build_messages(request, guidance, web_offered);
 
     let mut source_counter = 0u32;
     let mut pre_search_cost = 0.0;
 
     if forced && !supports {
-        let query = last_user_text(request);
-        let (content, cost, next) =
-            run_web_search(app, &query, source_counter, channel, cancel).await;
-        pre_search_cost += cost;
-        source_counter = next;
-        messages.push(json!({ "role": "system", "content": format!("Web results (cite as [n]):\n{content}") }));
+        if pre_search.is_none() {
+            let query = last_user_text(request);
+            let (content, cost, next) =
+                run_web_search(app, &query, source_counter, channel, cancel).await;
+            *pre_search = Some(PreSearch { content, cost, next });
+        }
+        let search = pre_search.as_ref().expect("pre-search set above");
+        pre_search_cost += search.cost;
+        source_counter = search.next;
+        messages.push(json!({ "role": "system", "content": format!("Web results (cite as [n]):\n{}", search.content) }));
         tool_names.clear();
     } else if !supports {
         tool_names.clear();
@@ -252,14 +277,23 @@ async fn run_turn(
         "cost": total_cost, "searches": state.budget.searches, "fetches": state.budget.fetches,
         "finalPass": final_pass,
     }));
-    state.ring.flush();
 
     let lookup = if state.totals.provider.is_none()
         && kind == Kind::OpenRouter
         && !cancel.is_cancelled()
     {
         match (key.as_deref(), state.totals.generation_id.as_deref()) {
-            (Some(key), Some(id)) => super::generation::host(&settings, key, id).await,
+            (Some(key), Some(id)) => {
+                // The host is cosmetic attribution; its retry chain must not hold
+                // the turn open, so cap the lookup hard.
+                tokio::time::timeout(
+                    Duration::from_secs(3),
+                    super::generation::host(&settings, key, id),
+                )
+                .await
+                .ok()
+                .flatten()
+            }
             _ => None,
         }
     } else {
@@ -271,7 +305,6 @@ async fn run_turn(
             "turn": turn_id, "generationId": state.totals.generation_id,
             "generationHost": provider,
         }));
-        state.ring.flush();
     }
     let _ = channel.send(StreamEvent::Usage {
         tokens_in: state.totals.tokens_in,

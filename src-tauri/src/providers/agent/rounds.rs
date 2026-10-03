@@ -4,10 +4,10 @@ use super::super::prompt::{assistant_tool_message, parse_args};
 use super::super::stream::{StreamError, ToolCall};
 use super::super::{leak, StreamEvent};
 use super::budget::Budget;
-use super::events::{emit_call, emit_error, is_fetch, note, send_result, trace_result};
+use super::events::{emit_call, is_fetch, note, send_result, trace_result};
 use super::exec::{execute_tool, ToolOutcome};
 use super::instructions::{
-    wrap_up_message, LAST_ROUND_NOTICE, LEAK_NOTE, LENGTH_NOTE, STOP_HINT,
+    stop_hint, wrap_up_message, LAST_ROUND_NOTICE, LEAK_NOTE, LENGTH_NOTE,
 };
 use super::state::{Ctx, State};
 use super::turn::{accumulate, TurnError};
@@ -64,8 +64,7 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<(), TurnErro
                 return Err(TurnError::Unavailable(message));
             }
             Err(StreamError::Unavailable(message) | StreamError::Failed(message)) => {
-                emit_error(ctx.channel, message);
-                return Ok(());
+                return Err(TurnError::Failed(message));
             }
         };
         accumulate(&outcome, ctx.turn.kind, &mut state.totals);
@@ -125,7 +124,7 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<(), TurnErro
                         emit_call(ctx.channel, call, true);
                         state
                             .messages
-                            .push(tool_message(&call.id, &refuse(&state.budget)));
+                            .push(tool_message(&call.id, &refuse(&state.budget, call)));
                         continue;
                     }
                     emit_call(ctx.channel, call, false);
@@ -161,7 +160,7 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<(), TurnErro
                     emit_call(ctx.channel, call, true);
                     state
                         .messages
-                        .push(tool_message(&call.id, &refuse(&state.budget)));
+                        .push(tool_message(&call.id, &refuse(&state.budget, call)));
                     continue;
                 }
                 emit_call(ctx.channel, call, false);
@@ -199,8 +198,8 @@ fn tool_message(id: &str, content: &str) -> Value {
 }
 
 // Our own budget, not a provider failure: keep the model informed.
-fn refuse(budget: &Budget) -> String {
-    format!("error: {STOP_HINT}{}", budget.footer())
+fn refuse(budget: &Budget, call: &ToolCall) -> String {
+    format!("error: {}{}", stop_hint(&call.name), budget.footer())
 }
 
 fn push_result(state: &mut State, call: &ToolCall, result: &ToolOutcome) {

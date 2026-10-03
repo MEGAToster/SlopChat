@@ -83,9 +83,13 @@ billing section.
 `fetch_url::run(args, reader_fallback)`, so a fetch never spends search credits.
 [`tools/fetch_client.rs`](../src-tauri/src/tools/fetch_client.rs) does the work:
 
-- Own `reqwest` client with a desktop Safari user agent and HTML content-type checks.
-- **SSRF guard**: resolve the host first, block private/link-local addresses, pin the
-  resolved IP, and re-check every redirect hop (max 5).
+- Own `reqwest` client with a desktop Safari user agent. The content type only selects HTML
+  extraction vs. raw text; binary bodies (PDFs, images) are not rejected and are decoded as
+  UTF-8.
+- **SSRF guard** ([`tools/ssrf.rs`](../src-tauri/src/tools/ssrf.rs)): parse the URL with the
+  same WHATWG rules reqwest uses, block loopback/private/link-local/`0.0.0.0/8`/IPv4-mapped
+  addresses, resolve the host asynchronously, pin the resolved IP, and follow redirects by
+  hand (max 5) re-resolving and re-pinning every hop.
 - Downloads at most **2 MB**, then extracts readable text (prefers `main`/`article`, keeps
   tables and the title) via [`tools/html.rs`](../src-tauri/src/tools/html.rs).
 - Returns a `start`/`maxChars` window (`DEFAULT_CHARS` 12 000, `MAX_CHARS` 20 000) with a

@@ -5,7 +5,9 @@ export function handleWindowClick(event: MouseEvent): void {
 
   const copy = target?.closest(".code-copy");
   if (copy instanceof HTMLElement) {
-    const code = copy.closest(".code-block")?.querySelector("code")?.textContent ?? "";
+    const block = copy.closest(".code-block");
+    const code =
+      block?.getAttribute("data-source") ?? block?.querySelector("code")?.textContent ?? "";
     void navigator.clipboard.writeText(code);
     copy.classList.add("copied");
     copy.textContent = "✓";

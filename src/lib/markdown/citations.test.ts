@@ -27,4 +27,11 @@ describe("applyCitations", () => {
   it("leaves out-of-range citations alone", () => {
     expect(applyCitations("see [9]", sources)).toBe("see [9]");
   });
+
+  it("escapes quotes in a source URL", () => {
+    const evil = [{ n: 1, title: "x", url: 'https://e.com/" onmouseover="alert(1)' }];
+    expect(applyCitations("see [1]", evil)).toBe(
+      'see <a class="citation" href="https://e.com/&quot; onmouseover=&quot;alert(1)">[1]</a>',
+    );
+  });
 });

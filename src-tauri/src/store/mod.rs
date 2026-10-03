@@ -31,7 +31,10 @@ impl Store {
                 .map_err(|error| format!("creating {}: {error}", parent.display()))?;
         }
         let conn = Connection::open(path).map_err(db_err)?;
-        Self::prepare(conn)
+        let store = Self::prepare(conn)?;
+        // Best-effort cleanup of files left by an earlier interrupted delete.
+        let _ = attachments::sweep_orphans(&store.conn());
+        Ok(store)
     }
 
     pub fn in_memory() -> Result<Self, String> {
@@ -39,12 +42,12 @@ impl Store {
         Self::prepare(conn)
     }
 
-    fn prepare(conn: Connection) -> Result<Self, String> {
+    fn prepare(mut conn: Connection) -> Result<Self, String> {
         conn.pragma_update(None, "foreign_keys", "ON")
             .map_err(db_err)?;
         conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))
             .map_err(db_err)?;
-        migrations::migrate(&conn)?;
+        migrations::migrate(&mut conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -205,5 +208,28 @@ mod tests {
         let listed = messages::list(&conn, &chat.id).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].content, "one edited");
+    }
+
+    #[test]
+    fn rewind_of_unknown_message_errors() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "default").unwrap();
+
+        assert!(messages::rewind(&conn, &chat.id, "missing", "x").is_err());
+    }
+
+    #[test]
+    fn renaming_a_profile_moves_existing_chats() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "old").unwrap();
+
+        chats::rename_profile(&conn, "old", "new").unwrap();
+
+        assert_eq!(
+            chats::get(&conn, &chat.id).unwrap().unwrap().profile,
+            "new"
+        );
     }
 }

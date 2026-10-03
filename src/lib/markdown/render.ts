@@ -93,7 +93,7 @@ const marked = new Marked(
 
         if (lower === "mermaid") {
           return [
-            '<div class="code-block mermaid-block">',
+            `<div class="code-block mermaid-block" data-source="${escapeHtml(text)}">`,
             '<div class="code-head"><span class="code-lang">mermaid</span>',
             '<button class="code-copy" type="button" aria-label="Copy">⧉</button></div>',
             `<pre class="mermaid">${escapeHtml(text)}</pre>`,

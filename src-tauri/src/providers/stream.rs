@@ -102,10 +102,15 @@ pub async fn run_step(
         builder = builder.bearer_auth(key);
     }
 
-    let mut response = builder
-        .send()
-        .await
-        .map_err(|error| StreamError::Failed(error.to_string()))?;
+    // Waiting for headers is part of the turn too: Stop and the deadline must
+    // reach it, or the user is stuck for the whole request timeout.
+    let mut response = tokio::select! {
+        _ = cancel.cancelled() => return Err(StreamError::Cancelled),
+        _ = tokio::time::sleep_until(hard_deadline) => {
+            return Err(StreamError::Failed("provider stalled".to_string()));
+        }
+        result = builder.send() => result.map_err(|error| StreamError::Failed(error.to_string()))?,
+    };
 
     if !response.status().is_success() {
         let code = response.status().as_u16();
@@ -143,13 +148,14 @@ pub async fn run_step(
             result = response.chunk() => result.map_err(|error| StreamError::Failed(error.to_string()))?,
         };
 
-        let Some(bytes) = chunk else {
-            break;
+        let (events, eof) = match chunk {
+            Some(bytes) => (parser.push(&bytes), false),
+            None => (parser.finish(), true),
         };
 
         let mut done = false;
         let mut activity = false;
-        for data in parser.push(&bytes) {
+        for data in events {
             if data.trim() == "[DONE]" {
                 done = true;
                 break;
@@ -198,7 +204,7 @@ pub async fn run_step(
         if activity {
             idle_deadline = tokio::time::Instant::now() + inactivity;
         }
-        if done {
+        if done || eof {
             break;
         }
     }

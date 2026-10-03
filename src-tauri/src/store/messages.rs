@@ -104,7 +104,9 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
 
     let sources_json = new.sources.as_ref().map(|value| value.to_string());
 
-    conn.execute(
+    let tx = conn.unchecked_transaction().map_err(db_err)?;
+
+    tx.execute(
         "INSERT INTO messages (id, chat_id, role, content, model, tokens_in, tokens_out, cost, provider, created_at, sources)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
@@ -124,7 +126,7 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
     .map_err(db_err)?;
 
     for attachment in &new.attachments {
-        super::attachments::insert(conn, &message.id, attachment)?;
+        super::attachments::insert(&tx, &message.id, attachment)?;
     }
     message.attachments = new
         .attachments
@@ -136,11 +138,13 @@ pub fn append(conn: &Connection, new: &NewMessage) -> Result<Message, String> {
         })
         .collect();
 
-    super::chats::touch(conn, &message.chat_id, message.created_at)?;
+    super::chats::touch(&tx, &message.chat_id, message.created_at)?;
 
     if message.role == "user" {
-        super::chats::set_title_if_empty(conn, &message.chat_id, &truncate(&message.content, 60))?;
+        super::chats::set_title_if_empty(&tx, &message.chat_id, &truncate(&message.content, 60))?;
     }
+
+    tx.commit().map_err(db_err)?;
 
     Ok(message)
 }
@@ -151,13 +155,21 @@ pub fn rewind(
     message_id: &str,
     content: &str,
 ) -> Result<(), String> {
-    conn.execute(
-        "UPDATE messages SET content = ?1 WHERE id = ?2 AND chat_id = ?3",
-        params![content, message_id, chat_id],
-    )
-    .map_err(db_err)?;
+    let tx = conn.unchecked_transaction().map_err(db_err)?;
 
-    conn.execute(
+    let updated = tx
+        .execute(
+            "UPDATE messages SET content = ?1 WHERE id = ?2 AND chat_id = ?3",
+            params![content, message_id, chat_id],
+        )
+        .map_err(db_err)?;
+    if updated == 0 {
+        return Err(format!("message {message_id} not found in chat {chat_id}"));
+    }
+
+    let paths = super::attachments::paths_after(&tx, chat_id, message_id)?;
+
+    tx.execute(
         "DELETE FROM messages
          WHERE chat_id = ?1
            AND rowid > (SELECT rowid FROM messages WHERE id = ?2)",
@@ -165,7 +177,10 @@ pub fn rewind(
     )
     .map_err(db_err)?;
 
-    super::chats::touch(conn, chat_id, super::now_millis())?;
+    super::chats::touch(&tx, chat_id, super::now_millis())?;
+    tx.commit().map_err(db_err)?;
+
+    super::attachments::remove_files(&paths);
     Ok(())
 }
 

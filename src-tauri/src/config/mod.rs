@@ -113,8 +113,12 @@ pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
     write::remove_model(app, model)
 }
 
-pub fn save_profile(app: &AppHandle, profile: &Profile) -> Result<(), String> {
-    write::save_profile(app, profile)
+pub fn save_profile(
+    app: &AppHandle,
+    profile: &Profile,
+    previous: Option<&str>,
+) -> Result<(), String> {
+    write::save_profile(app, profile, previous)
 }
 
 pub fn remove_profile(app: &AppHandle, name: &str) -> Result<(), String> {

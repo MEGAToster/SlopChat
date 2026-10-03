@@ -69,7 +69,7 @@ CREATE TABLE search_exhausted (provider TEXT PRIMARY KEY, month TEXT NOT NULL);
 
 const SCHEMA_V4: &str = "ALTER TABLE messages ADD COLUMN provider TEXT;";
 
-pub(crate) fn migrate(conn: &Connection) -> Result<(), String> {
+pub(crate) fn migrate(conn: &mut Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(db_err)?;
@@ -82,10 +82,13 @@ pub(crate) fn migrate(conn: &Connection) -> Result<(), String> {
     ];
     for (target, schema) in migrations {
         if version < target {
-            conn.execute_batch(schema)
+            // Each step and its version bump commit together or not at all.
+            let tx = conn.transaction().map_err(db_err)?;
+            tx.execute_batch(schema)
                 .map_err(|error| format!("migrating schema: {error}"))?;
-            conn.pragma_update(None, "user_version", target)
+            tx.pragma_update(None, "user_version", target)
                 .map_err(db_err)?;
+            tx.commit().map_err(db_err)?;
         }
     }
 
@@ -98,7 +101,7 @@ mod tests {
 
     #[test]
     fn v3_preserves_exa_usage_rows() {
-        let conn = Connection::open_in_memory().unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(SCHEMA_V1).unwrap();
         conn.execute_batch(SCHEMA_V2).unwrap();
         conn.pragma_update(None, "user_version", 2).unwrap();
@@ -108,7 +111,7 @@ mod tests {
         )
         .unwrap();
 
-        migrate(&conn).unwrap();
+        migrate(&mut conn).unwrap();
 
         let (provider, requests, units, cost): (String, i64, i64, f64) = conn
             .query_row(
@@ -128,7 +131,7 @@ mod tests {
 
     #[test]
     fn v4_adds_provider_without_touching_rows() {
-        let conn = Connection::open_in_memory().unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(SCHEMA_V1).unwrap();
         conn.execute_batch(SCHEMA_V2).unwrap();
         conn.execute_batch(SCHEMA_V3).unwrap();
@@ -146,7 +149,7 @@ mod tests {
         )
         .unwrap();
 
-        migrate(&conn).unwrap();
+        migrate(&mut conn).unwrap();
 
         let provider: Option<String> = conn
             .query_row("SELECT provider FROM messages WHERE id = 'm'", [], |row| {
@@ -159,5 +162,30 @@ mod tests {
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
         assert_eq!(version, 4);
+    }
+
+    #[test]
+    fn failed_migration_rolls_back() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_V1).unwrap();
+        conn.execute_batch(SCHEMA_V2).unwrap();
+        conn.pragma_update(None, "user_version", 2).unwrap();
+        // Without search_usage the V3 SELECT fails; the whole step must roll back.
+        conn.execute_batch("DROP TABLE search_usage").unwrap();
+
+        assert!(migrate(&mut conn).is_err());
+
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 2);
+        let leftover: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name = 'search_usage_v3'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(leftover, 0);
     }
 }

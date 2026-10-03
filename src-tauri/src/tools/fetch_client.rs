@@ -1,10 +1,11 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 use std::time::Duration;
 
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, LOCATION};
 use reqwest::redirect::Policy;
 
 use super::html;
+use super::ssrf::{self, Target};
 
 pub const DEFAULT_CHARS: usize = 12_000;
 
@@ -31,7 +32,7 @@ pub async fn get(
     reader_fallback: bool,
 ) -> Result<Fetched, String> {
     let max_chars = max_chars.clamp(1, MAX_CHARS);
-    let target = resolve_target(url)?;
+    let target = ssrf::resolve_target(url).await?;
 
     let (title, text, via_reader) = match download(&target).await {
         Ok(page) => {
@@ -116,51 +117,79 @@ enum FetchError {
     Message(String),
 }
 
+// Follow redirects by hand so every hop is re-resolved and re-pinned; reqwest's
+// own redirect policy would reuse the first client's pinned address.
 async fn download(target: &Target) -> Result<Page, FetchError> {
-    let response = build_client(&target.host, target.addr)
-        .get(&target.url)
-        .timeout(Duration::from_secs(15))
-        .send()
-        .await
-        .map_err(|error| FetchError::Message(error.to_string()))?;
+    let mut url = target.url.clone();
+    let mut host = target.host.clone();
+    let mut addr = target.addr;
 
-    let status = response.status();
-    if !status.is_success() {
-        let reason = format!("HTTP {status}");
-        return Err(if matches!(status.as_u16(), 403 | 429 | 503) {
-            FetchError::Blocked(reason)
-        } else {
-            FetchError::Message(reason)
-        });
-    }
-
-    let content_type = response
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let mut response = response;
-    let mut body = Vec::new();
-    while body.len() < MAX_BYTES {
-        match response
-            .chunk()
+    for _ in 0..=MAX_REDIRECTS {
+        let response = build_client(&host, addr)
+            .get(url.clone())
+            .timeout(Duration::from_secs(15))
+            .send()
             .await
-            .map_err(|error| FetchError::Message(error.to_string()))?
-        {
-            Some(bytes) => body.extend_from_slice(&bytes),
-            None => break,
-        }
-    }
-    body.truncate(MAX_BYTES);
+            .map_err(|error| FetchError::Message(error.to_string()))?;
 
-    Ok(Page { content_type, body })
+        let status = response.status();
+        if status.is_redirection() {
+            let location = response
+                .headers()
+                .get(LOCATION)
+                .and_then(|value| value.to_str().ok())
+                .ok_or_else(|| FetchError::Message(format!("HTTP {status} with no Location")))?;
+            let next = url
+                .join(location)
+                .map_err(|error| FetchError::Message(error.to_string()))?;
+            let hop = ssrf::resolve_target(next.as_str())
+                .await
+                .map_err(FetchError::Blocked)?;
+            url = hop.url;
+            host = hop.host;
+            addr = hop.addr;
+            continue;
+        }
+
+        if !status.is_success() {
+            let reason = format!("HTTP {status}");
+            return Err(if matches!(status.as_u16(), 403 | 429 | 503) {
+                FetchError::Blocked(reason)
+            } else {
+                FetchError::Message(reason)
+            });
+        }
+
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+
+        let mut response = response;
+        let mut body = Vec::new();
+        while body.len() < MAX_BYTES {
+            match response
+                .chunk()
+                .await
+                .map_err(|error| FetchError::Message(error.to_string()))?
+            {
+                Some(bytes) => body.extend_from_slice(&bytes),
+                None => break,
+            }
+        }
+        body.truncate(MAX_BYTES);
+
+        return Ok(Page { content_type, body });
+    }
+
+    Err(FetchError::Blocked("too many redirects".to_string()))
 }
 
 async fn reader(url: &str) -> Result<(Option<String>, String), String> {
     let endpoint = format!("https://r.jina.ai/{url}");
-    let target = resolve_target(&endpoint)?;
+    let target = ssrf::resolve_target(&endpoint).await?;
     let response = build_client(&target.host, target.addr)
         .get(&endpoint)
         .timeout(Duration::from_secs(20))
@@ -186,63 +215,12 @@ fn build_client(host: &str, addr: SocketAddr) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(UA)
         .default_headers(headers)
-        .redirect(policy())
+        .redirect(Policy::none())
         .resolve(host, addr)
         .connect_timeout(Duration::from_secs(10))
         .read_timeout(Duration::from_secs(15))
         .build()
         .expect("fetch client")
-}
-
-// Re-runs the SSRF guard on every redirect hop, not just the first URL.
-fn policy() -> Policy {
-    Policy::custom(|attempt| {
-        if attempt.previous().len() >= MAX_REDIRECTS
-            || resolve_target(attempt.url().as_str()).is_err()
-        {
-            attempt.stop()
-        } else {
-            attempt.follow()
-        }
-    })
-}
-
-struct Target {
-    url: String,
-    host: String,
-    addr: SocketAddr,
-}
-
-fn resolve_target(url: &str) -> Result<Target, String> {
-    let rest = url
-        .strip_prefix("http://")
-        .or_else(|| url.strip_prefix("https://"))
-        .ok_or_else(|| "only http/https URLs are allowed".to_string())?;
-
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-    let host_port = authority.rsplit('@').next().unwrap_or(authority);
-    let host = host_port.split(':').next().unwrap_or(host_port);
-
-    if host.is_empty() || host.eq_ignore_ascii_case("localhost") || host.ends_with(".local") {
-        return Err("refusing to fetch a local address".to_string());
-    }
-
-    let addresses: Vec<SocketAddr> = (host, 0)
-        .to_socket_addrs()
-        .map_err(|error| error.to_string())?
-        .collect();
-    if addresses.is_empty() {
-        return Err("could not resolve host".to_string());
-    }
-    if addresses.iter().any(|address| blocked(address.ip())) {
-        return Err("refusing to fetch a private address".to_string());
-    }
-
-    Ok(Target {
-        url: url.to_string(),
-        host: host.to_string(),
-        addr: addresses[0],
-    })
 }
 
 fn is_markup(content_type: &str) -> bool {
@@ -255,47 +233,9 @@ fn actionable(reason: &str) -> String {
     format!("{reason}. Try another URL from the search results or answer from the snippets.")
 }
 
-fn blocked(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(ip) => {
-            ip.is_loopback()
-                || ip.is_private()
-                || ip.is_link_local()
-                || ip.is_unspecified()
-                || ip.is_broadcast()
-                || is_cgnat(ip)
-        }
-        IpAddr::V6(ip) => {
-            ip.is_loopback()
-                || ip.is_unspecified()
-                || ip.is_unique_local()
-                || ip.is_unicast_link_local()
-        }
-    }
-}
-
-fn is_cgnat(ip: Ipv4Addr) -> bool {
-    let octets = ip.octets();
-    octets[0] == 100 && (64..128).contains(&octets[1])
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn rejects_local_and_non_http() {
-        assert!(resolve_target("http://localhost:11434").is_err());
-        assert!(resolve_target("http://192.168.1.1").is_err());
-        assert!(resolve_target("http://[::1]/").is_err());
-        assert!(resolve_target("file:///etc/passwd").is_err());
-        assert!(resolve_target("http://127.0.0.1").is_err());
-    }
-
-    #[test]
-    fn redirect_policy_blocks_a_private_hop() {
-        assert!(resolve_target("http://127.0.0.1/secret").is_err());
-    }
 
     #[test]
     fn near_empty_text_is_an_error() {

@@ -2,7 +2,7 @@
   import { formatKeys } from "../lib/keymap/format";
   import { activeChatId, chats, messages } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
-  import { activeProfile, keyContext } from "../lib/state/ui.svelte";
+  import { activeProfile, editingId, keyContext } from "../lib/state/ui.svelte";
   import { view } from "../lib/state/view.svelte";
   import Composer from "./Composer.svelte";
   import Footer from "./Footer.svelte";
@@ -35,7 +35,7 @@
   focused={context === "composer"}
   {hint}
 >
-  <Composer bind:value={text} {onfocus} />
+  <Composer bind:value={text} {onfocus} editing={editingId() !== null} />
 </Frame>
 
 <Footer {sticky} />

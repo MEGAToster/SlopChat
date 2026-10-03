@@ -133,8 +133,14 @@ pub fn create(conn: &Connection, profile: &str) -> Result<Chat, String> {
 }
 
 pub fn delete(conn: &Connection, id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM chats WHERE id = ?1", params![id])
+    // Collect the files first; after the row cascades, the paths are gone.
+    let tx = conn.unchecked_transaction().map_err(db_err)?;
+    let paths = super::attachments::paths_for_chat(&tx, id)?;
+    tx.execute("DELETE FROM chats WHERE id = ?1", params![id])
         .map_err(db_err)?;
+    tx.commit().map_err(db_err)?;
+
+    super::attachments::remove_files(&paths);
     Ok(())
 }
 
@@ -142,6 +148,16 @@ pub fn set_profile(conn: &Connection, id: &str, profile: &str) -> Result<(), Str
     conn.execute(
         "UPDATE chats SET profile = ?1 WHERE id = ?2",
         params![profile, id],
+    )
+    .map_err(db_err)?;
+    Ok(())
+}
+
+// Keeps existing chats pointing at the profile after it is renamed.
+pub fn rename_profile(conn: &Connection, from: &str, to: &str) -> Result<(), String> {
+    conn.execute(
+        "UPDATE chats SET profile = ?1 WHERE profile = ?2",
+        params![to, from],
     )
     .map_err(db_err)?;
     Ok(())

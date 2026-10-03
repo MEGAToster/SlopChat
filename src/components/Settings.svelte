@@ -97,8 +97,8 @@
     editingModel = null;
   }
 
-  async function saveProfileEdit(profile: Profile): Promise<void> {
-    await saveProfile(profile);
+  async function saveProfileEdit(profile: Profile, previous: string | null): Promise<void> {
+    await saveProfile(profile, previous ?? undefined);
     editingProfile = null;
   }
 
@@ -188,7 +188,7 @@
           {models}
           value={editingProfile}
           previous={profilePrevious}
-          onsave={(profile) => void saveProfileEdit(profile)}
+          onsave={(profile, previous) => void saveProfileEdit(profile, previous)}
           oncancel={() => (editingProfile = null)}
           onremove={profilePrevious ? () => void deleteProfileEdit() : undefined}
         />

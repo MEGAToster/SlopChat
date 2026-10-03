@@ -233,8 +233,19 @@ pub fn remove_model(app: AppHandle, model: String) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
-pub fn save_profile(app: AppHandle, profile: config::Profile) -> Result<(), String> {
-    config::save_profile(&app, &profile)
+pub fn save_profile(
+    app: AppHandle,
+    store: State<Store>,
+    profile: config::Profile,
+    previous: Option<String>,
+) -> Result<(), String> {
+    config::save_profile(&app, &profile, previous.as_deref())?;
+    if let Some(previous) = previous.as_deref() {
+        if previous != profile.name {
+            chats::rename_profile(&store.conn(), previous, &profile.name)?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command(async)]

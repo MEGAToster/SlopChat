@@ -5,7 +5,7 @@ import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import { regenerate, stop, submit } from "./chat.svelte";
 import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
-import { cycleWeb, lastUserMessage, reportError } from "./chatStore.svelte";
+import { chatState, cycleWeb, lastUserMessage, reportError } from "./chatStore.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
 import { openPanel } from "./settingsPanel.svelte";
@@ -41,19 +41,29 @@ export function createActions(text: TextRef) {
   const overlays = createOverlays();
 
   async function handleSend(): Promise<void> {
+    if (chatState.sending) return;
+
     const options = currentSendOptions();
     if (!options) {
       reportError("No profile configured in settings.json");
       return;
     }
+
     const editing = editingId();
     const value = text.get();
-    text.set("");
-    if (editing) {
-      endEdit();
-      await regenerate(editing, value, options);
-    } else {
-      await submit(value, options);
+    chatState.sending = true;
+    try {
+      const sent = editing
+        ? await regenerate(editing, value, options)
+        : await submit(value, options);
+      if (sent) {
+        if (editing) endEdit();
+        text.set("");
+      }
+    } catch (cause) {
+      reportError(String(cause));
+    } finally {
+      chatState.sending = false;
     }
   }
 

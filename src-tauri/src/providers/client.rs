@@ -16,10 +16,12 @@ pub struct Streams {
 impl Streams {
     fn start(&self, chat_id: &str) -> Cancel {
         let cancel = Cancel::new();
-        self.active
-            .lock()
-            .expect("streams lock poisoned")
-            .insert(chat_id.to_string(), cancel.clone());
+        let mut active = self.active.lock().expect("streams lock poisoned");
+        // A second stream on the same chat must stop the first, or the orphan
+        // keeps running with no Cancel left to reach it.
+        if let Some(previous) = active.insert(chat_id.to_string(), cancel.clone()) {
+            previous.cancel();
+        }
         cancel
     }
 

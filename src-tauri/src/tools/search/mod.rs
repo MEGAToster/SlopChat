@@ -48,7 +48,7 @@ pub enum SearchError {
     Failed(String),
 }
 
-// Shared HTTP handling so every backend reports quota/auth failures the same way.
+// Shared HTTP handling so every backend reports quota failures the same way.
 pub(super) async fn send_json(request: reqwest::RequestBuilder) -> Result<Value, SearchError> {
     let response = request
         .send()
@@ -68,18 +68,29 @@ pub(super) async fn send_json(request: reqwest::RequestBuilder) -> Result<Value,
 }
 
 fn classify(status: u16, body: &str) -> SearchError {
-    if matches!(status, 401 | 402 | 403 | 429 | 432 | 433) || mentions_quota(body) {
+    if matches!(status, 402 | 429 | 432 | 433) || explicit_quota(body) {
         SearchError::Exhausted(reason(body).unwrap_or_else(|| format!("HTTP {status}")))
     } else {
         SearchError::Failed(format!("HTTP {status}"))
     }
 }
 
-fn mentions_quota(body: &str) -> bool {
+// Only unambiguous billing phrases; a bare "limit" or "plan" in an error body
+// must not lock a provider out for the rest of the month.
+fn explicit_quota(body: &str) -> bool {
     let lower = body.to_ascii_lowercase();
-    ["credit", "quota", "limit", "insufficient", "exceed", "plan"]
-        .iter()
-        .any(|needle| lower.contains(needle))
+    [
+        "out of credits",
+        "insufficient credits",
+        "not enough credits",
+        "quota exceeded",
+        "quota has been exceeded",
+        "credit limit reached",
+        "monthly quota",
+        "free allowance",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
 }
 
 fn reason(body: &str) -> Option<String> {
@@ -112,15 +123,18 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
     let num_results = requested.clamp(1, 10);
 
     let mut reasons = Vec::new();
+    let mut only_exhausted = true;
 
     for name in &search.providers {
         let key = match crate::providers::search_key(&settings, name) {
             Ok(Some(key)) => key,
             Ok(None) => {
+                only_exhausted = false;
                 reasons.push(format!("{name}: no key"));
                 continue;
             }
             Err(error) => {
+                only_exhausted = false;
                 reasons.push(format!("{name}: {error}"));
                 continue;
             }
@@ -147,12 +161,16 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
                 reasons.push(format!("{name}: {message}"));
             }
             Err(SearchError::Failed(message)) => {
+                only_exhausted = false;
                 reasons.push(format!("{name}: {message}"));
             }
         }
     }
 
-    notify_unavailable(&context.app);
+    // Only warn about used-up allowances when that is really why search failed.
+    if only_exhausted && !reasons.is_empty() {
+        notify_unavailable(&context.app);
+    }
     Err(format!("web search unavailable: {}", reasons.join("; ")))
 }
 
@@ -182,15 +200,23 @@ fn format_output(
     let mut sources = Vec::new();
     let cap = search.snippet_chars as usize;
 
-    for (index, hit) in batch.hits.iter().enumerate() {
-        let n = context.start_index + index as u32 + 1;
+    for hit in &batch.hits {
+        let snippet = truncate(&html::to_line(&hit.snippet), cap);
+
+        // Answer/knowledge-box leads have no link: keep them as context, never
+        // as citations, so numbering only counts real sources.
+        if hit.url.is_empty() {
+            content.push_str(&format!("{}: {}\n", hit.title, snippet));
+            continue;
+        }
+
+        let n = context.start_index + sources.len() as u32 + 1;
         content.push_str(&format!("[{n}] {} — {}", hit.title, hit.url));
         if let Some(published) = hit.published.as_deref().filter(|value| !value.is_empty()) {
             content.push_str(&format!(" ({published})"));
         }
         content.push('\n');
 
-        let snippet = truncate(&html::to_line(&hit.snippet), cap);
         if !snippet.is_empty() {
             content.push_str("  ");
             content.push_str(&snippet);
@@ -230,13 +256,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn classifies_quota_and_auth_as_exhausted() {
+    fn classifies_only_explicit_quota_failures_as_exhausted() {
         assert!(matches!(classify(402, ""), SearchError::Exhausted(_)));
         assert!(matches!(classify(429, ""), SearchError::Exhausted(_)));
         assert!(matches!(
-            classify(400, "Not enough credits"),
+            classify(400, "quota exceeded"),
             SearchError::Exhausted(_)
         ));
+        // A bare "limit"/"plan" in the body must not lock the provider out.
+        assert!(matches!(
+            classify(400, "monthly plan limit reached"),
+            SearchError::Failed(_)
+        ));
+        assert!(matches!(classify(401, ""), SearchError::Failed(_)));
         assert!(matches!(classify(500, "boom"), SearchError::Failed(_)));
     }
 

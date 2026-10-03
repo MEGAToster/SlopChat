@@ -79,7 +79,8 @@ pub fn set_expanded(app: &AppHandle, expanded: bool) {
             .state::<crate::config::ConfigState>()
             .get()
             .window
-            .expanded_screen_ratio;
+            .expanded_screen_ratio
+            .clamp(0.3, 1.0);
         let (area_x, area_y, area_w, area_h) = work_area(app);
         let width = area_w * ratio;
         let height = area_h * ratio;

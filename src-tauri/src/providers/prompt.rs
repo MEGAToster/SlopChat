@@ -15,7 +15,11 @@ pub struct Guidance {
     pub max_rounds: usize,
 }
 
-pub fn build_messages(request: &ChatRequest, guidance: Option<Guidance>) -> Vec<Value> {
+pub fn build_messages(
+    request: &ChatRequest,
+    guidance: Option<Guidance>,
+    web_search_offered: bool,
+) -> Vec<Value> {
     let mut system = String::new();
     if request.use_context {
         if let Ok(context) = std::fs::read_to_string(paths::context_path()) {
@@ -31,7 +35,7 @@ pub fn build_messages(request: &ChatRequest, guidance: Option<Guidance>) -> Vec<
             system.push_str(extra);
         }
     }
-    if request.tools.iter().any(|tool| tool == "web_search") {
+    if web_search_offered {
         if !system.is_empty() {
             system.push_str("\n\n");
         }
@@ -149,19 +153,32 @@ mod tests {
     #[test]
     fn tool_guidance_appears_only_when_tools_are_available() {
         let request = request();
-        assert!(system_text(&build_messages(&request, guidance())).contains("verify with the web tools"));
-        assert!(!system_text(&build_messages(&request, None)).contains("verify with the web tools"));
+        assert!(
+            system_text(&build_messages(&request, guidance(), true))
+                .contains("verify with the web tools")
+        );
+        assert!(
+            !system_text(&build_messages(&request, None, false))
+                .contains("verify with the web tools")
+        );
+    }
+
+    #[test]
+    fn citation_guidance_follows_the_offered_tools() {
+        let request = request();
+        assert!(system_text(&build_messages(&request, guidance(), true)).contains("Cite web facts"));
+        assert!(!system_text(&build_messages(&request, guidance(), false)).contains("Cite web facts"));
     }
 
     #[test]
     fn date_and_research_guidance_appear_only_with_tools() {
         let request = request();
-        let with_tools = system_text(&build_messages(&request, guidance()));
+        let with_tools = system_text(&build_messages(&request, guidance(), true));
         assert!(with_tools.contains("Current date: "));
         assert!(with_tools.contains("Research procedure:"));
         assert!(with_tools.contains("Budget this turn: at most 5 web searches and 4 research steps."));
 
-        let without = system_text(&build_messages(&request, None));
+        let without = system_text(&build_messages(&request, None, true));
         assert!(!without.contains("Current date: "));
         assert!(!without.contains("Research procedure:"));
     }

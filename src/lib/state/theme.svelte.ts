@@ -1,4 +1,5 @@
 import { loadUserThemes, setStyle as setStyleCommand, setTheme as setThemeCommand, setWindowStyle } from "../ipc";
+import { setMermaidScheme } from "../markdown/mermaid";
 import { applyTheme, resolveTheme } from "../theme/apply";
 import { BUILTIN_THEMES } from "../theme/builtin";
 import type { ThemeInfo } from "../types";
@@ -23,6 +24,7 @@ export function applyThemeFor(name: string): string[] {
   const font = { ...resolved.font, ...(current.font ?? {}) };
 
   const invalid = applyTheme({ ...resolved, style, font });
+  setMermaidScheme(resolved.scheme);
   // Chain so rapid previews apply in order; otherwise the last IPC to resolve
   // can win with a stale window style.
   styleChain = styleChain

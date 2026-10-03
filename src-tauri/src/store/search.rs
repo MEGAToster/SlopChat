@@ -16,7 +16,7 @@ pub fn chats(conn: &Connection, query: &str, limit: i64) -> Result<Vec<Chat>, St
              JOIN chats c ON c.id = m.chat_id
              WHERE messages_fts MATCH ?1
              GROUP BY c.id
-             ORDER BY rank
+             ORDER BY MIN(rank)
              LIMIT ?2",
         )
         .map_err(db_err)?;

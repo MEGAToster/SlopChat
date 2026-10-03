@@ -18,6 +18,7 @@ export const chatState = $state<{
   messages: ChatMessage[];
   streaming: boolean;
   streamingChatId: string | null;
+  sending: boolean;
   thinking: boolean;
   usage: Usage | null;
   error: string | null;
@@ -29,6 +30,7 @@ export const chatState = $state<{
   messages: [],
   streaming: false,
   streamingChatId: null,
+  sending: false,
   thinking: false,
   usage: null,
   error: null,
@@ -75,6 +77,10 @@ export function messages(): ChatMessage[] {
 
 export function isStreaming(): boolean {
   return chatState.streaming;
+}
+
+export function isSending(): boolean {
+  return chatState.sending;
 }
 
 export function isStreamingHere(): boolean {

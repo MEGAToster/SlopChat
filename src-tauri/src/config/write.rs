@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -7,6 +8,9 @@ use tauri::AppHandle;
 use super::models_file::{self, ModelsFile};
 use super::{Advanced, ModelConfig, Profile, Settings, Startup, WindowConfig};
 use crate::paths;
+
+// Read-modify-write on a single file must not interleave between async commands.
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 pub(super) fn load() -> Result<Settings, String> {
     load_from(&paths::settings_path(), &paths::models_path())
@@ -87,6 +91,7 @@ fn patch_file(
     path: &Path,
     update: impl FnOnce(&mut Value),
 ) -> Result<(), String> {
+    let _guard = WRITE_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let text =
         fs::read_to_string(path).map_err(|error| format!("reading {}: {error}", path.display()))?;
     let mut value: Value =
@@ -166,26 +171,39 @@ pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
     })
 }
 
-// Adds or updates a named profile in the profiles (matched by name).
-pub fn save_profile(app: &AppHandle, profile: &Profile) -> Result<(), String> {
+// Adds or updates a named profile in the profiles (matched by name). When
+// `previous` is an old name, the old entry is removed so a rename doesn't
+// leave two profiles behind.
+pub fn save_profile(
+    app: &AppHandle,
+    profile: &Profile,
+    previous: Option<&str>,
+) -> Result<(), String> {
     let entry = serde_json::to_value(profile).map_err(|error| error.to_string())?;
-    patch_models(app, move |value| {
-        let Some(object) = value.as_object_mut() else {
-            return;
-        };
-        let profiles = object
-            .entry("profiles")
-            .or_insert_with(|| json!([]))
-            .as_array_mut();
-        let Some(profiles) = profiles else { return };
-        match profiles
-            .iter_mut()
-            .find(|item| item.get("name") == entry.get("name"))
-        {
-            Some(slot) => *slot = entry,
-            None => profiles.push(entry),
-        }
-    })
+    let renamed = previous
+        .filter(|prev| *prev != profile.name)
+        .map(str::to_string);
+    patch_models(app, move |value| upsert_profile(value, entry, renamed.as_deref()))
+}
+
+fn upsert_profile(value: &mut Value, entry: Value, previous: Option<&str>) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    let profiles = object.entry("profiles").or_insert_with(|| json!([]));
+    let Some(profiles) = profiles.as_array_mut() else {
+        return;
+    };
+    if let Some(previous) = previous {
+        profiles.retain(|item| item.get("name").and_then(Value::as_str) != Some(previous));
+    }
+    match profiles
+        .iter_mut()
+        .find(|item| item.get("name") == entry.get("name"))
+    {
+        Some(slot) => *slot = entry,
+        None => profiles.push(entry),
+    }
 }
 
 pub fn remove_profile(app: &AppHandle, name: &str) -> Result<(), String> {
@@ -239,11 +257,18 @@ pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
 }
 
 pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String> {
-    patch(app, move |value| {
-        if let Some(search) = value.get_mut("search").and_then(Value::as_object_mut) {
-            search.insert("readerFallback".to_string(), json!(enabled));
-        }
-    })
+    patch(app, move |value| set_search_flag(value, "readerFallback", enabled))
+}
+
+// Creates the section when settings.json predates it, so a toggle always lands.
+fn set_search_flag(value: &mut Value, key: &str, enabled: bool) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    let search = object.entry("search").or_insert_with(|| json!({}));
+    if let Some(search) = search.as_object_mut() {
+        search.insert(key.to_string(), json!(enabled));
+    }
 }
 
 pub fn save_window(app: &AppHandle, window: &WindowConfig) -> Result<(), String> {
@@ -256,11 +281,17 @@ pub fn save_window(app: &AppHandle, window: &WindowConfig) -> Result<(), String>
 }
 
 pub fn set_agent_log(app: &AppHandle, enabled: bool) -> Result<(), String> {
-    patch(app, move |value| {
-        if let Some(debug) = value.get_mut("debug").and_then(Value::as_object_mut) {
-            debug.insert("agentLog".to_string(), json!(enabled));
-        }
-    })
+    patch(app, move |value| set_debug_flag(value, "agentLog", enabled))
+}
+
+fn set_debug_flag(value: &mut Value, key: &str, enabled: bool) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    let debug = object.entry("debug").or_insert_with(|| json!({}));
+    if let Some(debug) = debug.as_object_mut() {
+        debug.insert(key.to_string(), json!(enabled));
+    }
 }
 
 pub(super) fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
@@ -345,5 +376,30 @@ mod tests {
         fs::write(&models_path, "{not json").unwrap();
 
         assert!(load_from(&settings_path, &models_path).is_err());
+    }
+
+    #[test]
+    fn toggles_create_missing_sections() {
+        let mut value = json!({});
+        set_search_flag(&mut value, "readerFallback", true);
+        assert_eq!(value["search"]["readerFallback"], json!(true));
+
+        let mut value = json!({});
+        set_debug_flag(&mut value, "agentLog", true);
+        assert_eq!(value["debug"]["agentLog"], json!(true));
+    }
+
+    #[test]
+    fn renaming_a_profile_replaces_the_old_entry() {
+        let mut value = json!({ "profiles": [{ "name": "old", "model": "openrouter/a" }] });
+        upsert_profile(
+            &mut value,
+            json!({ "name": "new", "model": "openrouter/a" }),
+            Some("old"),
+        );
+
+        let profiles = value["profiles"].as_array().unwrap();
+        assert_eq!(profiles.len(), 1);
+        assert_eq!(profiles[0]["name"], "new");
     }
 }

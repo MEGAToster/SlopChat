@@ -3,16 +3,22 @@ import type { Attachment, ContentPart, NewAttachment, RequestMessage } from "../
 import { basename } from "../text";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
-import { adoptWebDraft, chatState, lastUserMessage, type SendOptions } from "./chatStore.svelte";
+import { adoptWebDraft, chatState, lastUserMessage, reportError, type SendOptions } from "./chatStore.svelte";
 import { currentSendOptions } from "./ui.svelte";
 import { adoptReasoningDraft } from "./reasoning.svelte";
 import { toChatMessage } from "./messages";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
 
-export async function submit(text: string, options: SendOptions): Promise<void> {
+export async function submit(text: string, options: SendOptions): Promise<boolean> {
   const content = text.trim();
   const attachments = pending();
-  if (chatState.streaming || (!content && attachments.length === 0)) return;
+  if (chatState.streaming) {
+    if (chatState.streamingChatId !== chatState.activeChatId) {
+      reportError("Another chat is still answering — wait or stop it first.");
+    }
+    return false;
+  }
+  if (!content && attachments.length === 0) return false;
 
   const chatId = await ensureChat(options.profileName);
   adoptWebDraft(chatId);
@@ -30,15 +36,22 @@ export async function submit(text: string, options: SendOptions): Promise<void> 
   await refreshChats();
 
   await streamReply(chatId, options);
+  return true;
 }
 
 export async function regenerate(
   messageId: string,
   text: string,
   options: SendOptions,
-): Promise<void> {
+): Promise<boolean> {
   const content = text.trim();
-  if (chatState.streaming || !chatState.activeChatId || !content) return;
+  if (chatState.streaming) {
+    if (chatState.streamingChatId !== chatState.activeChatId) {
+      reportError("Another chat is still answering — wait or stop it first.");
+    }
+    return false;
+  }
+  if (!chatState.activeChatId || !content) return false;
 
   const chatId = chatState.activeChatId;
   await rewindTo(chatId, messageId, content);
@@ -47,6 +60,7 @@ export async function regenerate(
   await refreshChats();
 
   await streamReply(chatId, options);
+  return true;
 }
 
 export async function stop(): Promise<void> {
@@ -55,10 +69,19 @@ export async function stop(): Promise<void> {
 
 // Re-answer the last user message with the current profile/model.
 export async function retryLast(): Promise<void> {
+  if (chatState.sending) return;
   const options = currentSendOptions();
   const last = lastUserMessage();
   if (!options || !last?.id) return;
-  await regenerate(last.id, last.content, options);
+
+  chatState.sending = true;
+  try {
+    await regenerate(last.id, last.content, options);
+  } catch (cause) {
+    reportError(String(cause));
+  } finally {
+    chatState.sending = false;
+  }
 }
 
 async function messageContent(
@@ -175,7 +198,16 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       sources: outcome.sources,
     });
     const message = find();
-    if (message) message.id = stored.id;
+    if (message) {
+      message.id = stored.id;
+    } else if (chatState.activeChatId === chatId) {
+      // The user switched chats mid-stream, so the placeholder is gone; reload
+      // so the stored reply shows without reopening the chat.
+      const view = await getChat(chatId);
+      if (view && chatState.activeChatId === chatId) {
+        chatState.messages = view.messages.map(toChatMessage);
+      }
+    }
     if (chatState.activeChatId === chatId && outcome.usage) chatState.usage = outcome.usage;
     await refreshChats();
   } else {

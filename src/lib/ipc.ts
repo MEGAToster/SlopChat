@@ -136,8 +136,8 @@ export function removeModel(model: string): Promise<void> {
   return invoke("remove_model", { model });
 }
 
-export function saveProfile(profile: Profile): Promise<void> {
-  return invoke("save_profile", { profile });
+export function saveProfile(profile: Profile, previous?: string): Promise<void> {
+  return invoke("save_profile", { profile, previous });
 }
 
 export function removeProfile(name: string): Promise<void> {

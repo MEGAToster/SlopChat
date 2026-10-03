@@ -127,16 +127,11 @@ impl From<RawSearchSettings> for SearchSettings {
             max_characters: raw.max_characters.unwrap_or(1500),
         });
 
-        let mut providers = if raw.providers.is_empty() {
+        let providers = if raw.providers.is_empty() {
             defaults::default_search_providers()
         } else {
             raw.providers
         };
-        // Serper's free tier doesn't refill, so always try it last.
-        if let Some(index) = providers.iter().position(|name| name == "serper") {
-            let serper = providers.remove(index);
-            providers.push(serper);
-        }
 
         Self {
             providers,

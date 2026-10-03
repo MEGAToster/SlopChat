@@ -34,6 +34,7 @@
   $effect(() => {
     const last = all.at(-1);
     void last?.content;
+    void last?.steps?.length;
     void all.length;
     const element = viewport;
     if (view.tracking && element) element.scrollTop = element.scrollHeight;

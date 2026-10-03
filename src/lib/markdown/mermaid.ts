@@ -3,18 +3,32 @@ type MermaidApi = {
   render(id: string, source: string): Promise<{ svg: string }>;
 };
 
+type Scheme = "dark" | "light";
+
 let loading: Promise<MermaidApi> | null = null;
+let scheme: Scheme | null = null;
+
+// The app writes `colorScheme` on the root when it applies a theme.
+function currentScheme(): Scheme {
+  if (scheme) return scheme;
+  scheme = document.documentElement.style.colorScheme === "light" ? "light" : "dark";
+  return scheme;
+}
+
+function options(): Record<string, unknown> {
+  return {
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: currentScheme() === "dark" ? "dark" : "default",
+  };
+}
 
 function load(): Promise<MermaidApi> {
   if (!loading) {
     loading = import("mermaid")
       .then((module) => {
         const api = (module as unknown as { default: MermaidApi }).default;
-        api.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
-        });
+        api.initialize(options());
         return api;
       })
       .catch((error) => {
@@ -23,6 +37,33 @@ function load(): Promise<MermaidApi> {
       });
   }
   return loading;
+}
+
+// Diagrams follow the app theme, not the OS; re-renders any already on screen.
+export function setMermaidScheme(value: Scheme): void {
+  if (value === scheme) return;
+  scheme = value;
+  if (!loading) return;
+  void loading
+    .then((api) => {
+      api.initialize(options());
+      return rerender();
+    })
+    .catch(() => {});
+}
+
+async function rerender(): Promise<void> {
+  for (const block of document.querySelectorAll<HTMLElement>(".mermaid-block")) {
+    const source = block.dataset.source;
+    if (!source) continue;
+    const pre = document.createElement("pre");
+    pre.className = "mermaid";
+    pre.textContent = source;
+    const svg = block.querySelector("svg");
+    if (svg) svg.replaceWith(pre);
+    else block.appendChild(pre);
+    await renderMermaid(block);
+  }
 }
 
 export async function renderMermaid(container: HTMLElement): Promise<void> {

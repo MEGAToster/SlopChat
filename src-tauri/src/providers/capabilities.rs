@@ -103,31 +103,36 @@ pub async fn supports(kind: Kind, model: &str, settings: &Settings, key: Option<
     let supported = match kind {
         Kind::OpenRouter => openrouter(settings, key, model).await,
         Kind::Ollama => ollama(settings, model).await,
-        Kind::Gemini => true,
+        Kind::Gemini => Some(true),
     };
 
-    cache()
-        .lock()
-        .expect("capability cache")
-        .insert(cache_key, supported);
-    supported
+    // A network failure is not an answer: return a kind default for this turn
+    // but leave it uncached so the next turn can probe again.
+    match supported {
+        Some(value) => {
+            cache()
+                .lock()
+                .expect("capability cache")
+                .insert(cache_key, value);
+            value
+        }
+        None => kind != Kind::Ollama,
+    }
 }
 
-async fn openrouter(settings: &Settings, key: Option<&str>, model: &str) -> bool {
-    let Some(key) = key else {
-        return true;
-    };
-    let Some(body) = fetch_models(settings, key).await else {
-        return true;
-    };
+async fn openrouter(settings: &Settings, key: Option<&str>, model: &str) -> Option<bool> {
+    let key = key?;
+    let body = fetch_models(settings, key).await?;
 
-    body.get("data")
-        .and_then(Value::as_array)
-        .and_then(|entries| find_entry(entries, model))
-        .and_then(|entry| entry.get("supported_parameters"))
-        .and_then(Value::as_array)
-        .map(|params| params.iter().any(|param| param.as_str() == Some("tools")))
-        .unwrap_or(true)
+    Some(
+        body.get("data")
+            .and_then(Value::as_array)
+            .and_then(|entries| find_entry(entries, model))
+            .and_then(|entry| entry.get("supported_parameters"))
+            .and_then(Value::as_array)
+            .map(|params| params.iter().any(|param| param.as_str() == Some("tools")))
+            .unwrap_or(true),
+    )
 }
 
 // `:floor`, `:nitro`, … are routing variants of the base model id.
@@ -145,7 +150,7 @@ fn find_entry<'a>(entries: &'a [Value], model: &str) -> Option<&'a Value> {
     })
 }
 
-async fn ollama(settings: &Settings, model: &str) -> bool {
+async fn ollama(settings: &Settings, model: &str) -> Option<bool> {
     let root = Kind::Ollama
         .base_url(settings)
         .trim_end_matches('/')
@@ -153,21 +158,19 @@ async fn ollama(settings: &Settings, model: &str) -> bool {
         .to_string();
     let url = format!("{root}/api/show");
 
-    let Ok(response) = super::client()
+    let response = super::client()
         .post(url)
         .json(&json!({ "model": model }))
         .timeout(Duration::from_secs(5))
         .send()
         .await
-    else {
-        return false;
-    };
-    let Ok(body) = response.json::<Value>().await else {
-        return false;
-    };
+        .ok()?;
+    let body = response.json::<Value>().await.ok()?;
 
-    body.get("capabilities")
-        .and_then(Value::as_array)
-        .map(|caps| caps.iter().any(|cap| cap.as_str() == Some("tools")))
-        .unwrap_or(false)
+    Some(
+        body.get("capabilities")
+            .and_then(Value::as_array)
+            .map(|caps| caps.iter().any(|cap| cap.as_str() == Some("tools")))
+            .unwrap_or(false),
+    )
 }
