@@ -18,16 +18,37 @@
     editing?: boolean;
   } = $props();
 
-  const MAX_HEIGHT = 8 * 21;
+  const LINE_HEIGHT = 21;
+  const MIN_HEIGHT = LINE_HEIGHT;
+  const MAX_HEIGHT = 8 * LINE_HEIGHT;
 
   let fileInput = $state<HTMLInputElement | null>(null);
   let dragging = $state(false);
 
+  function fit(element: HTMLTextAreaElement): void {
+    if (element.clientWidth === 0) return;
+    // Collapse first so scrollHeight reflects the content, not the last height.
+    element.style.height = "0px";
+    element.style.height = `${Math.max(MIN_HEIGHT, Math.min(element.scrollHeight, MAX_HEIGHT))}px`;
+  }
+
   $effect(() => {
     void value;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, MAX_HEIGHT)}px`;
+    if (element) fit(element);
+  });
+
+  // The panel is built hidden and shown later; refit when the width settles.
+  $effect(() => {
+    const target = element;
+    if (!target) return;
+    let width = target.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (target.clientWidth === width) return;
+      width = target.clientWidth;
+      fit(target);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
   });
 
   function onDrop(event: DragEvent) {

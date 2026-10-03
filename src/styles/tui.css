@@ -27,12 +27,8 @@
   padding: 0;
 }
 
-[data-style="tui"] .content > .frame {
-  flex: none;
-}
-
-[data-style="tui"] .content > .frame:first-child {
-  flex: 1 1 auto;
+[data-style="tui"] .panel.expanded .content > .frame:first-child {
+  flex: 1;
   min-height: 0;
 }
 
