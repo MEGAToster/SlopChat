@@ -53,15 +53,17 @@ export function createActions(text: TextRef) {
     const editing = editingId();
     const value = text.get();
     chatState.sending = true;
+    // Clear straight away so the field is empty while the answer streams and
+    // new typing isn't wiped when submit resolves.
+    text.set("");
     try {
       const sent = editing
         ? await regenerate(editing, value, options)
         : await submit(value, options);
-      if (sent) {
-        if (editing) endEdit();
-        text.set("");
-      }
+      if (!sent) text.set(value);
+      else if (editing) endEdit();
     } catch (cause) {
+      if (text.get().length === 0) text.set(value);
       reportError(String(cause));
     } finally {
       chatState.sending = false;

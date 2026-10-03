@@ -53,7 +53,8 @@
 
 [data-style="tui"] .composer-box .row::before {
   content: "❯";
-  align-self: flex-end;
+  align-self: flex-start;
+  padding-top: 1px;
   color: var(--c-green);
 }
 
