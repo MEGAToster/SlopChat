@@ -8,7 +8,7 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 
 - **Panel UI** — one hotkey summons a compact composer; it grows into an expanded window with a sidebar. Sticky mode disables hide-on-blur. No Dock icon.
 - **Providers** — OpenRouter, Ollama (all via the OpenAI chat-completions format). API keys live in the OS keychain.
-- **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per rotation entry.
+- **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per profile.
 - **Streaming answers** — markdown, syntax highlighting, KaTeX math, Mermaid diagrams, inline citations, and copy buttons; long threads stay smooth.
 - **Web research** — `web_search` (Exa, Tavily, Brave, Firecrawl, Serper, tried in order as **fallbacks** — see [Web search billing](#web-search-billing)) and `web_fetch` (readable text with an SSRF guard and a Jina Reader fallback for blocked/JS-only pages). Only `web_search` uses provider APIs; `web_fetch` is always the free local fetch.
 - **Reasoning** — cycle effort levels for models that expose them.
@@ -129,7 +129,7 @@ Build dependencies (Fedora): `webkit2gtk4.1-devel`, `libsoup3-devel`, `librsvg2-
 ## Configuration
 
 - `~/.config/SlopChat/settings.json` — keybinds, providers, theme, limits (hot-reloaded).
-- `~/.config/SlopChat/models.json` — registered models and rotation profiles (hot-reloaded; safe to git-sync).
+- `~/.config/SlopChat/models.json` — registered models and profiles (hot-reloaded; safe to git-sync).
 - `~/.config/SlopChat/context.md` — personal context prepended to the system prompt.
 - `~/.config/SlopChat/themes/*.json` — user themes.
 - `~/.local/share/SlopChat/history/` — chats database and attachments.

@@ -61,21 +61,15 @@
 
     const content = document.querySelector<HTMLElement>(".content");
     if (!content) return;
-    const style = getComputedStyle(content);
-    const gap = parseFloat(style.rowGap || style.gap) || 0;
-    const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
 
-    const composer = content.querySelector<HTMLElement>(".composer-box");
-    const composerHeight = composer
-      ? (composer.closest<HTMLElement>(".frame") ?? composer).getBoundingClientRect().height
-      : 0;
-    const footer = content.querySelector<HTMLElement>(".footer");
-    const footerHeight = footer ? footer.getBoundingClientRect().height : 0;
-
-    // Transcript + composer + footer are three blocks, so two gaps between them.
-    const chrome = padding + composerHeight + footerHeight + gap * 2;
+    // Measure the content uncapped, then trim the transcript by the overflow.
+    // Enumerating chrome by hand missed the frame edges/borders, so the capped
+    // panel ended up ~2 rows taller than the cap and clipped the footer.
+    element.style.maxHeight = "";
     const cap = Math.min(1200, Math.max(400, settings().window.compactHeight));
-    element.style.maxHeight = `${Math.max(MIN_TRANSCRIPT, cap - chrome)}px`;
+    const overflow = content.getBoundingClientRect().height - cap;
+    if (overflow <= 0) return;
+    element.style.maxHeight = `${Math.max(MIN_TRANSCRIPT, element.scrollHeight - overflow)}px`;
   }
 
   $effect(() => {

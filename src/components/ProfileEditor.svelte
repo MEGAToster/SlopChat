@@ -66,7 +66,7 @@
 </script>
 
 <div class="editor">
-  <div class="section-title">{previous ? "Edit rotation entry" : "Add to rotation"}</div>
+  <div class="section-title">{previous ? "Edit profile" : "Add profile"}</div>
 
   <label class="row">
     <span class="label">Name</span>

@@ -166,7 +166,7 @@ pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
     })
 }
 
-// Adds or updates a named profile in the rotation (matched by name).
+// Adds or updates a named profile in the profiles (matched by name).
 pub fn save_profile(app: &AppHandle, profile: &Profile) -> Result<(), String> {
     let entry = serde_json::to_value(profile).map_err(|error| error.to_string())?;
     patch_models(app, move |value| {

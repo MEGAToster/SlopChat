@@ -35,7 +35,7 @@
   const color = $derived(profileColor(profile, activeProfileIndex()));
   const fullModel = $derived(config?.model ?? "");
   const ref = $derived(splitModelRef(fullModel));
-  const model = $derived(ref.modelId.split("/").pop() ?? "");
+  const model = $derived((ref.modelId.split("/").pop() ?? "") + ref.tag);
   const usage = $derived(lastUsage());
   const keybinds = $derived(settings().keybinds);
   const sidebar = $derived(keyContext() === "sidebar");

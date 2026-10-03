@@ -76,7 +76,7 @@ registration is not surfaced on Wayland (`platform::is_wayland`), since it is ex
 ## Input quirks
 
 - WebKitGTK reports Shift+Tab as `event.key === "Unidentified"`; `keymap/parse.ts` falls
-  back to `event.code`/`keyCode` so the rotation keybind still matches.
+  back to `event.code`/`keyCode` so the profile keybind still matches.
 - Native `<select>` controls pick up the GTK theme; `styles/base.css` disables the native
   rendering for `select.control` so they follow the app theme.
 

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::write;
 use super::{ModelConfig, Profile};
 
-// The git-syncable half of the config: registered models and the rotation.
+// The git-syncable half of the config: registered models and the profiles.
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ModelsFile {

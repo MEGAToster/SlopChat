@@ -209,11 +209,11 @@
         {/if}
 
         <div class="section-head">
-          <div class="section-title">Rotation (Shift+Tab)</div>
-          <button type="button" class="ghost" onclick={openNewProfile}>Add to rotation</button>
+          <div class="section-title">Profiles (Shift+Tab)</div>
+          <button type="button" class="ghost" onclick={openNewProfile}>Add profile</button>
         </div>
         {#if profiles.length === 0}
-          <p class="muted">No rotation entries yet.</p>
+          <p class="muted">No profiles yet.</p>
         {:else}
           {#each profiles as entry (entry.name)}
             <button type="button" class="item" onclick={() => openProfile(entry)}>
