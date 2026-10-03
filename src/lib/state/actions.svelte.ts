@@ -21,6 +21,7 @@ import {
   isExpanded,
   moveSelection,
   newChatWithProfile,
+  notify,
   openChatWithProfile,
   schedulePreview,
   selectActive,
@@ -42,7 +43,10 @@ export function createActions(text: TextRef) {
   const overlays = createOverlays();
 
   async function handleSend(): Promise<void> {
-    if (chatState.sending) return;
+    if (chatState.sending) {
+      notify("Still answering — Ctrl+Q to stop", "info");
+      return;
+    }
 
     const options = currentSendOptions();
     if (!options) {
