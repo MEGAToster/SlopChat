@@ -1,8 +1,9 @@
 import { groupChats, type ChatGroup } from "../chatGroups";
-import { setChatProfile, setPanelExpanded } from "../ipc";
+import { setChatModel, setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, ModelConfig, Profile } from "../types";
 import { effectiveWebMode } from "../webSearch";
+import { isModelOverride } from "../modelRef";
 import { newChat, openChat } from "./chatHistory.svelte";
 import { activeChatId, chats, isBlank, webOverride, type SendOptions } from "./chatStore.svelte";
 import { reasoningOverride } from "./reasoning.svelte";
@@ -22,6 +23,7 @@ const store = $state({
   filtering: false,
   filterQuery: "",
   pendingDelete: null as string | null,
+  renamingId: null as string | null,
   editingId: null as string | null,
   modelOverride: null as string | null,
   noticeMessage: null as string | null,
@@ -48,12 +50,8 @@ export function clearNotice(): void {
   store.noticeMessage = null;
 }
 
-export function mode(): PanelMode {
-  return store.mode;
-}
-
 export function isExpanded(): boolean {
-  return store.mode === "expanded";
+    return store.mode === "expanded";
 }
 
 export function keyContext(): Context {
@@ -76,6 +74,14 @@ export function pendingDelete(): string | null {
   return store.pendingDelete;
 }
 
+export function renamingId(): string | null {
+  return store.renamingId;
+}
+
+export function setRenaming(id: string | null): void {
+  store.renamingId = id;
+}
+
 export function editingId(): string | null {
   return store.editingId;
 }
@@ -84,8 +90,24 @@ export function modelOverride(): string | null {
   return store.modelOverride;
 }
 
+// True when a picked model differs from the active profile's own model.
+export function overrideActive(): boolean {
+  return isModelOverride(modelOverride(), activeProfile()?.model);
+}
+
+// Picking the profile's own model clears the override; a blank chat keeps it as
+// a draft and persists on creation.
 export function setModelOverride(modelId: string | null): void {
-  store.modelOverride = modelId;
+  const next = modelId !== null && modelId === activeProfile()?.model ? null : modelId;
+  store.modelOverride = next;
+  const chatId = activeChatId();
+  if (chatId) void setChatModel(chatId, next);
+}
+
+// Persists a model picked while the chat was still blank.
+export function adoptModelDraft(chatId: string): void {
+  const model = store.modelOverride;
+  if (model) void setChatModel(chatId, model);
 }
 
 export function setContext(context: Context): void {
@@ -216,10 +238,21 @@ export function currentSendOptions(): SendOptions | null {
   };
 }
 
-export function setProfile(name: string): void {
+function applyProfile(name: string): void {
   const index = settings().profiles.findIndex((profile) => profile.name === name);
   if (index !== -1) store.profileIndex = index;
   store.modelOverride = null;
+}
+
+function clearPersistedModel(): void {
+  const chatId = activeChatId();
+  if (chatId) void setChatModel(chatId, null);
+}
+
+// A profile choice wins over a model override.
+export function setProfile(name: string): void {
+  applyProfile(name);
+  clearPersistedModel();
 }
 
 export function cycleProfile(): void {
@@ -227,6 +260,7 @@ export function cycleProfile(): void {
   if (profiles.length === 0) return;
   store.profileIndex = (store.profileIndex + 1) % profiles.length;
   store.modelOverride = null;
+  clearPersistedModel();
 
   const name = profiles[store.profileIndex].name;
 
@@ -237,7 +271,7 @@ export function cycleProfile(): void {
 export async function openChatWithProfile(chatId: string): Promise<void> {
   await openChat(chatId);
   syncProfileFromActive();
-  store.modelOverride = null;
+  store.modelOverride = chats().find((chat) => chat.id === chatId)?.model ?? null;
   store.editingId = null;
   store.context = "composer";
 }
@@ -256,6 +290,7 @@ async function previewChatWithProfile(chatId: string): Promise<void> {
   if (activeChatId() === chatId) return;
   await openChat(chatId);
   syncProfileFromActive();
+  store.modelOverride = chats().find((chat) => chat.id === chatId)?.model ?? null;
   store.editingId = null;
 }
 
@@ -271,5 +306,5 @@ export async function newChatWithProfile(): Promise<void> {
 
 export function syncProfileFromActive(): void {
   const chat = chats().find((candidate) => candidate.id === activeChatId());
-  if (chat) setProfile(chat.profile);
+  if (chat) applyProfile(chat.profile);
 }

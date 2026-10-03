@@ -4,6 +4,7 @@ mod firecrawl;
 mod hit;
 mod serper;
 mod tavily;
+pub mod allowance;
 
 use hit::Batch;
 
@@ -13,7 +14,7 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager};
 
-use super::{budget, html, ToolContext, ToolOutput};
+use super::{html, ToolContext, ToolOutput};
 use crate::config::{ConfigState, SearchSettings};
 use crate::providers::Source;
 
@@ -141,7 +142,7 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
         };
 
         let limit = search.limits.get(name).cloned().unwrap_or_default();
-        if budget::is_exhausted(&context.app, name) || !budget::allowed(&context.app, name, &limit) {
+        if allowance::is_exhausted(&context.app, name) || !allowance::allowed(&context.app, name, &limit) {
             reasons.push(format!("{name}: free allowance used"));
             continue;
         }
@@ -153,11 +154,11 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
 
         match dispatch(name, &query, num_results, &backend).await {
             Ok(batch) => {
-                budget::record(&context.app, name, batch.units, batch.cost_usd);
+                allowance::record(&context.app, name, batch.units, batch.cost_usd);
                 return Ok(format_output(batch, &context, name, &search));
             }
             Err(SearchError::Exhausted(message)) => {
-                budget::mark_exhausted(&context.app, name);
+                allowance::mark_exhausted(&context.app, name);
                 reasons.push(format!("{name}: {message}"));
             }
             Err(SearchError::Failed(message)) => {

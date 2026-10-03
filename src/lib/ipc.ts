@@ -100,6 +100,14 @@ export function setChatProfile(chatId: string, profile: string): Promise<void> {
   return invoke("set_chat_profile", { chatId, profile });
 }
 
+export function renameChat(chatId: string, title: string): Promise<void> {
+  return invoke("rename_chat", { chatId, title });
+}
+
+export function setChatModel(chatId: string, model: string | null): Promise<void> {
+  return invoke("set_chat_model", { chatId, model });
+}
+
 export function appendMessage(message: NewMessage): Promise<StoredMessage> {
   return invoke("append_message", { message });
 }

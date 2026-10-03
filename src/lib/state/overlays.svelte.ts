@@ -18,6 +18,7 @@ import {
   isExpanded,
   OVERLAY_HEIGHT,
   pendingDelete,
+  renamingId,
   selectActive,
   setContext,
   setFiltering,
@@ -56,6 +57,7 @@ export function createOverlays() {
   // under `.panel.overlay .layout`, i.e. visibility: hidden, and can't focus)
   // and for the panel resize that follows, which can steal focus.
   function restoreComposerFocus(): void {
+    if (renamingId() !== null) return;
     void tick().then(() => {
       if (!isExpanded()) measurePanel();
       requestAnimationFrame(() => {

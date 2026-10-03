@@ -4,24 +4,13 @@ use tauri::{AppHandle, Manager, State};
 use crate::config::{self, ConfigState, Settings};
 use crate::panel;
 use crate::providers::client::Streams;
-use crate::providers::kinds::Kind;
 use crate::providers::{self, ChatRequest, StreamEvent};
 use crate::secrets;
 use crate::store::{chats, messages, search, Attachment, Chat, ChatView, Message, NewMessage, Store};
 
 #[tauri::command]
-pub fn show_panel(app: AppHandle) {
-    panel::show(&app);
-}
-
-#[tauri::command]
 pub fn hide_panel(app: AppHandle) {
     panel::hide(&app, true);
-}
-
-#[tauri::command]
-pub fn toggle_panel(app: AppHandle) {
-    panel::toggle(&app);
 }
 
 #[tauri::command]
@@ -37,16 +26,6 @@ pub fn resize_overlay(app: AppHandle, height: f64) {
 #[tauri::command]
 pub fn set_panel_expanded(app: AppHandle, expanded: bool) {
     panel::set_expanded(&app, expanded);
-}
-
-#[tauri::command]
-pub fn toggle_panel_expanded(app: AppHandle) {
-    panel::toggle_expanded(&app);
-}
-
-#[tauri::command]
-pub fn is_panel_expanded(app: AppHandle) -> bool {
-    panel::is_expanded(&app)
 }
 
 #[tauri::command]
@@ -82,12 +61,7 @@ pub fn has_api_key(app: AppHandle, provider: String) -> Result<bool, String> {
 
 #[tauri::command(async)]
 pub fn store_api_key(app: AppHandle, provider: String, key: String) -> Result<(), String> {
-    secrets::set(&provider, &key)?;
-    let settings = app.state::<ConfigState>().get();
-    if settings.search.providers.iter().any(|name| name == &provider) {
-        crate::tools::budget::reset(&app, &provider);
-    }
-    Ok(())
+    providers::store_key(&app, &provider, &key)
 }
 
 #[tauri::command(async)]
@@ -128,11 +102,7 @@ pub fn create_chat(store: State<Store>, profile: String) -> Result<Chat, String>
 
 #[tauri::command(async)]
 pub fn get_chat(store: State<Store>, chat_id: String) -> Result<Option<ChatView>, String> {
-    let conn = store.conn();
-    match chats::get(&conn, &chat_id)? {
-        Some(chat) => chats::view(&conn, chat).map(Some),
-        None => Ok(None),
-    }
+    chats::view_by_id(&store.conn(), &chat_id)
 }
 
 #[tauri::command(async)]
@@ -152,6 +122,16 @@ pub fn set_chat_profile(
     profile: String,
 ) -> Result<(), String> {
     chats::set_profile(&store.conn(), &chat_id, &profile)
+}
+
+#[tauri::command(async)]
+pub fn rename_chat(store: State<Store>, chat_id: String, title: String) -> Result<(), String> {
+    chats::rename(&store.conn(), &chat_id, &title)
+}
+
+#[tauri::command(async)]
+pub fn set_chat_model(store: State<Store>, chat_id: String, model: Option<String>) -> Result<(), String> {
+    chats::set_model(&store.conn(), &chat_id, model.as_deref())
 }
 
 #[tauri::command(async)]
@@ -258,11 +238,7 @@ pub async fn model_reasoning(
     app: AppHandle,
     model: String,
 ) -> Result<Option<providers::capabilities::ReasoningInfo>, String> {
-    let reference = providers::ModelRef::parse(&model)?;
-    let kind = Kind::resolve(&reference.provider)?;
-    let settings = app.state::<ConfigState>().get();
-    let key = providers::api_key(&settings, kind.name())?;
-    Ok(providers::capabilities::reasoning(kind, &reference.model, &settings, key.as_deref()).await)
+    providers::reasoning_for(&app, &model).await
 }
 
 #[tauri::command(async)]
@@ -317,6 +293,6 @@ pub fn load_user_themes() -> Vec<config::UserTheme> {
 }
 
 #[tauri::command(async)]
-pub fn search_usage(app: AppHandle) -> Vec<crate::tools::budget::SearchProviderUsage> {
-    crate::tools::budget::report(&app)
+pub fn search_usage(app: AppHandle) -> Vec<crate::tools::search::allowance::SearchProviderUsage> {
+    crate::tools::search::allowance::report(&app)
 }

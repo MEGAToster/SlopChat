@@ -52,12 +52,13 @@ export function addGroups(models: ProviderModel[], query: string): PaletteGroup[
 function actionItems(settings: Settings): PaletteItem[] {
   const keys = settings.keybinds;
   const actions: { id: string; label: string; binding?: string }[] = [
-    { id: "new-chat", label: "New chat", binding: keys.nextChat?.[0] },
+    { id: "new-chat", label: "New chat" },
     { id: "toggle-expanded", label: "Toggle expanded", binding: keys.sidebar?.[0] },
     { id: "toggle-sticky", label: "Toggle sticky", binding: keys.sticky?.[0] },
     { id: "switch-style", label: "Switch style" },
     { id: "search-usage", label: "Search usage" },
     { id: "pin-chat", label: "Pin / unpin chat" },
+    { id: "rename-chat", label: "Rename chat" },
     { id: "add-models", label: "Add models…" },
     { id: "settings-panel", label: "Settings" },
     { id: "config-file", label: "Edit config file" },

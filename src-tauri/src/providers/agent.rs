@@ -2,6 +2,7 @@ mod budget;
 mod events;
 mod exec;
 mod final_pass;
+mod finalize;
 mod instructions;
 mod rounds;
 mod state;
@@ -96,7 +97,7 @@ async fn run_turn(
 ) -> Result<(), TurnError> {
     let kind = Kind::resolve(&model.provider).map_err(TurnError::Failed)?;
     let settings = app.state::<ConfigState>().get();
-    let turn_id = format!("{}-{}", request.chat_id, now_millis());
+    let turn_id = format!("{}-{}", request.chat_id, finalize::now_millis());
 
     let max_turn_secs = settings.advanced.max_turn_secs.clamp(30, 3600);
     let reserve = Duration::from_secs((max_turn_secs / 4).clamp(15, 45) as u64);
@@ -264,100 +265,18 @@ async fn run_turn(
             "contentChars": report.content_chars,
         })
     });
-    if answer_chars == 0 {
-        state.ring.push(json!({
-            "turn": turn_id, "emptyAnswer": true, "finalPass": final_pass,
-        }));
-    }
 
-    let total_cost = Some(state.totals.cost + state.totals.search_cost);
-    state.ring.push(json!({
-        "turn": turn_id, "done": true,
-        "tokensIn": state.totals.tokens_in, "tokensOut": state.totals.tokens_out,
-        "cost": total_cost, "searches": state.budget.searches, "fetches": state.budget.fetches,
-        "finalPass": final_pass,
-    }));
-
-    let lookup = if state.totals.provider.is_none()
-        && kind == Kind::OpenRouter
-        && !cancel.is_cancelled()
-    {
-        match (key.as_deref(), state.totals.generation_id.as_deref()) {
-            (Some(key), Some(id)) => {
-                // The host is cosmetic attribution; its retry chain must not hold
-                // the turn open, so cap the lookup hard.
-                tokio::time::timeout(
-                    Duration::from_secs(3),
-                    super::generation::host(&settings, key, id),
-                )
-                .await
-                .ok()
-                .flatten()
-            }
-            _ => None,
-        }
-    } else {
-        None
-    };
-    let provider = final_provider(state.totals.provider.clone(), lookup, kind);
-    if state.totals.provider.is_none() && kind == Kind::OpenRouter {
-        state.ring.push(json!({
-            "turn": turn_id, "generationId": state.totals.generation_id,
-            "generationHost": provider,
-        }));
-    }
-    let _ = channel.send(StreamEvent::Usage {
-        tokens_in: state.totals.tokens_in,
-        tokens_out: state.totals.tokens_out,
-        cost: total_cost,
-        provider,
-    });
-    let _ = channel.send(StreamEvent::Done);
+    finalize::report(
+        &mut state,
+        kind,
+        &settings,
+        key.as_deref(),
+        cancel,
+        channel,
+        &turn_id,
+        answer_chars,
+        final_pass,
+    )
+    .await;
     Ok(())
-}
-
-// Only OpenRouter can name its host, and only via a lookup; others never invent one.
-fn final_provider(stream: Option<String>, lookup: Option<String>, kind: Kind) -> Option<String> {
-    if stream.is_some() {
-        return stream;
-    }
-    if kind == Kind::OpenRouter {
-        lookup
-    } else {
-        None
-    }
-}
-
-fn now_millis() -> u128 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_millis())
-        .unwrap_or(0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn host_comes_from_the_stream_when_present() {
-        assert_eq!(
-            final_provider(Some("DeepInfra".to_string()), None, Kind::OpenRouter).as_deref(),
-            Some("DeepInfra")
-        );
-    }
-
-    #[test]
-    fn openrouter_uses_the_generation_lookup() {
-        assert_eq!(
-            final_provider(None, Some("Chutes".to_string()), Kind::OpenRouter).as_deref(),
-            Some("Chutes")
-        );
-    }
-
-    #[test]
-    fn other_providers_never_invent_a_host() {
-        assert_eq!(final_provider(None, None, Kind::Ollama), None);
-        assert_eq!(final_provider(None, None, Kind::Gemini), None);
-    }
 }

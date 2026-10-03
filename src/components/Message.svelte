@@ -4,11 +4,11 @@
   import { renderMermaid } from "../lib/markdown/mermaid";
   import { renderMarkdown } from "../lib/markdown/render";
   import { MarkdownStream } from "../lib/markdown/stream";
-  import { basename } from "../lib/text";
+  import { basename, domain } from "../lib/text";
   import { retryLast } from "../lib/state/chat.svelte";
   import type { ChatMessage } from "../lib/state/chatStore.svelte";
-  import type { ToolStep } from "../lib/types";
   import Icon from "./Icon.svelte";
+  import MessageSteps from "./MessageSteps.svelte";
 
   let {
     message,
@@ -66,28 +66,6 @@
     void mathState.ready;
     if (!streaming && markdown) void renderMermaid(markdown);
   });
-
-  function query(step: ToolStep): string {
-    const value = step.args?.query;
-    return typeof value === "string" ? value : step.name;
-  }
-
-  function isFetch(step: ToolStep): boolean {
-    return step.name === "web_fetch" || step.name === "fetch_url";
-  }
-
-  function target(step: ToolStep): string {
-    const value = step.args?.url ?? step.args?.query;
-    return typeof value === "string" ? value : step.name;
-  }
-
-  function domain(url: string): string {
-    try {
-      return new URL(url).hostname.replace(/^www\./, "");
-    } catch {
-      return url;
-    }
-  }
 </script>
 
 {#if message.role === "user"}
@@ -104,31 +82,7 @@
 {:else}
   <div class="message assistant">
     {#if message.steps?.length}
-      <div class="steps">
-        {#each message.steps as step (step.id)}
-          <div class="step" class:failed={step.status === "error"}>
-            <span class="glyph">{isFetch(step) ? "↓" : "⌕"}</span>
-            {#if step.status === "skipped"}
-              {isFetch(step) ? "fetch" : "search"} {step.summary}
-            {:else if isFetch(step)}
-              {#if step.status === "running"}
-                fetching {domain(target(step))}…
-              {:else if step.status === "error"}
-                fetch failed · {step.summary}
-              {:else}
-                fetched {domain(target(step))} · {step.summary}
-              {/if}
-            {:else if step.status === "running"}
-              searching “{query(step)}”…
-            {:else if step.status === "error"}
-              search failed · {step.summary}
-            {:else}
-              searched “{query(step)}” · {step.summary}
-            {/if}
-            {#if step.note}<span class="note">{step.note}</span>{/if}
-          </div>
-        {/each}
-      </div>
+      <MessageSteps steps={message.steps} />
     {/if}
 
     {#if streaming && !message.content}
@@ -192,8 +146,7 @@
     white-space: pre-wrap;
   }
 
-  .attachments,
-  .steps {
+  .attachments {
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-1);
@@ -239,30 +192,6 @@
     flex-wrap: wrap;
     gap: var(--sp-1);
     margin-top: var(--sp-2);
-  }
-
-  .steps {
-    flex-direction: column;
-    margin-bottom: var(--sp-1);
-  }
-
-  .step {
-    color: var(--text-tertiary);
-    font-size: var(--fs-sm);
-  }
-
-  .step.failed {
-    color: var(--danger);
-  }
-
-  .note {
-    display: block;
-    margin-left: 16px;
-    color: var(--text-tertiary);
-  }
-
-  .glyph {
-    margin-right: 4px;
   }
 
   .attachment {

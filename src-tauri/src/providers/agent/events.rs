@@ -5,10 +5,10 @@ use super::super::prompt::parse_args;
 use super::super::stream::ToolCall;
 use super::super::trace::Ring;
 use super::super::StreamEvent;
-use super::exec::ToolOutcome;
+use crate::tools::ToolOutput;
 
 pub(super) fn is_fetch(call: &ToolCall) -> bool {
-    call.name == "web_fetch" || call.name == "fetch_url"
+    call.name == "web_fetch"
 }
 
 pub(super) fn emit_error(channel: &Channel<StreamEvent>, message: String) {
@@ -32,7 +32,7 @@ pub(super) fn emit_call(channel: &Channel<StreamEvent>, call: &ToolCall, skipped
     }
 }
 
-pub(super) fn send_result(channel: &Channel<StreamEvent>, id: &str, result: &ToolOutcome) {
+pub(super) fn send_result(channel: &Channel<StreamEvent>, id: &str, result: &ToolOutput) {
     let _ = channel.send(StreamEvent::ToolResult {
         id: id.to_string(),
         ok: !result.content.starts_with("error:"),
@@ -43,7 +43,7 @@ pub(super) fn send_result(channel: &Channel<StreamEvent>, id: &str, result: &Too
 }
 
 // A note for a successful tool result, reused by the final synthesis pass.
-pub(super) fn note(call: &ToolCall, result: &ToolOutcome) -> Option<String> {
+pub(super) fn note(call: &ToolCall, result: &ToolOutput) -> Option<String> {
     if result.content.starts_with("error:") {
         return None;
     }
@@ -66,7 +66,7 @@ pub(super) fn trace_result(
     turn: &str,
     round: u32,
     name: &str,
-    result: &ToolOutcome,
+    result: &ToolOutput,
 ) {
     ring.push(json!({
         "turn": turn, "round": round,

@@ -35,6 +35,7 @@ export type Action =
   | "openChat"
   | "pinChat"
   | "deleteChat"
+  | "renameChat"
   | "filterChats"
   | "settingsNext"
   | "settingsPrev"
@@ -155,9 +156,10 @@ function resolveSidebar(key: string, event: KeyboardEvent, keybinds: Keybinds): 
   if (key === "Left") return "toggleSidebar";
   if (key === "J" || key === "Down" || matchesAny(keybinds.nextChat, event)) return "sidebarDown";
   if (key === "K" || key === "Up" || matchesAny(keybinds.prevChat, event)) return "sidebarUp";
-  if (key === "Enter" || key === "L" || key === "Right" || key === "Ctrl+L") return "openChat";
+  if (key === "Enter" || key === "L" || key === "Right") return "openChat";
   if (key === "P") return "pinChat";
   if (key === "D") return "deleteChat";
+  if (key === "R") return "renameChat";
   if (key === "/") return "filterChats";
   return null;
 }

@@ -32,10 +32,6 @@
   min-height: 0;
 }
 
-[data-style="tui"] .divider {
-  display: none;
-}
-
 /* --- Frame ------------------------------------------------------------ */
 [data-style="tui"] .frame {
   position: relative;

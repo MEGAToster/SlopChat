@@ -64,8 +64,6 @@
     if (!content) return;
 
     // Measure the content uncapped, then trim the transcript by the overflow.
-    // Enumerating chrome by hand missed the frame edges/borders, so the capped
-    // panel ended up ~2 rows taller than the cap and clipped the footer.
     element.style.maxHeight = "";
     const cap = Math.min(1200, Math.max(400, settings().window.compactHeight));
     const overflow = content.getBoundingClientRect().height - cap;

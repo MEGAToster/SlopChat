@@ -55,13 +55,13 @@ pub async fn get(
                         }
                     }
                 }
-                check_text(&text, start, true)?;
+                check_text(&text, start)?;
             }
             (title, text, via_reader)
         }
         Err(FetchError::Blocked(_)) if reader_fallback => {
             let (title, text) = reader(url).await.map_err(|error| actionable(&error))?;
-            check_text(&text, start, true)?;
+            check_text(&text, start)?;
             (title, text, true)
         }
         Err(FetchError::Blocked(reason) | FetchError::Message(reason)) => {
@@ -73,16 +73,11 @@ pub async fn get(
 }
 
 // A near-empty page is a failure, not a result, so the model tries another URL.
-fn check_text(text: &str, start: usize, reader_tried: bool) -> Result<(), String> {
+fn check_text(text: &str, start: usize) -> Result<(), String> {
     if start == 0 && text.chars().count() < MIN_RESULT_CHARS {
-        let suffix = if reader_tried {
-            "; reader fallback failed"
-        } else {
-            ""
-        };
-        return Err(actionable(&format!(
-            "no readable text at this URL (likely JS-rendered or a bot check){suffix}"
-        )));
+        return Err(actionable(
+            "no readable text at this URL (likely JS-rendered or a bot check); reader fallback failed",
+        ));
     }
     Ok(())
 }
@@ -239,12 +234,12 @@ mod tests {
 
     #[test]
     fn near_empty_text_is_an_error() {
-        assert!(check_text("", 0, false).is_err());
-        assert!(check_text("short", 0, true)
+        assert!(check_text("", 0).is_err());
+        assert!(check_text("short", 0)
             .unwrap_err()
             .contains("reader fallback failed"));
-        assert!(check_text(&"x".repeat(60), 0, false).is_ok());
+        assert!(check_text(&"x".repeat(60), 0).is_ok());
         // Paging into a long page is not an emptiness failure.
-        assert!(check_text("", 10, false).is_ok());
+        assert!(check_text("", 10).is_ok());
     }
 }

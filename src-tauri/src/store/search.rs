@@ -10,7 +10,7 @@ pub fn chats(conn: &Connection, query: &str, limit: i64) -> Result<Vec<Chat>, St
 
     let mut statement = conn
         .prepare(
-            "SELECT c.id, c.title, c.profile, c.pinned, c.created_at, c.updated_at
+            "SELECT c.id, c.title, c.profile, c.pinned, c.created_at, c.updated_at, c.model
              FROM messages_fts
              JOIN messages m ON m.rowid = messages_fts.rowid
              JOIN chats c ON c.id = m.chat_id

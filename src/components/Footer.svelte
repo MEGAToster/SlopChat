@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { splitModelRef } from "../lib/modelRef";
+  import { splitModelRef, shortModel } from "../lib/modelRef";
   import { profileColor } from "../lib/profileColor";
   import {
     isStreamingHere,
@@ -22,6 +22,7 @@
     activeProfileIndex,
     editingId,
     keyContext,
+    overrideActive,
   } from "../lib/state/ui.svelte";
   import { toggleSticky } from "../lib/ipc";
   import Icon from "./Icon.svelte";
@@ -35,7 +36,8 @@
   const color = $derived(profileColor(profile, activeProfileIndex()));
   const fullModel = $derived(config?.model ?? "");
   const ref = $derived(splitModelRef(fullModel));
-  const model = $derived((ref.modelId.split("/").pop() ?? "") + ref.tag);
+  const model = $derived(shortModel(fullModel));
+  const overriding = $derived(overrideActive());
   const usage = $derived(lastUsage());
   const keybinds = $derived(settings().keybinds);
   const sidebar = $derived(keyContext() === "sidebar");
@@ -72,7 +74,6 @@
   const mode = $derived.by(() => {
     if (isStreamingHere()) return { label: "STREAM", tone: "orange" };
     if (editing) return { label: "EDIT", tone: "yellow" };
-    if (keyContext() === "palette") return { label: "CMD", tone: "purple" };
     if (sidebar) return { label: "NORMAL", tone: "blue" };
     return { label: "INSERT", tone: "green" };
   });
@@ -84,8 +85,10 @@
     <span class="mode" data-tone={mode.tone}>{mode.label}</span>
 
     <div class="profile">
-      <span class="dot" style={`background: var(--c-${color})`}></span>
-      <span class="name">{profile?.name ?? "no profile"}</span>
+      {#if !overriding}
+        <span class="dot" style={`background: var(--c-${color})`}></span>
+        <span class="name">{profile?.name ?? "no profile"}</span>
+      {/if}
       {#if model}<span class="model">{model}</span>{/if}
       {#if model}
         <button

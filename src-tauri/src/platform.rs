@@ -20,13 +20,29 @@ pub fn is_wayland() -> bool {
 
 // libappindicator is deprecated in favour of a GLib variant we cannot use yet;
 // drop only that domain so the notice doesn't spam stderr on every launch.
-#[cfg(target_os = "linux")]
 pub fn silence_appindicator_deprecation() {
+    #[cfg(target_os = "linux")]
     glib::log_set_default_handler(|domain, level, message| {
         if domain != Some("libayatana-appindicator") {
             glib::log_default_handler(domain, level, Some(message));
         }
     });
+}
+
+pub fn attach_panel(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    #[cfg(target_os = "macos")]
+    {
+        builder.plugin(tauri_nspanel::init())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder
+    }
+}
+
+pub fn set_activation_policy(_app: &mut tauri::App) {
+    #[cfg(target_os = "macos")]
+    _app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 }
 
 #[cfg(not(target_os = "linux"))]

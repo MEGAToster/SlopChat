@@ -14,8 +14,9 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 
-use crate::config::{Settings, WebSearchMode};
+use crate::config::{ConfigState, Settings, WebSearchMode};
 use crate::secrets;
 
 pub fn client() -> &'static reqwest::Client {
@@ -122,7 +123,6 @@ pub enum StreamEvent {
     ToolResult {
         id: String,
         ok: bool,
-        #[serde(default)]
         skipped: bool,
         summary: String,
         sources: Vec<Source>,
@@ -211,6 +211,27 @@ pub fn search_key(settings: &Settings, provider: &str) -> Result<Option<String>,
     }
     let variable = format!("{}_API_KEY", provider.to_ascii_uppercase());
     Ok(std::env::var(variable).ok().filter(|value| !value.trim().is_empty()))
+}
+
+// A new key means a fresh account, so clear any exhausted mark and usage.
+pub fn store_key(app: &tauri::AppHandle, provider: &str, key: &str) -> Result<(), String> {
+    secrets::set(provider, key)?;
+    let settings = app.state::<ConfigState>().get();
+    if settings.search.providers.iter().any(|name| name == provider) {
+        crate::tools::search::allowance::reset(app, provider);
+    }
+    Ok(())
+}
+
+pub async fn reasoning_for(
+    app: &tauri::AppHandle,
+    model: &str,
+) -> Result<Option<capabilities::ReasoningInfo>, String> {
+    let reference = ModelRef::parse(model)?;
+    let kind = kinds::Kind::resolve(&reference.provider)?;
+    let settings = app.state::<ConfigState>().get();
+    let key = api_key(&settings, kind.name())?;
+    Ok(capabilities::reasoning(kind, &reference.model, &settings, key.as_deref()).await)
 }
 
 #[cfg(test)]

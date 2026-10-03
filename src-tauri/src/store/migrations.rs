@@ -69,16 +69,19 @@ CREATE TABLE search_exhausted (provider TEXT PRIMARY KEY, month TEXT NOT NULL);
 
 const SCHEMA_V4: &str = "ALTER TABLE messages ADD COLUMN provider TEXT;";
 
+const SCHEMA_V5: &str = "ALTER TABLE chats ADD COLUMN model TEXT;";
+
 pub(crate) fn migrate(conn: &mut Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(db_err)?;
 
-    let migrations: [(i64, &str); 4] = [
+    let migrations: [(i64, &str); 5] = [
         (1, SCHEMA_V1),
         (2, SCHEMA_V2),
         (3, SCHEMA_V3),
         (4, SCHEMA_V4),
+        (5, SCHEMA_V5),
     ];
     for (target, schema) in migrations {
         if version < target {
@@ -126,7 +129,7 @@ mod tests {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
     }
 
     #[test]
@@ -161,7 +164,34 @@ mod tests {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
+    }
+
+    #[test]
+    fn v5_adds_model_column_without_touching_rows() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_V1).unwrap();
+        conn.execute_batch(SCHEMA_V2).unwrap();
+        conn.execute_batch(SCHEMA_V3).unwrap();
+        conn.execute_batch(SCHEMA_V4).unwrap();
+        conn.pragma_update(None, "user_version", 4).unwrap();
+        conn.execute(
+            "INSERT INTO chats (id, title, profile, pinned, created_at, updated_at)
+             VALUES ('c', 't', 'p', 0, 0, 0)",
+            [],
+        )
+        .unwrap();
+
+        migrate(&mut conn).unwrap();
+
+        let model: Option<String> = conn
+            .query_row("SELECT model FROM chats WHERE id = 'c'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(model, None);
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 5);
     }
 
     #[test]

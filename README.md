@@ -8,7 +8,7 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 
 - **Panel UI** — one hotkey summons a compact composer; it grows into an expanded window with a sidebar. Sticky mode disables hide-on-blur. No Dock icon.
 - **Providers** — OpenRouter, Ollama (all via the OpenAI chat-completions format). API keys live in the OS keychain.
-- **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per profile.
+- **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per profile. A model picked from the palette overrides the profile for that chat and is remembered per chat; cycling the profile clears it.
 - **Streaming answers** — markdown, syntax highlighting, KaTeX math, Mermaid diagrams, inline citations, and copy buttons; long threads stay smooth.
 - **Web research** — `web_search` (Exa, Tavily, Brave, Firecrawl, Serper, tried in order as **fallbacks** — see [Web search billing](#web-search-billing)) and `web_fetch` (readable text with an SSRF guard and a Jina Reader fallback for blocked/JS-only pages). Only `web_search` uses provider APIs; `web_fetch` is always the free local fetch.
 - **Reasoning** — cycle effort levels for models that expose them.
@@ -24,10 +24,10 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 | --- | --- |
 | `Alt+Space` | Toggle the panel |
 | `Ctrl+P` | Command palette |
-| `Ctrl+H` | Toggle sidebar (composer: focus sidebar; sidebar: collapse) |
+| `Ctrl+H` | Toggle sidebar (compact: expand; expanded: collapse) |
 | `Ctrl+S` | Focus sidebar |
 | `Ctrl+J` / `Ctrl+K` | Newer / older chat |
-| `Shift+Tab` | Cycle profile (composer empty) |
+| `Shift+Tab` | Cycle profile |
 | `Ctrl+Shift+P` | Toggle sticky |
 | `Ctrl+Q` | Stop streaming |
 | `Ctrl+U` / `Ctrl+D` | Scroll up / down |
@@ -37,9 +37,9 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 | `Ctrl+M` | Model picker |
 | `Ctrl+L` | Follow output (jump to bottom / track) |
 | `Enter` / `Shift+Enter` | Send / newline |
-| `Esc` | Stop → close → leave sidebar → collapse → hide |
+| `Esc` | Close palette / settings / filter / edit; otherwise hide the panel |
 
-Sidebar: `j`/`k` or arrows move, `Enter`/`l`/`→` open, `p` pin, `d` delete, `/` filter.
+Sidebar: `j`/`k` or arrows move, `Enter`/`l`/`→` open, `p` pin, `r` rename, `d` delete, `/` filter.
 Palette: arrows or `Ctrl+J`/`Ctrl+K` move, `Enter` run.
 
 All bindings are configurable in `settings.json` under `keybinds`.

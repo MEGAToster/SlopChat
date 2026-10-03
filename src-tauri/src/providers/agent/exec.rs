@@ -8,13 +8,6 @@ use super::super::StreamEvent;
 use crate::config::ConfigState;
 use crate::tools::{self, ToolContext, ToolOutput};
 
-pub(super) struct ToolOutcome {
-    pub content: String,
-    pub summary: String,
-    pub sources: Vec<super::super::Source>,
-    pub cost: f64,
-}
-
 fn tool_context(app: &AppHandle, start_index: u32) -> ToolContext {
     let settings = app.state::<ConfigState>().get();
     ToolContext {
@@ -44,21 +37,16 @@ pub(super) async fn execute_tool(
     call: &ToolCall,
     start_index: u32,
     cancel: &Cancel,
-) -> ToolOutcome {
+) -> ToolOutput {
     match call_tool(app, &call.name, parse_args(&call.arguments), start_index, cancel).await {
-        Some(Ok(output)) => ToolOutcome {
-            content: output.content,
-            summary: output.summary,
-            sources: output.sources,
-            cost: output.cost,
-        },
-        Some(Err(error)) => ToolOutcome {
+        Some(Ok(output)) => output,
+        Some(Err(error)) => ToolOutput {
             content: format!("error: {error}"),
             summary: error,
             sources: Vec::new(),
             cost: 0.0,
         },
-        None => ToolOutcome {
+        None => ToolOutput {
             content: "error: cancelled".to_string(),
             summary: "cancelled".to_string(),
             sources: Vec::new(),

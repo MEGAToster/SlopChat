@@ -232,4 +232,49 @@ mod tests {
             "new"
         );
     }
+
+    #[test]
+    fn renaming_a_chat_sets_its_title() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "default").unwrap();
+
+        chats::rename(&conn, &chat.id, "  My title  ").unwrap();
+
+        assert_eq!(chats::get(&conn, &chat.id).unwrap().unwrap().title, "My title");
+    }
+
+    #[test]
+    fn renaming_a_chat_rejects_an_empty_title() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "default").unwrap();
+
+        assert!(chats::rename(&conn, &chat.id, "   ").is_err());
+    }
+
+    #[test]
+    fn renaming_an_unknown_chat_errors() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+
+        assert!(chats::rename(&conn, "missing", "title").is_err());
+    }
+
+    #[test]
+    fn chat_model_round_trips_and_clears() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "default").unwrap();
+        assert_eq!(chats::get(&conn, &chat.id).unwrap().unwrap().model, None);
+
+        chats::set_model(&conn, &chat.id, Some("openrouter/a")).unwrap();
+        assert_eq!(
+            chats::get(&conn, &chat.id).unwrap().unwrap().model.as_deref(),
+            Some("openrouter/a")
+        );
+
+        chats::set_model(&conn, &chat.id, None).unwrap();
+        assert_eq!(chats::get(&conn, &chat.id).unwrap().unwrap().model, None);
+    }
 }

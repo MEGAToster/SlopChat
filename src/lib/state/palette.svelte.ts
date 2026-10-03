@@ -25,6 +25,7 @@ import {
   setMode,
   setModelOverride,
   setProfile,
+  setRenaming,
 } from "./ui.svelte";
 
 export type { PaletteGroup, PaletteItem } from "./paletteTypes";
@@ -240,6 +241,14 @@ async function runAction(id: string): Promise<void> {
     case "pin-chat": {
       const chatId = activeChatId();
       if (chatId) await pinChat(chatId);
+      break;
+    }
+    case "rename-chat": {
+      const chatId = activeChatId();
+      if (chatId) {
+        if (!isExpanded()) await setMode("expanded");
+        setRenaming(chatId);
+      }
       break;
     }
     case "switch-style":

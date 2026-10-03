@@ -1,5 +1,7 @@
 mod defaults;
+mod entries;
 mod keybinds;
+mod legacy;
 mod models_file;
 mod settings;
 mod themes;
@@ -8,7 +10,7 @@ mod write;
 
 pub use settings::*;
 pub use themes::UserTheme;
-pub(crate) use settings::migrate_profiles;
+pub(crate) use legacy::migrate_profiles;
 
 use std::sync::{Mutex, RwLock};
 
@@ -53,7 +55,7 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ConfigState::new(settings.clone()));
 
     if let Some(error) = load_error {
-        report_error(app, error);
+        report(app, format!("Config could not be loaded, using built-in defaults — {error}"));
     }
 
     apply_toggle(app, &settings.keybinds.toggle);
@@ -101,61 +103,11 @@ pub fn ensure_file() -> Result<(), String> {
     write::ensure_file()
 }
 
-pub fn save_model(
-    app: &AppHandle,
-    config: &ModelConfig,
-    previous: Option<&str>,
-) -> Result<(), String> {
-    write::save_model(app, config, previous)
-}
-
-pub fn remove_model(app: &AppHandle, model: &str) -> Result<(), String> {
-    write::remove_model(app, model)
-}
-
-pub fn save_profile(
-    app: &AppHandle,
-    profile: &Profile,
-    previous: Option<&str>,
-) -> Result<(), String> {
-    write::save_profile(app, profile, previous)
-}
-
-pub fn remove_profile(app: &AppHandle, name: &str) -> Result<(), String> {
-    write::remove_profile(app, name)
-}
-
-pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
-    write::set_theme(app, theme)
-}
-
-pub fn set_style(app: &AppHandle, style: &str) -> Result<(), String> {
-    write::set_style(app, style)
-}
-
-pub fn save_advanced(app: &AppHandle, advanced: &Advanced) -> Result<(), String> {
-    write::save_advanced(app, advanced)
-}
-
-pub fn set_startup(app: &AppHandle, startup: Startup) -> Result<(), String> {
-    write::set_startup(app, startup)
-}
-
-pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
-    write::set_resume_within(app, minutes)
-}
-
-pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String> {
-    write::set_reader_fallback(app, enabled)
-}
-
-pub fn set_agent_log(app: &AppHandle, enabled: bool) -> Result<(), String> {
-    write::set_agent_log(app, enabled)
-}
-
-pub fn save_window(app: &AppHandle, window: &WindowConfig) -> Result<(), String> {
-    write::save_window(app, window)
-}
+pub use entries::{remove_model, remove_profile, save_model, save_profile};
+pub use write::{
+    save_advanced, save_window, set_agent_log, set_reader_fallback, set_resume_within, set_startup,
+    set_style, set_theme,
+};
 
 pub fn load_user_themes() -> Vec<UserTheme> {
     themes::load_user()
@@ -205,8 +157,16 @@ fn apply_toggle(app: &AppHandle, keys: &[String]) {
     }
 }
 
+// Surfaces a non-config startup warning (e.g. history fell back to memory).
+pub(crate) fn warn(app: &AppHandle, message: String) {
+    report(app, message);
+}
+
 fn report_error(app: &AppHandle, error: String) {
-    let message = format!("Config not applied, still using previous settings — {error}");
+    report(app, format!("Config not applied, still using previous settings — {error}"));
+}
+
+fn report(app: &AppHandle, message: String) {
     app.state::<ConfigState>().set_error(Some(message.clone()));
     let _ = app.emit("config://error", &message);
 }

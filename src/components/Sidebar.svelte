@@ -1,6 +1,7 @@
 <script lang="ts">
   import { focusComposer } from "../lib/dom";
   import { flatIndex } from "../lib/flat";
+  import { renameChat } from "../lib/state/chatHistory.svelte";
   import { activeChatId, isBlank } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import {
@@ -10,11 +11,13 @@
     newChatWithProfile,
     openChatWithProfile,
     pendingDelete,
+    renamingId,
     schedulePreview,
     selectedIndex,
     setContext,
     setFiltering,
     setFilterQuery,
+    setRenaming,
     setSelectedIndex,
     keyContext,
   } from "../lib/state/ui.svelte";
@@ -46,6 +49,24 @@
     await openChatWithProfile(chatId);
     focusComposer();
   }
+
+  function autofocus(node: HTMLInputElement) {
+    node.focus();
+    node.select();
+  }
+
+  function onRenameKey(event: KeyboardEvent, chatId: string) {
+    event.stopPropagation();
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const value = (event.currentTarget as HTMLInputElement).value.trim();
+      setRenaming(null);
+      if (value) void renameChat(chatId, value);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setRenaming(null);
+    }
+  }
 </script>
 
 <aside class="sidebar">
@@ -76,27 +97,39 @@
       <div class="section">{group.title}</div>
       {#each group.chats as chat, chatIndex (chat.id)}
         {@const row = flat(groupIndex, chatIndex)}
-        <button
-          type="button"
-          class="chat"
-          class:selected={row === selectedIndex()}
-          class:active={chat.id === activeChatId()}
-          class:confirming={pendingDelete() === chat.id}
-          onmouseenter={() => {
-            setSelectedIndex(row);
-            schedulePreview();
-          }}
-          onclick={() => void open(row, chat.id)}
-        >
-          {#if chat.id === activeChatId()}<span class="active-bar"></span>{/if}
-          {#if pendingDelete() === chat.id}
-            <span class="title">Delete “{chat.title || "New chat"}”?</span>
-            <span class="keys"><Kbd binding="y" /><Kbd binding="n" /></span>
-          {:else}
-            <span class="title">{chat.title || "New chat"}</span>
-            {#if chat.pinned}<span class="pin"><Icon name="pin" size={13} /></span>{/if}
-          {/if}
-        </button>
+        {#if renamingId() === chat.id}
+          <div class="chat renaming">
+            <input
+              class="rename"
+              value={chat.title}
+              use:autofocus
+              onkeydown={(event) => onRenameKey(event, chat.id)}
+              onblur={() => setRenaming(null)}
+            />
+          </div>
+        {:else}
+          <button
+            type="button"
+            class="chat"
+            class:selected={row === selectedIndex()}
+            class:active={chat.id === activeChatId()}
+            class:confirming={pendingDelete() === chat.id}
+            onmouseenter={() => {
+              setSelectedIndex(row);
+              schedulePreview();
+            }}
+            onclick={() => void open(row, chat.id)}
+          >
+            {#if chat.id === activeChatId()}<span class="active-bar"></span>{/if}
+            {#if pendingDelete() === chat.id}
+              <span class="title">Delete “{chat.title || "New chat"}”?</span>
+              <span class="keys"><Kbd binding="y" /><Kbd binding="n" /></span>
+            {:else}
+              <span class="title">{chat.title || "New chat"}</span>
+              {#if chat.pinned}<span class="pin"><Icon name="pin" size={13} /></span>{/if}
+            {/if}
+          </button>
+        {/if}
       {/each}
     {/each}
   </div>
@@ -213,6 +246,22 @@
 
   .chat.confirming {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
+  }
+
+  .chat.renaming {
+    background: var(--selection);
+  }
+
+  .rename {
+    width: 100%;
+    height: 100%;
+    padding: 0 var(--sp-2);
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
   }
 
   .active-bar {

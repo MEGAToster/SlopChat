@@ -4,6 +4,7 @@ import {
   getChat,
   initialChat,
   listChats,
+  renameChat as renameChatCommand,
   toggleChatPin,
 } from "../ipc";
 import type { ChatView } from "../types";
@@ -71,6 +72,11 @@ export async function nextChat(): Promise<void> {
 
 export async function pinChat(chatId: string): Promise<void> {
   await toggleChatPin(chatId);
+  await refreshChats();
+}
+
+export async function renameChat(chatId: string, title: string): Promise<void> {
+  await renameChatCommand(chatId, title);
   await refreshChats();
 }
 

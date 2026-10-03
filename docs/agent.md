@@ -166,7 +166,7 @@ notes from individual steps are otherwise shown collapsed (see `src/components/M
 
 ## Observability
 
-`providers/agent/trace.rs` records a per-turn event `Ring`, flushed to a JSONL file when
+`providers/trace.rs` records a per-turn event `Ring`, written to a JSONL file only when
 `debug.agent_log` is on (Advanced → Agent log). Empty endings log `emptyAnswer`, and the
 final pass logs `finalPass { attempt, toolCallsIgnored, contentChars }`.
 
@@ -181,4 +181,4 @@ final pass logs `finalPass { attempt, toolCallsIgnored, contentChars }`.
 | Budget/footer | [`providers/agent/budget.rs`](../src-tauri/src/providers/agent/budget.rs) |
 | System prompt | [`providers/prompt.rs`](../src-tauri/src/providers/prompt.rs) |
 | HTTP step + streaming | [`providers/stream.rs`](../src-tauri/src/providers/stream.rs) |
-| Trace ring | [`providers/agent/trace.rs`](../src-tauri/src/providers/agent/trace.rs) |
+| Trace ring | [`providers/trace.rs`](../src-tauri/src/providers/trace.rs) |

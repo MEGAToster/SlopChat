@@ -100,10 +100,6 @@ pub fn set_expanded(app: &AppHandle, expanded: bool) {
     }
 }
 
-pub fn toggle_expanded(app: &AppHandle) {
-    set_expanded(app, !is_expanded(app));
-}
-
 pub fn toggle(app: &AppHandle) {
     if is_visible(app) {
         hide(app, true);

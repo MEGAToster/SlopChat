@@ -62,6 +62,11 @@ describe("context handling", () => {
     expect(resolve("sidebar", key({ key: "Enter" }), bindings, state())).toBe("openChat");
   });
 
+  it("renames a chat with r in the sidebar", () => {
+    expect(resolve("sidebar", key({ key: "r" }), bindings, state())).toBe("renameChat");
+    expect(resolve("composer", key({ key: "r" }), bindings, state())).toBeNull();
+  });
+
   it("routes Esc by state and context", () => {
     expect(
       resolve("composer", key({ key: "Escape" }), bindings, state({ editing: true })),

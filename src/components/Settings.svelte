@@ -83,7 +83,7 @@
   }
 
   function openNewProfile(): void {
-    editingProfile = { name: "", model: models[0]?.model ?? "", useContext: true };
+    editingProfile = { name: "", model: models[0]?.model ?? "" };
     profilePrevious = null;
   }
 

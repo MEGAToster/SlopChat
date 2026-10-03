@@ -74,7 +74,7 @@ type SearchSettings = {
   readerFallback: boolean;
 };
 
-type Debug = {
+type DebugSettings = {
   agentLog: boolean;
 };
 
@@ -98,7 +98,7 @@ export type Settings = {
   font?: FontSettings;
   search: SearchSettings;
   advanced: Advanced;
-  debug: Debug;
+  debug: DebugSettings;
   window: WindowConfig;
 };
 
@@ -160,7 +160,6 @@ export type SendRequest = {
   tools?: string[];
   toolCalling?: boolean;
   webSearch?: WebSearchMode;
-  webToggle?: boolean;
   reasoning?: string;
   fallback?: string;
   maxCompletionTokens?: number;
@@ -207,6 +206,7 @@ export type Chat = {
   pinned: boolean;
   createdAt: number;
   updatedAt: number;
+  model: string | null;
 };
 
 export type StoredMessage = {

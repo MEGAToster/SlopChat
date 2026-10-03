@@ -29,6 +29,7 @@ import {
   setFiltering,
   setMode,
   setPendingDelete,
+  setRenaming,
   syncProfileFromActive,
 } from "./ui.svelte";
 
@@ -193,6 +194,11 @@ export function createActions(text: TextRef) {
       case "deleteChat": {
         const id = selectedChatId();
         if (id) setPendingDelete(id);
+        break;
+      }
+      case "renameChat": {
+        const id = selectedChatId();
+        if (id) setRenaming(id);
         break;
       }
       case "filterChats":

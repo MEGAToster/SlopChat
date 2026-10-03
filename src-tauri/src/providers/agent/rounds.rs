@@ -3,9 +3,10 @@ use serde_json::{json, Value};
 use super::super::prompt::{assistant_tool_message, parse_args};
 use super::super::stream::{StreamError, ToolCall};
 use super::super::{leak, StreamEvent};
+use crate::tools::ToolOutput;
 use super::budget::Budget;
 use super::events::{emit_call, is_fetch, note, send_result, trace_result};
-use super::exec::{execute_tool, ToolOutcome};
+use super::exec::execute_tool;
 use super::instructions::{
     stop_hint, wrap_up_message, LAST_ROUND_NOTICE, LEAK_NOTE, LENGTH_NOTE,
 };
@@ -202,7 +203,7 @@ fn refuse(budget: &Budget, call: &ToolCall) -> String {
     format!("error: {}{}", stop_hint(&call.name), budget.footer())
 }
 
-fn push_result(state: &mut State, call: &ToolCall, result: &ToolOutcome) {
+fn push_result(state: &mut State, call: &ToolCall, result: &ToolOutput) {
     if let Some(note) = note(call, result) {
         state.notes.push(note);
     }
@@ -210,8 +211,8 @@ fn push_result(state: &mut State, call: &ToolCall, result: &ToolOutcome) {
     state.messages.push(tool_message(&call.id, &content));
 }
 
-fn cancelled() -> ToolOutcome {
-    ToolOutcome {
+fn cancelled() -> ToolOutput {
+    ToolOutput {
         content: "error: cancelled".to_string(),
         summary: "cancelled".to_string(),
         sources: Vec::new(),

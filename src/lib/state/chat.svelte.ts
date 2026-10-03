@@ -4,7 +4,7 @@ import { basename } from "../text";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
 import { adoptWebDraft, chatState, lastUserMessage, reportError, type SendOptions } from "./chatStore.svelte";
-import { currentSendOptions } from "./ui.svelte";
+import { currentSendOptions, adoptModelDraft } from "./ui.svelte";
 import { adoptReasoningDraft } from "./reasoning.svelte";
 import { toChatMessage } from "./messages";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
@@ -23,6 +23,7 @@ export async function submit(text: string, options: SendOptions): Promise<boolea
   const chatId = await ensureChat(options.profileName);
   adoptWebDraft(chatId);
   adoptReasoningDraft(chatId);
+  adoptModelDraft(chatId);
 
   const saved: NewAttachment[] = [];
   for (const item of attachments) {
@@ -146,7 +147,6 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
       tools: options.tools,
       toolCalling: options.toolCalling,
       webSearch: options.webSearch,
-      webToggle: options.webToggle,
       reasoning: options.reasoning,
       fallback: options.fallback,
       maxCompletionTokens: options.maxCompletionTokens,

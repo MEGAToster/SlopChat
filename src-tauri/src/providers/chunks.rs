@@ -205,10 +205,10 @@ mod tests {
     #[test]
     fn handles_single_chunk_and_multiple_indexes() {
         let calls = collect(&[
-            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"a","function":{"name":"web_search","arguments":"{}"}},{"index":1,"id":"b","function":{"name":"fetch_url","arguments":"{}"}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"a","function":{"name":"web_search","arguments":"{}"}},{"index":1,"id":"b","function":{"name":"web_fetch","arguments":"{}"}}]}}]}"#,
         ]);
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].id, "a");
-        assert_eq!(calls[1].name, "fetch_url");
+        assert_eq!(calls[1].name, "web_fetch");
     }
 }

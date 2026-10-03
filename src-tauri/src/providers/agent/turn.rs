@@ -31,6 +31,7 @@ impl TurnError {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(super) struct Turn<'a> {
     pub kind: Kind,
     pub settings: &'a crate::config::Settings,
@@ -49,20 +50,7 @@ pub(super) struct Turn<'a> {
 impl<'a> Turn<'a> {
     // Field-wise copy with a fresh deadline, used to reserve time for the answer.
     pub fn with_deadline(&self, deadline: tokio::time::Instant) -> Turn<'a> {
-        Turn {
-            kind: self.kind,
-            settings: self.settings,
-            model: self.model,
-            temperature: self.temperature,
-            reasoning: self.reasoning,
-            reasoning_max_tokens: self.reasoning_max_tokens,
-            max_completion_tokens: self.max_completion_tokens,
-            frequency_penalty: self.frequency_penalty,
-            presence_penalty: self.presence_penalty,
-            inactivity: self.inactivity,
-            deadline,
-            key: self.key,
-        }
+        Turn { deadline, ..*self }
     }
 
     pub async fn step(

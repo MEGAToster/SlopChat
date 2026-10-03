@@ -15,23 +15,22 @@ use crate::providers::client::Streams;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
 
 fn main() {
-    #[cfg(target_os = "linux")]
     platform::silence_appindicator_deprecation();
 
+    let (store, store_error) = open_store();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             cli::run(app, &argv);
         }))
         .manage(panel::Sticky::default())
         .manage(panel::PanelState::default())
-        .manage(Streams::default());
+        .manage(Streams::default())
+        .manage(store);
 
-    #[cfg(target_os = "macos")]
-    let builder = builder.plugin(tauri_nspanel::init());
+    let builder = platform::attach_panel(builder);
 
     builder
         .plugin(
@@ -44,9 +43,7 @@ fn main() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            commands::show_panel,
             commands::hide_panel,
-            commands::toggle_panel,
             commands::toggle_sticky,
             commands::is_sticky,
             commands::get_settings,
@@ -54,8 +51,6 @@ fn main() {
             commands::resize_panel,
             commands::resize_overlay,
             commands::set_panel_expanded,
-            commands::toggle_panel_expanded,
-            commands::is_panel_expanded,
             commands::set_window_style,
             commands::has_api_key,
             commands::store_api_key,
@@ -69,6 +64,8 @@ fn main() {
             commands::delete_chat,
             commands::toggle_chat_pin,
             commands::set_chat_profile,
+            commands::rename_chat,
+            commands::set_chat_model,
             commands::append_message,
             commands::rewind_to,
             commands::search_chats,
@@ -97,11 +94,13 @@ fn main() {
             commands::open_url,
             commands::search_usage,
         ])
-        .setup(|app| {
-            #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        .setup(move |app| {
+            platform::set_activation_policy(app);
 
             config::init(app.handle())?;
+            if let Some(error) = store_error {
+                config::warn(app.handle(), error);
+            }
             panel::init(app.handle())?;
             if platform::tray_available() {
                 if let Err(error) = setup_tray(app.handle()) {
@@ -111,12 +110,6 @@ fn main() {
                 eprintln!("tray unavailable: libayatana-appindicator3 not found");
             }
 
-            let store = store::Store::open(&paths::chats_db_path()).unwrap_or_else(|error| {
-                eprintln!("history unavailable, using in-memory store: {error}");
-                store::Store::in_memory().expect("in-memory store")
-            });
-            app.manage(store);
-
             let argv: Vec<String> = std::env::args().collect();
             let handle = app.handle().clone();
             let _ = app.run_on_main_thread(move || cli::cold_start(&handle, &argv));
@@ -125,6 +118,20 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running SlopChat");
+}
+
+// Opens history before the window exists so an early IPC call cannot race it.
+fn open_store() -> (store::Store, Option<String>) {
+    match store::Store::open(&paths::chats_db_path()) {
+        Ok(store) => (store, None),
+        Err(error) => {
+            eprintln!("history unavailable, using in-memory store: {error}");
+            (
+                store::Store::in_memory().expect("in-memory store"),
+                Some(format!("History is unavailable and chats will not be saved — {error}")),
+            )
+        }
+    }
 }
 
 fn setup_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {

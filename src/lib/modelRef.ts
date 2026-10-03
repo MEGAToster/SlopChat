@@ -20,3 +20,14 @@ export function composeModelRef(provider: string, modelId: string, tag: string):
   const prefixed = base.startsWith(`${provider}/`) ? base : `${provider}/${base}`;
   return `${prefixed}${tag}`;
 }
+
+// The short display form: last path segment plus routing tag.
+export function shortModel(ref: string): string {
+  const parts = splitModelRef(ref);
+  return (parts.modelId.split("/").pop() ?? "") + parts.tag;
+}
+
+// A picked model only overrides when it differs from the profile's own model.
+export function isModelOverride(override: string | null, profileModel: string | undefined): boolean {
+  return override !== null && override !== profileModel;
+}

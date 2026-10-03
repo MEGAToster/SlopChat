@@ -1,8 +1,7 @@
-pub mod budget;
 mod fetch_client;
 mod fetch_url;
 mod html;
-mod search;
+pub mod search;
 mod ssrf;
 
 use serde_json::Value;
@@ -29,7 +28,7 @@ pub fn schemas(names: &[String]) -> Vec<Value> {
         .iter()
         .filter_map(|name| match name.as_str() {
             "web_search" => Some(search::schema()),
-            "web_fetch" | "fetch_url" => Some(fetch_url::schema()),
+            "web_fetch" => Some(fetch_url::schema()),
             _ => None,
         })
         .collect()
@@ -40,7 +39,7 @@ pub async fn run(name: &str, args: Value, context: ToolContext) -> Result<ToolOu
         // Only web_search may call a paid search API; web_fetch stays local (and
         // free) so it never spends provider credits.
         "web_search" => search::run(args, context).await,
-        "web_fetch" | "fetch_url" => fetch_url::run(args, context.search.reader_fallback).await,
+        "web_fetch" => fetch_url::run(args, context.search.reader_fallback).await,
         other => Err(format!("unknown tool {other}")),
     }
 }

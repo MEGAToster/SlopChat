@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::{
-    Advanced, Debug, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides,
+    Advanced, DebugSettings, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides,
     Provider, SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
 };
 
@@ -107,10 +107,6 @@ pub(super) fn default_search_limits() -> BTreeMap<String, Limit> {
     limits
 }
 
-pub(super) fn default_true() -> bool {
-    true
-}
-
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -125,7 +121,7 @@ impl Default for Settings {
             font: None,
             search: SearchSettings::default(),
             advanced: Advanced::default(),
-            debug: Debug::default(),
+            debug: DebugSettings::default(),
             window: WindowConfig::default(),
         }
     }

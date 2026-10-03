@@ -13,6 +13,7 @@ pub struct Chat {
     pub pinned: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,10 +31,11 @@ pub(crate) fn row_to_chat(row: &Row<'_>) -> rusqlite::Result<Chat> {
         pinned: row.get::<_, i64>(3)? != 0,
         created_at: row.get(4)?,
         updated_at: row.get(5)?,
+        model: row.get(6)?,
     })
 }
 
-const COLUMNS: &str = "id, title, profile, pinned, created_at, updated_at";
+const COLUMNS: &str = "id, title, profile, pinned, created_at, updated_at, model";
 
 pub fn list(conn: &Connection) -> Result<Vec<Chat>, String> {
     let mut statement = conn
@@ -87,6 +89,13 @@ pub fn view(conn: &Connection, chat: Chat) -> Result<ChatView, String> {
     Ok(ChatView { chat, messages })
 }
 
+pub fn view_by_id(conn: &Connection, id: &str) -> Result<Option<ChatView>, String> {
+    match get(conn, id)? {
+        Some(chat) => view(conn, chat).map(Some),
+        None => Ok(None),
+    }
+}
+
 pub fn initial(
     conn: &Connection,
     mode: Startup,
@@ -122,6 +131,7 @@ pub fn create(conn: &Connection, profile: &str) -> Result<Chat, String> {
         pinned: false,
         created_at: now,
         updated_at: now,
+        model: None,
     };
     conn.execute(
         "INSERT INTO chats (id, title, profile, pinned, created_at, updated_at)
@@ -153,11 +163,41 @@ pub fn set_profile(conn: &Connection, id: &str, profile: &str) -> Result<(), Str
     Ok(())
 }
 
+// Gives a chat a custom title. Empty titles are rejected; long ones are capped.
+pub fn rename(conn: &Connection, id: &str, title: &str) -> Result<(), String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("chat title cannot be empty".to_string());
+    }
+    let title: String = title.chars().take(80).collect();
+
+    let updated = conn
+        .execute(
+            "UPDATE chats SET title = ?1 WHERE id = ?2",
+            params![title, id],
+        )
+        .map_err(db_err)?;
+    if updated == 0 {
+        return Err(format!("chat {id} not found"));
+    }
+    Ok(())
+}
+
 // Keeps existing chats pointing at the profile after it is renamed.
 pub fn rename_profile(conn: &Connection, from: &str, to: &str) -> Result<(), String> {
     conn.execute(
         "UPDATE chats SET profile = ?1 WHERE profile = ?2",
         params![to, from],
+    )
+    .map_err(db_err)?;
+    Ok(())
+}
+
+// A per-chat model override; NULL means "use the profile's model".
+pub fn set_model(conn: &Connection, id: &str, model: Option<&str>) -> Result<(), String> {
+    conn.execute(
+        "UPDATE chats SET model = ?1 WHERE id = ?2",
+        params![model, id],
     )
     .map_err(db_err)?;
     Ok(())

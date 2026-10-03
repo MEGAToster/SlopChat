@@ -95,9 +95,9 @@ billing section.
 - Returns a `start`/`maxChars` window (`DEFAULT_CHARS` 12 000, `MAX_CHARS` 20 000) with a
   header showing the URL and `chars X-Y of Z`.
 - **Reader fallback** (`search.readerFallback`, default true): if the page is blocked or has
-  under 500 chars of text, retries through the free `r.jina.ai` reader.
-- If the result still has under 50 chars (`MIN_RESULT_CHARS`), returns an error instead of a
-  useless near-empty page.
+  under 500 chars of text, retries through the free `r.jina.ai` reader. When it is on and the
+  result still has under 50 chars (`MIN_RESULT_CHARS`), the fetch returns an error instead of
+  a useless near-empty page.
 
 `web_search` snippets are reminders, not sources; the system prompt pushes the model to
 fetch pages for exact numbers (see [[agent]]).
