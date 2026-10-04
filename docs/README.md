@@ -9,6 +9,7 @@ Documentation for how SlopChat works internally.
 | [[tools]] | Tool schemas, web-search providers, and the fetch client (SSRF guard, reader fallback). |
 | [[secrets]] | Where provider API keys come from and how they are stored — settings `env:VAR`, OS keychain, Linux Secret Service. |
 | [[linux]] | Linux/Wayland platform: layer-shell overlay, resident CLI, tray, global shortcuts, build deps. |
+| [[antigravity]] | The Antigravity CLI (`agy`) provider: headless streaming, conversation resume, isolation. |
 
 ## Conventions
 

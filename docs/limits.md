@@ -24,6 +24,9 @@ Configured under Advanced (`src-tauri/src/config/defaults.rs`, type
 content. The char cap is only checked when a fetch is requested, so the last allowed fetch
 can push the total over.
 
+For the Antigravity CLI (`agy`), `maxTurnSecs` also sets `--print-timeout`, and the process is
+hard-killed 10 s later. See [[antigravity]].
+
 ## Model limits
 
 | Setting (per model) | Default | Effect |

@@ -1,4 +1,5 @@
 mod agent;
+pub mod antigravity;
 pub mod capabilities;
 mod chunks;
 pub mod client;
@@ -57,7 +58,7 @@ pub struct ChatMessage {
     pub content: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
     pub chat_id: String,
@@ -180,10 +181,13 @@ pub async fn list_all(settings: &Settings) -> Vec<ProviderModel> {
         }
     };
 
-    let (openrouter, ollama, gemini) = tokio::join!(openrouter, ollama, gemini);
+    let antigravity = async { antigravity::models::list().await };
+    let (openrouter, ollama, gemini, antigravity) =
+        tokio::join!(openrouter, ollama, gemini, antigravity);
     let mut models = openrouter;
     models.extend(ollama);
     models.extend(gemini);
+    models.extend(antigravity);
     models
 }
 
@@ -228,6 +232,9 @@ pub async fn reasoning_for(
     model: &str,
 ) -> Result<Option<capabilities::ReasoningInfo>, String> {
     let reference = ModelRef::parse(model)?;
+    if reference.provider == antigravity::PROVIDER {
+        return Ok(None);
+    }
     let kind = kinds::Kind::resolve(&reference.provider)?;
     let settings = app.state::<ConfigState>().get();
     let key = api_key(&settings, kind.name())?;

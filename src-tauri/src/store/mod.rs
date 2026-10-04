@@ -265,7 +265,7 @@ mod tests {
     fn chat_model_round_trips_and_clears() {
         let store = Store::in_memory().unwrap();
         let conn = store.conn();
-        let chat = chats::create(&conn, "default").unwrap();
+        let chat = chats::create(&conn, "p").unwrap();
         assert_eq!(chats::get(&conn, &chat.id).unwrap().unwrap().model, None);
 
         chats::set_model(&conn, &chat.id, Some("openrouter/a")).unwrap();
@@ -276,5 +276,22 @@ mod tests {
 
         chats::set_model(&conn, &chat.id, None).unwrap();
         assert_eq!(chats::get(&conn, &chat.id).unwrap().unwrap().model, None);
+    }
+
+    #[test]
+    fn agy_session_round_trips_and_clears() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = chats::create(&conn, "p").unwrap();
+        assert_eq!(chats::get_agy_session(&conn, &chat.id).unwrap(), None);
+
+        chats::set_agy_session(&conn, &chat.id, Some("conv")).unwrap();
+        assert_eq!(
+            chats::get_agy_session(&conn, &chat.id).unwrap().as_deref(),
+            Some("conv")
+        );
+
+        chats::set_agy_session(&conn, &chat.id, None).unwrap();
+        assert_eq!(chats::get_agy_session(&conn, &chat.id).unwrap(), None);
     }
 }

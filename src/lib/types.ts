@@ -264,3 +264,10 @@ export type SearchProviderUsage = {
   exhausted: boolean;
   hasKey: boolean;
 };
+
+export type AntigravityStatus = {
+  path: string | null;
+  version: string | null;
+  ok: boolean;
+  note: string | null;
+};

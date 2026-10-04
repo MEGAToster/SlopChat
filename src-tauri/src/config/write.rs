@@ -37,6 +37,8 @@ fn load_from(settings_path: &Path, models_path: &Path) -> Result<Settings, Strin
         }
     }
 
+    super::defaults::ensure_builtin_providers(&mut settings);
+
     // Register models that only existed as full profiles.
     if super::migrate_profiles(&mut settings) {
         models_file::write_at(&snapshot(&settings), models_path)?;

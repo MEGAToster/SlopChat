@@ -20,21 +20,7 @@ pub fn build_messages(
     guidance: Option<Guidance>,
     web_search_offered: bool,
 ) -> Vec<Value> {
-    let mut system = String::new();
-    if request.use_context {
-        if let Ok(context) = std::fs::read_to_string(paths::context_path()) {
-            let context = context.trim();
-            if !context.is_empty() {
-                system.push_str(context);
-                system.push_str("\n\n");
-            }
-        }
-    }
-    if let Some(extra) = request.system.as_deref() {
-        if !extra.is_empty() {
-            system.push_str(extra);
-        }
-    }
+    let mut system = system_text(request);
     if web_search_offered {
         if !system.is_empty() {
             system.push_str("\n\n");
@@ -61,6 +47,27 @@ pub fn build_messages(
         messages.push(json!({ "role": message.role, "content": message.content }));
     }
     messages
+}
+
+// The context.md + profile system prompt, shared by the HTTP builders and the
+// Antigravity seed. Tool/citation guidance is SlopChat-only, so it stays out.
+pub fn system_text(request: &ChatRequest) -> String {
+    let mut system = String::new();
+    if request.use_context {
+        if let Ok(context) = std::fs::read_to_string(paths::context_path()) {
+            let context = context.trim();
+            if !context.is_empty() {
+                system.push_str(context);
+                system.push_str("\n\n");
+            }
+        }
+    }
+    if let Some(extra) = request.system.as_deref() {
+        if !extra.is_empty() {
+            system.push_str(extra);
+        }
+    }
+    system
 }
 
 pub fn assistant_tool_message(content: &str, calls: &[ToolCall]) -> Value {

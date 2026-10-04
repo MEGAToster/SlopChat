@@ -177,13 +177,23 @@ fn default_providers() -> BTreeMap<String, Provider> {
         },
     );
     providers.insert(
-        "gemini".to_string(),
+        "antigravity".to_string(),
         Provider {
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".to_string(),
+            base_url: String::new(),
             api_key: None,
         },
     );
     providers
+}
+
+pub(super) fn ensure_builtin_providers(settings: &mut Settings) {
+    settings
+        .providers
+        .entry("antigravity".to_string())
+        .or_insert_with(|| Provider {
+            base_url: String::new(),
+            api_key: None,
+        });
 }
 
 pub(super) fn default_models() -> Vec<ModelConfig> {

@@ -2,6 +2,7 @@ import { invoke, type Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   Advanced,
+  AntigravityStatus,
   Attachment,
   Chat,
   ChatView,
@@ -242,4 +243,8 @@ export function onConfigChanged(handler: (settings: Settings) => void): Promise<
 
 export function onConfigError(handler: (message: string) => void): Promise<UnlistenFn> {
   return listen<string>("config://error", (event) => handler(event.payload));
+}
+
+export function antigravityStatus(): Promise<AntigravityStatus> {
+  return invoke("antigravity_status");
 }

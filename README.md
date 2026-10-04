@@ -7,7 +7,7 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 ## Features
 
 - **Panel UI** — one hotkey summons a compact composer; it grows into an expanded window with a sidebar. Sticky mode disables hide-on-blur. No Dock icon.
-- **Providers** — OpenRouter, Ollama (all via the OpenAI chat-completions format). API keys live in the OS keychain.
+- **Providers** — OpenRouter, Ollama, Gemini API (OpenAI chat-completions), plus the Antigravity CLI (`agy`, using your signed-in Google account; install `agy` and run it once to sign in). API keys live in the OS keychain.
 - **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per profile. A model picked from the palette overrides the profile for that chat and is remembered per chat; cycling the profile clears it.
 - **Streaming answers** — markdown, syntax highlighting, KaTeX math, Mermaid diagrams, inline citations, and copy buttons; long threads stay smooth.
 - **Web research** — `web_search` (Exa, Tavily, Brave, Firecrawl, Serper, tried in order as **fallbacks** — see [Web search billing](#web-search-billing)) and `web_fetch` (readable text with an SSRF guard and a Jina Reader fallback for blocked/JS-only pages). Only `web_search` uses provider APIs; `web_fetch` is always the free local fetch.
