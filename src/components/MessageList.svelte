@@ -63,15 +63,22 @@
     const content = document.querySelector<HTMLElement>(".content");
     if (!content) return;
 
-    // Measure the content uncapped, then trim the transcript by the overflow.
-    element.style.maxHeight = "";
+    // Chrome is everything but the transcript, and stays fixed whether or not
+    // the transcript is capped, so the cap avoids an uncap-measure reflow.
+    const chrome = content.getBoundingClientRect().height - element.getBoundingClientRect().height;
     const cap = Math.min(1200, Math.max(400, settings().window.compactHeight));
-    const overflow = content.getBoundingClientRect().height - cap;
-    if (overflow <= 0) return;
-    element.style.maxHeight = `${Math.max(MIN_TRANSCRIPT, element.scrollHeight - overflow)}px`;
+    const budget = cap - chrome;
+    element.style.maxHeight =
+      element.scrollHeight > budget ? `${Math.max(MIN_TRANSCRIPT, budget)}px` : "";
+    if (view.tracking) element.scrollTop = element.scrollHeight;
   }
 
   $effect(() => {
+    const last = all.at(-1);
+    // Re-cap as the answer streams and once it settles (the answer bar mounts).
+    void last?.content;
+    void last?.steps?.length;
+    void streamingHere;
     void settings().window.compactHeight;
     void all.length;
     void isExpanded();
