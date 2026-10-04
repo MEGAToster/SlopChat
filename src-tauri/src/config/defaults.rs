@@ -177,13 +177,6 @@ fn default_providers() -> BTreeMap<String, Provider> {
         },
     );
     providers.insert(
-        "gemini".to_string(),
-        Provider {
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".to_string(),
-            api_key: None,
-        },
-    );
-    providers.insert(
         "antigravity".to_string(),
         Provider {
             base_url: String::new(),

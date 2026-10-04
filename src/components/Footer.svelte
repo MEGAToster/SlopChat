@@ -96,7 +96,7 @@
         <span class="name">{profile?.name ?? "no profile"}</span>
       {/if}
       {#if model}<span class="model">{model}</span>{/if}
-      {#if model}
+      {#if model && !antigravity}
         <button
           type="button"
           class="effort"

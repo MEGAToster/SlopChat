@@ -27,6 +27,15 @@
     { value: "off", label: "off" },
   ];
 
+  const MODEL_PLACEHOLDERS: Record<string, string> = {
+    openrouter: "deepseek/deepseek-v4.1-flash",
+    ollama: "llama3.2",
+    gemini: "gemini-2.5-flash",
+    antigravity: "gemini-3.8-flash-medium",
+  };
+
+  const HIDDEN_PROVIDERS = new Set(["gemini"]);
+
   const fallbackProvider = untrack(
     () => (providers.includes("openrouter") ? "openrouter" : providers[0]) ?? "openrouter",
   );
@@ -49,6 +58,12 @@
 
   const composed = $derived(composeModelRef(provider, modelId, tag));
   const isAntigravity = $derived(provider === "antigravity");
+  const modelPlaceholder = $derived(MODEL_PLACEHOLDERS[provider] ?? "provider/model");
+  const providerOptions = $derived.by(() => {
+    const visible = providers.filter((name) => !HIDDEN_PROVIDERS.has(name));
+    // Keep an existing model's provider selectable so editing it does not reset.
+    return provider && !visible.includes(provider) ? [provider, ...visible] : visible;
+  });
 
   function toggleTool(name: string): void {
     const next = new Set(tools);
@@ -68,7 +83,7 @@
         tools: isAntigravity ? [] : [...tools],
         toolCalling: isAntigravity ? false : toolCalling,
         webSearch: isAntigravity ? undefined : webSearch,
-        reasoning: reasoning || undefined,
+        reasoning: isAntigravity ? undefined : reasoning || undefined,
         maxCompletionTokens: isAntigravity ? undefined : maxTokens.trim() ? Number(maxTokens) : undefined,
       },
       previous,
@@ -82,13 +97,13 @@
   <label class="row">
     <span class="label">Provider</span>
     <select class="control" bind:value={provider}>
-      {#each providers as name (name)}<option value={name}>{name}</option>{/each}
+      {#each providerOptions as name (name)}<option value={name}>{name}</option>{/each}
     </select>
   </label>
 
   <label class="row">
     <span class="label">Model id</span>
-    <input class="control" bind:value={modelId} placeholder="deepseek/deepseek-v4.1-flash" />
+    <input class="control" bind:value={modelId} placeholder={modelPlaceholder} />
   </label>
 
   {#if provider === "openrouter"}
@@ -105,6 +120,7 @@
     <span class="preview">{composed || "—"}</span>
   </div>
 
+  {#if !isAntigravity}
   <label class="row">
     <span class="label">Reasoning</span>
     <select class="control" bind:value={reasoning}>
@@ -113,6 +129,7 @@
       {/each}
     </select>
   </label>
+  {/if}
 
   {#if !isAntigravity}
   <label class="row">
