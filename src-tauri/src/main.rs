@@ -73,6 +73,7 @@ fn main() {
             commands::save_attachment,
             commands::read_attachment,
             commands::list_models,
+            commands::antigravity_status,
             commands::open_settings_file,
             commands::open_models_file,
             commands::reload_config,

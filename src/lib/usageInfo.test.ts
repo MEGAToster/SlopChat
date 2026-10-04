@@ -19,6 +19,10 @@ describe("providerLabel", () => {
   it("labels Ollama as local", () => {
     expect(providerLabel(usage(null), "ollama")).toBe("local");
   });
+
+  it("labels Antigravity", () => {
+    expect(providerLabel(usage(null), "antigravity")).toBe("antigravity");
+  });
 });
 
 describe("usageLine", () => {

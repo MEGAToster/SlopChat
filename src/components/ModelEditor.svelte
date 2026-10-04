@@ -27,7 +27,9 @@
     { value: "off", label: "off" },
   ];
 
-  const fallbackProvider = untrack(() => providers[0] ?? "openrouter");
+  const fallbackProvider = untrack(
+    () => (providers.includes("openrouter") ? "openrouter" : providers[0]) ?? "openrouter",
+  );
   const start = untrack(() => $state.snapshot(value));
   const parts = splitModelRef(start.model);
 
@@ -46,6 +48,7 @@
   let tools = $state(new Set(start.tools ?? []));
 
   const composed = $derived(composeModelRef(provider, modelId, tag));
+  const isAntigravity = $derived(provider === "antigravity");
 
   function toggleTool(name: string): void {
     const next = new Set(tools);
@@ -60,13 +63,13 @@
       {
         model: composed,
         system: system.trim() || undefined,
-        temperature: temperature.trim() ? Number(temperature) : undefined,
+        temperature: isAntigravity ? undefined : temperature.trim() ? Number(temperature) : undefined,
         useContext,
-        tools: [...tools],
-        toolCalling,
-        webSearch,
+        tools: isAntigravity ? [] : [...tools],
+        toolCalling: isAntigravity ? false : toolCalling,
+        webSearch: isAntigravity ? undefined : webSearch,
         reasoning: reasoning || undefined,
-        maxCompletionTokens: maxTokens.trim() ? Number(maxTokens) : undefined,
+        maxCompletionTokens: isAntigravity ? undefined : maxTokens.trim() ? Number(maxTokens) : undefined,
       },
       previous,
     );
@@ -111,6 +114,7 @@
     </select>
   </label>
 
+  {#if !isAntigravity}
   <label class="row">
     <span class="label">Web search</span>
     <select class="control" bind:value={webSearch}>
@@ -127,6 +131,7 @@
     <span class="label">Max completion tokens</span>
     <input class="control" bind:value={maxTokens} placeholder="8192" />
   </label>
+  {/if}
 
   <label class="row">
     <span class="label">Use context</span>
@@ -136,6 +141,7 @@
     </span>
   </label>
 
+  {#if !isAntigravity}
   <label class="row">
     <span class="label">Tool calling</span>
     <span class="check">
@@ -160,6 +166,7 @@
         </label>
       </span>
     </div>
+  {/if}
   {/if}
 
   <label class="row block">

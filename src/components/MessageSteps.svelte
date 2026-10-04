@@ -13,18 +13,32 @@
     return step.name === "web_fetch";
   }
 
+  function isSearch(step: ToolStep): boolean {
+    return step.name === "web_search";
+  }
+
   function target(step: ToolStep): string {
     const value = step.args?.url ?? step.args?.query;
     return typeof value === "string" ? value : step.name;
+  }
+
+  // Antigravity's own tools name their target differently per tool.
+  function genericTarget(step: ToolStep): string {
+    const args = step.args ?? {};
+    for (const key of ["CommandLine", "path", "url", "query"]) {
+      const value = args[key];
+      if (typeof value === "string" && value) return value;
+    }
+    return "";
   }
 </script>
 
 <div class="steps">
   {#each steps as step (step.id)}
     <div class="step" class:failed={step.status === "error"}>
-      <span class="glyph">{isFetch(step) ? "↓" : "⌕"}</span>
+      <span class="glyph">{isFetch(step) ? "↓" : isSearch(step) ? "⌕" : "›"}</span>
       {#if step.status === "skipped"}
-        {isFetch(step) ? "fetch" : "search"} {step.summary}
+        {isFetch(step) ? "fetch" : isSearch(step) ? "search" : step.name} {step.summary}
       {:else if isFetch(step)}
         {#if step.status === "running"}
           fetching {domain(target(step))}…
@@ -33,12 +47,22 @@
         {:else}
           fetched {domain(target(step))} · {step.summary}
         {/if}
-      {:else if step.status === "running"}
-        searching “{query(step)}”…
-      {:else if step.status === "error"}
-        search failed · {step.summary}
+      {:else if isSearch(step)}
+        {#if step.status === "running"}
+          searching “{query(step)}”…
+        {:else if step.status === "error"}
+          search failed · {step.summary}
+        {:else}
+          searched “{query(step)}” · {step.summary}
+        {/if}
       {:else}
-        searched “{query(step)}” · {step.summary}
+        {#if step.status === "running"}
+          {step.name}{genericTarget(step) ? ` ${genericTarget(step)}` : ""}…
+        {:else if step.status === "error"}
+          {step.name} failed · {step.summary}
+        {:else}
+          {step.name} · {step.summary}
+        {/if}
       {/if}
       {#if step.note}<span class="note">{step.note}</span>{/if}
     </div>

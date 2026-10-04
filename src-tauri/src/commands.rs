@@ -169,6 +169,11 @@ pub fn read_attachment(path: String) -> Result<String, String> {
     crate::store::attachments::read(&path)
 }
 
+#[tauri::command(async)]
+pub async fn antigravity_status() -> providers::antigravity::binary::Status {
+    providers::antigravity::binary::status().await
+}
+
 #[tauri::command]
 pub async fn list_models(app: AppHandle) -> Result<Vec<providers::ProviderModel>, String> {
     let settings = app.state::<ConfigState>().get();

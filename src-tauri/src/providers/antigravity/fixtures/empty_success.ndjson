@@ -1,0 +1,4 @@
+{"event":"init","conversation_id":"11111111-1111-1111-1111-111111111111","init":{"cwd":"/tmp/agy-workspace","tools":[],"permission_mode":"request-review"}}
+{"event":"step_update","step_update":{"conversation_id":"11111111-1111-1111-1111-111111111111","step_index":0,"state":"DONE","step_type":"user_input"}}
+{"event":"step_update","step_update":{"conversation_id":"11111111-1111-1111-1111-111111111111","step_index":1,"state":"DONE","step_type":"agent_response","duration_seconds":0.1,"usage":{"input_tokens":10,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":10}}}
+{"event":"result","result":{"conversation_id":"11111111-1111-1111-1111-111111111111","status":"SUCCESS","response":"","duration_seconds":0.1,"num_turns":1,"usage":{"input_tokens":10,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":10}}}

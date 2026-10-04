@@ -203,6 +203,29 @@ pub fn set_model(conn: &Connection, id: &str, model: Option<&str>) -> Result<(),
     Ok(())
 }
 
+// Antigravity's own conversation pointer, kept off the Chat struct because the
+// frontend never needs it.
+pub fn get_agy_session(conn: &Connection, id: &str) -> Result<Option<String>, String> {
+    match conn.query_row(
+        "SELECT agy_session FROM chats WHERE id = ?1",
+        params![id],
+        |row| row.get::<_, Option<String>>(0),
+    ) {
+        Ok(value) => Ok(value),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(db_err(error)),
+    }
+}
+
+pub fn set_agy_session(conn: &Connection, id: &str, session: Option<&str>) -> Result<(), String> {
+    conn.execute(
+        "UPDATE chats SET agy_session = ?1 WHERE id = ?2",
+        params![session, id],
+    )
+    .map_err(db_err)?;
+    Ok(())
+}
+
 pub fn toggle_pin(conn: &Connection, id: &str) -> Result<Chat, String> {
     let chat = get(conn, id)?.ok_or_else(|| format!("chat {id} not found"))?;
     let pinned = !chat.pinned;

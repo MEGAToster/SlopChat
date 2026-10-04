@@ -95,6 +95,13 @@ async fn run_turn(
     model: &ModelRef,
     pre_search: &mut Option<PreSearch>,
 ) -> Result<(), TurnError> {
+    if model.provider == super::antigravity::PROVIDER {
+        return match super::antigravity::run(app, request.clone(), channel.clone(), cancel).await {
+            Ok(()) => Ok(()),
+            Err(error) => Err(antigravity_error(error)),
+        };
+    }
+
     let kind = Kind::resolve(&model.provider).map_err(TurnError::Failed)?;
     let settings = app.state::<ConfigState>().get();
     let turn_id = format!("{}-{}", request.chat_id, finalize::now_millis());
@@ -279,4 +286,19 @@ async fn run_turn(
     )
     .await;
     Ok(())
+}
+
+fn antigravity_error(error: super::antigravity::exec::AgyError) -> TurnError {
+    let unavailable = matches!(
+        &error,
+        super::antigravity::exec::AgyError::NotInstalled
+            | super::antigravity::exec::AgyError::TooOld(_)
+            | super::antigravity::exec::AgyError::UnknownModel(_)
+    );
+    let message = error.message();
+    if unavailable {
+        TurnError::Unavailable(message)
+    } else {
+        TurnError::Failed(message)
+    }
 }

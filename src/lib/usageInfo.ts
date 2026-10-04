@@ -12,7 +12,9 @@ export function money(value: number): string {
 // because its replies never leave the machine.
 export function providerLabel(usage: Usage, apiProvider: string): string {
   if (usage.provider) return usage.provider;
-  return apiProvider === "ollama" ? "local" : "";
+  if (apiProvider === "ollama") return "local";
+  if (apiProvider === "antigravity") return "antigravity";
+  return "";
 }
 
 export function usageLine(usage: Usage, apiProvider: string): string {

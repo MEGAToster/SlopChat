@@ -28,6 +28,7 @@
   } from "../lib/state/settingsPanel.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import { moveSettingsFocus } from "../lib/settingsFocus";
+  import AntigravitySection from "./AntigravitySection.svelte";
   import ApiKeyRow from "./ApiKeyRow.svelte";
   import Frame from "./Frame.svelte";
   import ModelEditor from "./ModelEditor.svelte";
@@ -236,6 +237,8 @@
           />
         {/each}
         <p class="muted">Providers are tried in order; a provider without a key is skipped.</p>
+
+        <AntigravitySection />
 
         <div class="section-title">Window</div>
 

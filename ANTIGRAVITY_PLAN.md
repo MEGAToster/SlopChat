@@ -26,58 +26,57 @@ The goal is to run Google's Antigravity CLI (`agy`, the successor to Gemini CLI 
 6. **Checks:** after every phase, run the verification commands in §11 and fix failures before continuing.
 7. **Final report:** a phase-by-phase list of done / deviated (why) / open.
 
-## 3. What we know about `agy`
-Sources:
-- `antigravity.google/docs/cli/headless`;
-- `antigravity.google/docs/cli/install`;
-- the CHANGELOG up to 1.2.16;
-- GitHub issues #76 and #1065.
+## 3. What we know about `agy` — **confirmed against 1.2.16 in Phase 0**
+Sources: `--help`, live probes on 1.2.16, plus the docs listed earlier. Where the docs and the binary disagreed, the binary won. Fixtures live in `src-tauri/src/providers/antigravity/fixtures/`.
 
 **Install and auth**
 - **Binary:** `~/.local/bin/agy` on macOS/Linux. A Finder-launched macOS app doesn't inherit the shell `PATH`, so this path must be checked explicitly.
+- **Version:** `agy --version` → `1.2.16` (plain `major.minor.patch`, no `v`).
 - **Credentials:**
-  - Google sign-in tokens live in the OS keyring (Keychain / Secret Service);
-  - headless runs reuse them;
-  - without cached auth, a run with no terminal exits with an `authentication required` error (it does not hang);
-  - there is **no documented "auth status" command**;
-  - an alternative is `modelProvider: "gemini"` in `~/.gemini/antigravity-cli/settings.json` plus `GEMINI_API_KEY`. That is not our concern, but it works transparently.
+  - Google sign-in tokens live in the OS keyring (Keychain / Secret Service); headless runs reuse them.
+  - There is **no "auth status" command**. Auth failures surface as an error whose text includes `authentication required` / `not logged in` / `not signed in`.
 - **Settings file:** `~/.gemini/antigravity-cli/settings.json`; it has `permissions.allow`. Do not modify it.
 
 **Invocation (headless, streaming)**
 ```
 agy --input-format stream-json --output-format stream-json \
-    --model <slug> [--effort low|medium|high] [--conversation <id>] \
-    --sandbox --print-timeout <N>s
+    --model <slug> [--conversation <id>] --sandbox [--print-timeout <N>s]
 stdin:  {"event":"user","message":{"content":"<prompt>"}}\n   then close stdin
 ```
-- `--input-format stream-json` needs ≥ 1.1.15 and requires `--output-format stream-json`.
+- `--input-format stream-json` requires `--output-format stream-json`.
 - **Closing stdin** ends the session after the current turn completes.
-- **Content:** only `text` content blocks are allowed. `content` may be a string or `[{type:"text",text}]`; any other block type ends the session with an error.
-- **`--print-timeout`** (default 5m): when it expires mid-turn, `agy` returns the **partial output and exits 0** (since 1.1.28).
+- **Content:** only text is allowed; `content` may be a string or `[{type:"text",text}]`.
+- **`--print-timeout` default is `0s` (wait indefinitely), not 5m.** A non-zero value returns partial output when it expires.
+- **`--effort` must NOT be combined with `--model`:** every model returned by `agy models` already encodes effort in its slug, so `--model X --effort Y` fails with `--model X conflicts with --effort=Y` (or `--effort is not supported for model "X"`). Phase 0 therefore **drops `--effort`**: the model slug carries the effort. (`--effort` only works on the default model, which we never use.)
 
 **Output (NDJSON on stdout, one object per line)**
 | `event` | Fields |
 |---|---|
-| `init` | `cwd`, `tools`, `permission_mode` |
-| `step_update` | `step_update.step_type` ∈ `user_input` / `agent_response` / `tool` / `checkpoint`. Text arrives as `step_update.text_delta`. Tools: `step_update.tool_name`, `step_update.tool_info{name, parameters, output}` |
-| `result` | same shape as `--output-format json`, nested under `result` (the docs example reads `event["result"]["response"]`) |
+| `init` | top-level `conversation_id`; nested `init{cwd, tools[], permission_mode, model?}`. `model` appears only when `--model` is passed. |
+| `step_update` | nested `step_update{conversation_id, step_index, state, step_type, …}`. `state` ∈ `ACTIVE`/`DONE`/`ERROR`. `step_type` ∈ `user_input`/`agent_response`/`tool`/`system_message`. Text: `text_delta` (one or more `ACTIVE`, then a final `DONE` that carries `usage`). Tools: `tool_name`, `tool_info{name, parameters, output?}` on success, `tool_info{…, error{type,message}}` on failure. `user_input`/`system_message` carry no text and are ignored. |
+| `result` | nested `result{conversation_id, status, response, error?, duration_seconds, num_turns, usage, denied_actions?}` |
 
 `result` payload:
 ```json
 {"conversation_id":"…","status":"SUCCESS","response":"…","duration_seconds":7.16,"num_turns":1,
  "usage":{"input_tokens":10415,"output_tokens":657,"thinking_tokens":616,"cache_read_tokens":8113,"total_tokens":11072}}
 ```
-- **`status`** ∈ `SUCCESS|ERROR|CANCELED|INTERRUPTED|INVALID|WAITING|RUNNING`.
-- **Exit codes:** 0 = success, 1 = error, 2 = unsupported message.
+- On error, `status` is `ERROR` and an `error` string is present; `response` is empty.
+- **Exit codes observed:** 0 = success, 1 = error. (`status`/`error` is the reliable signal, not the code.)
+- **No thinking step:** reasoning is not streamed. `thinking_tokens` only appears in usage.
+- **Tool output is a summary** (e.g. `"2 lines, 17 bytes"`), never the full tool payload.
 
 **Other commands**
-- **Models:** `agy models --output-format json` (≥ 1.1.11). The shape is unknown and is captured in Phase 0.
+- **Models:** `agy models` (there is **no `--output-format` flag** in 1.2.16). stdout is `slug<TAB>Display Name`, one per line; a progress line goes to stderr. Parse the tab-separated text, not JSON.
 - **Version:** `agy --version`.
 
-**Known bugs to defend against**
-- **#1065 (1.2.7):** `SUCCESS` with an empty `response` and nothing produced. Treat it as an error.
-- **#76 (1.0.0):** `-p` wrote nothing to stdout when not attached to a terminal. Avoided by using `stream-json` and a minimum version.
-- **1.2.16 fix:** "headless `-p` runs sometimes exiting before the agent could respond to a background command". Recommend ≥ 1.2.16.
+**Known bugs / behaviors to defend against**
+- **#1065 empty success:** `SUCCESS` with an empty `response` and no streamed text. Treat it as an error.
+- **Denied command looks like empty success:** when a tool needs a permission headless can't prompt for, `agy` auto-denies, exits 0 with `status:SUCCESS`, an empty `response`, and `result.denied_actions`. The stderr says `no output produced … auto-denied`. The empty-response guard covers it.
+- **Unknown conversation is silent, not an error:** resuming an id `agy` doesn't know prints `warning: conversation "X" not found` to stderr and starts a **fresh** conversation with a **different** `conversation_id`, exit 0. Detect by comparing the returned `conversation_id` to the requested one (or the stderr warning) and re-seed once.
+- **Unknown model:** exit 1, `status:ERROR`, `error` contains `is not recognized as a known model`.
+- **Cancel (`SIGINT`):** exit 1, `status:ERROR`, `error` is `context canceled`; stderr `error: context canceled`. Treat as cancelled when our `Cancel` fired.
+- **A different `--model` is accepted on resume**, so §6 must **not** require the stored model to match.
 
 ## 4. Architecture
 

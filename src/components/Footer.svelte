@@ -36,6 +36,7 @@
   const color = $derived(profileColor(profile, activeProfileIndex()));
   const fullModel = $derived(config?.model ?? "");
   const ref = $derived(splitModelRef(fullModel));
+  const antigravity = $derived(ref.provider === "antigravity");
   const model = $derived(shortModel(fullModel));
   const overriding = $derived(overrideActive());
   const usage = $derived(lastUsage());
@@ -52,7 +53,10 @@
     if (config?.model) void loadReasoning(config.model);
   });
 
+  const noTools = $derived(config?.toolCalling === false || antigravity);
+
   const web = $derived.by(() => {
+    if (antigravity) return "off";
     const mode = effectiveWebMode(
       config?.toolCalling !== false,
       webOverride(),
@@ -62,7 +66,9 @@
   });
 
   const webTitle = $derived(
-    config?.toolCalling === false
+    antigravity
+      ? "Antigravity uses its own tools"
+      : config?.toolCalling === false
       ? "Tool calling is off for this profile (toolCalling: false)"
       : web === "off"
         ? "Web search off for this chat"
@@ -145,7 +151,7 @@
         class="web"
         data-state={web}
         title={webTitle}
-        disabled={config?.toolCalling === false}
+        disabled={noTools}
         onclick={cycleWeb}
       >
         <Icon name={web === "off" ? "globe-off" : "globe"} size={13} />
