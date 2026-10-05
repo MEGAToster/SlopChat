@@ -7,7 +7,7 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 ## Features
 
 - **Panel UI** — one hotkey summons a compact composer; it grows into an expanded window with a sidebar. Sticky mode disables hide-on-blur. No Dock icon.
-- **Providers** — OpenRouter, Ollama, Gemini API (OpenAI chat-completions), plus the Antigravity CLI (`agy`, using your signed-in Google account; install `agy` and run it once to sign in). API keys live in the OS keychain.
+- **Providers** — OpenRouter, Ollama, Gemini API (OpenAI chat-completions), plus the Antigravity CLI (`agy`, using your signed-in Google account; install `agy` and run it once to sign in). API keys live in the OS keychain (on Linux, the freedesktop Secret Service; see [docs/secrets.md](docs/secrets.md)).
 - **Profiles** — named model configurations cycled with Shift+Tab and stored per chat. Optional fallback model per profile. A model picked from the palette overrides the profile for that chat and is remembered per chat; cycling the profile clears it.
 - **Streaming answers** — markdown, syntax highlighting, KaTeX math, Mermaid diagrams, inline citations, and copy buttons; long threads stay smooth.
 - **Web research** — `web_search` (Exa, Tavily, Brave, Firecrawl, Serper, tried in order as **fallbacks** — see [Web search billing](#web-search-billing)) and `web_fetch` (readable text with an SSRF guard and a Jina Reader fallback for blocked/JS-only pages). Only `web_search` uses provider APIs; `web_fetch` is always the free local fetch.
@@ -54,7 +54,7 @@ Build from source and install:
 
 The script checks for Node and Rust, builds the app, and installs it (macOS: `/Applications/SlopChat.app`; Linux: `~/.local/bin/slopchat` plus a desktop entry). To build manually instead: `npm install && npm run tauri build`, then use the artifact under `src-tauri/target/release/bundle/`.
 
-On first launch, paste an OpenRouter API key (stored in the keychain). Add other providers and keys under **Settings → Web search**.
+On first launch, paste an OpenRouter API key (stored in the OS keychain; on Linux this needs a Secret Service provider). Add other providers and keys under **Settings → Web search**.
 
 ### Web search billing
 
@@ -151,7 +151,7 @@ cd src-tauri && cargo test && cargo clippy -- -D warnings
 
 ## Privacy
 
-API keys are stored only in the OS keychain (or an `env:VAR` override in config), never in plaintext on disk. Fetched pages are retrieved directly; the optional reader fallback sends the URL to `r.jina.ai`.
+API keys are stored only in the OS keychain, or an `env:VAR` override in config when no keychain is available (a bare Wayland session without the Secret Service), never in plaintext on disk. Fetched pages are retrieved directly; the optional reader fallback sends the URL to `r.jina.ai`.
 
 ## License
 

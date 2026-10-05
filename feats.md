@@ -1,4 +1,4 @@
 - setting: convert pastes text to file (user specifies breaking size. 0 = never)
 - upload images from clipboard
-- setting: revert to compact mode when stale chat timeout moves active chat to new chat -> yes | no
 - deep research
+- fix timout for last chat to be last edited not created
