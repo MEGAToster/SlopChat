@@ -2,6 +2,7 @@
   color: var(--text);
   font-size: var(--fs-md);
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .markdown p {
@@ -87,7 +88,7 @@
   margin: 0;
   padding: var(--sp-2) var(--sp-3);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-code);
 }
 
 .mermaid-block svg {
@@ -165,7 +166,7 @@
 }
 
 .code-block code {
-  font-size: 12.5px;
+  font-size: var(--fs-code);
   line-height: 1.5;
 }
 
@@ -184,6 +185,11 @@
   padding-left: var(--sp-3);
   border-left: 2px solid var(--border-strong);
   color: var(--text-secondary);
+}
+
+.markdown .table-wrap {
+  margin: 0.6em 0;
+  overflow-x: auto;
 }
 
 .markdown table {

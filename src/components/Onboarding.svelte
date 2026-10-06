@@ -30,7 +30,7 @@
 
 <div class="onboarding">
   <h2>Connect OpenRouter</h2>
-  <p class="sub">Stored in your Keychain, never written to disk.</p>
+  <p class="sub">Stored in your OS keychain, never written to disk.</p>
   <input
     bind:this={input}
     type="password"

@@ -14,6 +14,7 @@ pub struct Settings {
     pub models: Vec<ModelConfig>,
     pub startup: Startup,
     pub resume_within_minutes: u64,
+    pub paste_as_file_chars: u64,
     pub theme: String,
     pub style: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -51,6 +52,7 @@ pub struct SearchSettings {
     pub num_results: u32,
     pub limits: BTreeMap<String, Limit>,
     pub exa: ExaSettings,
+    pub searxng: SearxngSettings,
     pub reader_fallback: bool,
     pub snippet_chars: u32,
 }
@@ -73,6 +75,12 @@ pub struct ExaSettings {
     pub search_type: String,
     pub contents: String,
     pub max_characters: u32,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SearxngSettings {
+    pub base_url: String,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -134,6 +142,36 @@ pub struct ModelConfig {
     pub reasoning: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub routing: Option<Routing>,
+}
+
+// OpenRouter provider-routing hints; other providers ignore them.
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Routing {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub order: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub only: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ignore: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_fallbacks: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_price: Option<MaxPrice>,
+}
+
+// USD per 1M tokens.
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct MaxPrice {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completion: Option<f64>,
 }
 
 // Per-profile overrides; `None` inherits from the pointed registered model.

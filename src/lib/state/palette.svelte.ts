@@ -258,7 +258,7 @@ async function runAction(id: string): Promise<void> {
       const usage = await searchUsage();
       const keyed = usage.filter((entry) => entry.hasKey);
       if (keyed.length === 0) {
-        notify("Web search: no API key yet — add one in Settings → Web search.");
+        notify("Web search: no API key yet — add one in Settings → Web search.", "warning");
         break;
       }
       notify(`Search usage — ${keyed.map(usageLabel).join(" · ")}`);

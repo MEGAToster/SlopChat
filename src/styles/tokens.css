@@ -3,6 +3,8 @@
   --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
   --fs-xs: 11px;
   --fs-sm: 12px;
+  --fs-code: 12.5px;
+  --fs-ui: 13px;
   --fs-md: 14px;
   --fs-lg: 15px;
   --fs-xl: 17px;
@@ -17,6 +19,7 @@
   --dur-fast: 100ms;
   --dur: 150ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --footer-height: 36px;
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.3);
 }
 

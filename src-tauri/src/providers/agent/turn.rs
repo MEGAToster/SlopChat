@@ -42,6 +42,7 @@ pub(super) struct Turn<'a> {
     pub max_completion_tokens: Option<u32>,
     pub frequency_penalty: f32,
     pub presence_penalty: f32,
+    pub routing: Option<&'a crate::config::Routing>,
     pub inactivity: Duration,
     pub deadline: tokio::time::Instant,
     pub key: Option<&'a str>,
@@ -80,6 +81,12 @@ impl<'a> Turn<'a> {
                 presence_penalty: self.presence_penalty,
             },
         );
+
+        if matches!(self.kind, Kind::OpenRouter) {
+            if let Some(routing) = self.routing {
+                super::super::routing::apply(&mut body, routing);
+            }
+        }
 
         let plan = RequestPlan {
             endpoint: self.kind.endpoint(self.settings),

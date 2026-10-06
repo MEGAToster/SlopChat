@@ -1,4 +1,4 @@
 - setting: convert pastes text to file (user specifies breaking size. 0 = never)
 - upload images from clipboard
 - deep research
-- fix timout for last chat to be last edited not created
+- openrouter advanced config options: max_tokens, cost range, tools, specify providers / blacklist providers, max output filter?

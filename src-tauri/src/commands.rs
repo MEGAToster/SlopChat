@@ -272,6 +272,11 @@ pub fn set_resume_within(app: AppHandle, minutes: u64) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+pub fn set_paste_as_file(app: AppHandle, chars: u64) -> Result<(), String> {
+    config::set_paste_as_file(&app, chars.min(10_000_000))
+}
+
+#[tauri::command(async)]
 pub fn set_reader_fallback(app: AppHandle, enabled: bool) -> Result<(), String> {
     config::set_reader_fallback(&app, enabled)
 }

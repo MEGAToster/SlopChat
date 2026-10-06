@@ -178,6 +178,10 @@
     cursor: default;
   }
 
+  .row:hover {
+    background: var(--surface-hover);
+  }
+
   .row.selected {
     background: var(--selection);
   }

@@ -220,6 +220,11 @@ async fn run_turn(
         max_completion_tokens: request.max_completion_tokens,
         frequency_penalty,
         presence_penalty,
+        routing: settings
+            .models
+            .iter()
+            .find(|entry| entry.model == request.model)
+            .and_then(|entry| entry.routing.as_ref()),
         inactivity,
         deadline: turn_deadline,
         key: key.as_deref(),

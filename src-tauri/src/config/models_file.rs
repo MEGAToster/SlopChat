@@ -41,12 +41,22 @@ pub(super) fn write_at(file: &ModelsFile, path: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{MaxPrice, Routing};
 
     #[test]
     fn round_trips_models_and_profiles() {
         let file = ModelsFile {
             models: vec![ModelConfig {
                 model: "openrouter/a".to_string(),
+                routing: Some(Routing {
+                    only: vec!["anthropic".to_string()],
+                    allow_fallbacks: Some(false),
+                    max_price: Some(MaxPrice {
+                        prompt: Some(1.5),
+                        completion: None,
+                    }),
+                    ..Routing::default()
+                }),
                 ..ModelConfig::default()
             }],
             profiles: Vec::new(),
@@ -54,6 +64,7 @@ mod tests {
         let json = serde_json::to_string(&file).unwrap();
         let parsed: ModelsFile = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.models[0].model, "openrouter/a");
+        assert_eq!(parsed.models[0].routing, file.models[0].routing);
     }
 
     #[test]

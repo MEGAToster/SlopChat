@@ -92,6 +92,14 @@ mod tests {
         }
     }
 
+    fn list_ids(conn: &rusqlite::Connection) -> Vec<String> {
+        chats::list(conn)
+            .unwrap()
+            .into_iter()
+            .map(|chat| chat.id)
+            .collect()
+    }
+
     #[test]
     fn migrations_create_a_working_schema() {
         let store = Store::in_memory().unwrap();
@@ -208,6 +216,38 @@ mod tests {
         let listed = messages::list(&conn, &chat.id).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].content, "one edited");
+    }
+
+    #[test]
+    fn list_orders_by_last_edit() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let first = chats::create(&conn, "p").unwrap();
+        let second = chats::create(&conn, "p").unwrap();
+
+        chats::touch(&conn, &first.id, 1_000).unwrap();
+        chats::touch(&conn, &second.id, 2_000).unwrap();
+        assert_eq!(list_ids(&conn), vec![first.id.clone(), second.id.clone()]);
+
+        chats::touch(&conn, &first.id, 3_000).unwrap();
+        assert_eq!(list_ids(&conn), vec![second.id.clone(), first.id.clone()]);
+    }
+
+    #[test]
+    fn rewind_moves_its_chat_to_the_end() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let first = chats::create(&conn, "p").unwrap();
+        let second = chats::create(&conn, "p").unwrap();
+        let edited = messages::append(&conn, &message(&first.id, "user", "one")).unwrap();
+
+        // Park both at the same old time so created order decides.
+        chats::touch(&conn, &first.id, 0).unwrap();
+        chats::touch(&conn, &second.id, 0).unwrap();
+        assert_eq!(list_ids(&conn), vec![first.id.clone(), second.id.clone()]);
+
+        messages::rewind(&conn, &first.id, &edited.id, "edited").unwrap();
+        assert_eq!(list_ids(&conn), vec![second.id.clone(), first.id.clone()]);
     }
 
     #[test]

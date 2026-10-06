@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use super::{
     Advanced, DebugSettings, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides,
-    Provider, SearchSettings, Settings, Startup, WebSearchMode, WindowConfig,
+    Provider, SearchSettings, SearxngSettings, Settings, Startup, WebSearchMode, WindowConfig,
 };
 
 impl Default for Advanced {
@@ -33,6 +33,7 @@ impl Default for ModelConfig {
             web_search: WebSearchMode::Auto,
             reasoning: None,
             max_completion_tokens: Some(8192),
+            routing: None,
         }
     }
 }
@@ -44,6 +45,7 @@ impl Default for SearchSettings {
             num_results: 5,
             limits: default_search_limits(),
             exa: ExaSettings::default(),
+            searxng: SearxngSettings::default(),
             reader_fallback: true,
             snippet_chars: 1500,
         }
@@ -116,6 +118,7 @@ impl Default for Settings {
             models: default_models(),
             startup: Startup::default(),
             resume_within_minutes: 10,
+            paste_as_file_chars: 0,
             theme: "default-dark".to_string(),
             style: "auto".to_string(),
             font: None,

@@ -55,13 +55,17 @@
     node.select();
   }
 
-  function onRenameKey(event: KeyboardEvent, chatId: string) {
+  function commitRename(event: FocusEvent, chatId: string) {
+    const value = (event.currentTarget as HTMLInputElement).value.trim();
+    setRenaming(null);
+    if (value) void renameChat(chatId, value);
+  }
+
+  function onRenameKey(event: KeyboardEvent) {
     event.stopPropagation();
     if (event.key === "Enter") {
       event.preventDefault();
-      const value = (event.currentTarget as HTMLInputElement).value.trim();
-      setRenaming(null);
-      if (value) void renameChat(chatId, value);
+      (event.currentTarget as HTMLInputElement).blur();
     } else if (event.key === "Escape") {
       event.preventDefault();
       setRenaming(null);
@@ -80,7 +84,7 @@
     <input
       bind:this={filterInput}
       class="filter"
-      placeholder="Filter"
+      placeholder="Search chats"
       value={filterQuery()}
       oninput={(event) => setFilterQuery(event.currentTarget.value)}
     />
@@ -103,8 +107,8 @@
               class="rename"
               value={chat.title}
               use:autofocus
-              onkeydown={(event) => onRenameKey(event, chat.id)}
-              onblur={() => setRenaming(null)}
+              onkeydown={onRenameKey}
+              onblur={(event) => commitRename(event, chat.id)}
             />
           </div>
         {:else}
@@ -230,7 +234,7 @@
     background: transparent;
     color: var(--text-secondary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--fs-ui);
     text-align: left;
     cursor: default;
   }
@@ -261,7 +265,7 @@
     background: transparent;
     color: var(--text);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--fs-ui);
   }
 
   .active-bar {
@@ -301,7 +305,7 @@
     background: transparent;
     color: var(--text-secondary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--fs-ui);
     cursor: default;
   }
 

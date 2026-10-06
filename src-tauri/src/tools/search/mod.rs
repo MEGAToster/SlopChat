@@ -2,6 +2,7 @@ mod brave;
 mod exa;
 mod firecrawl;
 mod hit;
+mod searxng;
 mod serper;
 mod tavily;
 pub mod allowance;
@@ -127,18 +128,28 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
     let mut only_exhausted = true;
 
     for name in &search.providers {
-        let key = match crate::providers::search_key(&settings, name) {
-            Ok(Some(key)) => key,
-            Ok(None) => {
-                only_exhausted = false;
-                reasons.push(format!("{name}: no key"));
-                continue;
+        if let Some(reason) = keyless_skip(name, &search) {
+            only_exhausted = false;
+            reasons.push(reason);
+            continue;
+        }
+
+        let key = if needs_key(name) {
+            match crate::providers::search_key(&settings, name) {
+                Ok(Some(key)) => key,
+                Ok(None) => {
+                    only_exhausted = false;
+                    reasons.push(format!("{name}: no key"));
+                    continue;
+                }
+                Err(error) => {
+                    only_exhausted = false;
+                    reasons.push(format!("{name}: {error}"));
+                    continue;
+                }
             }
-            Err(error) => {
-                only_exhausted = false;
-                reasons.push(format!("{name}: {error}"));
-                continue;
-            }
+        } else {
+            String::new()
         };
 
         let limit = search.limits.get(name).cloned().unwrap_or_default();
@@ -187,8 +198,29 @@ async fn dispatch(
         "tavily" => tavily::search(query, n, ctx).await,
         "brave" => brave::search(query, n, ctx).await,
         "firecrawl" => firecrawl::search(query, n, ctx).await,
+        "searxng" => searxng::search(query, n, ctx).await,
         other => Err(SearchError::Failed(format!("unknown provider {other}"))),
     }
+}
+
+// Keyless providers carry their endpoint in settings instead of a key.
+fn needs_key(name: &str) -> bool {
+    name != "searxng"
+}
+
+// Returns the reason a keyless provider cannot be used, if any.
+fn keyless_skip(name: &str, search: &SearchSettings) -> Option<String> {
+    if needs_key(name) {
+        return None;
+    }
+    let base_url = match name {
+        "searxng" => search.searxng.base_url.as_str(),
+        _ => "",
+    };
+    base_url
+        .trim()
+        .is_empty()
+        .then(|| format!("{name}: no base URL"))
 }
 
 fn format_output(
@@ -277,5 +309,25 @@ mod tests {
     fn extracts_a_reason_from_json_bodies() {
         assert_eq!(reason(r#"{"error":"plan limit reached"}"#).unwrap(), "plan limit reached");
         assert_eq!(reason("not json"), None);
+    }
+
+    #[test]
+    fn searxng_is_keyless_but_needs_a_base_url() {
+        assert!(!needs_key("searxng"));
+        assert!(needs_key("exa"));
+
+        let default = SearchSettings::default();
+        assert_eq!(
+            keyless_skip("searxng", &default).as_deref(),
+            Some("searxng: no base URL")
+        );
+
+        let configured = SearchSettings {
+            searxng: crate::config::SearxngSettings {
+                base_url: "http://localhost:8080".to_string(),
+            },
+            ..SearchSettings::default()
+        };
+        assert!(keyless_skip("searxng", &configured).is_none());
     }
 }

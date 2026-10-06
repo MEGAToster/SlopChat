@@ -93,6 +93,7 @@ export type Settings = {
   models: ModelConfig[];
   startup: Startup;
   resumeWithinMinutes: number;
+  pasteAsFileChars: number;
   theme: string;
   style: "auto" | ThemeStyles;
   font?: FontSettings;

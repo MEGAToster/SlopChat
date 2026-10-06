@@ -2,6 +2,7 @@ type PendingAttachment = {
   id: string;
   name: string;
   mime: string;
+  size: number;
   dataUrl: string;
 };
 
@@ -37,6 +38,7 @@ async function addFile(file: File): Promise<void> {
     id: crypto.randomUUID(),
     name: file.name,
     mime,
+    size: file.size,
     dataUrl,
   });
 }

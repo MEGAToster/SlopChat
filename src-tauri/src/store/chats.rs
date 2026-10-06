@@ -40,7 +40,7 @@ const COLUMNS: &str = "id, title, profile, pinned, created_at, updated_at, model
 pub fn list(conn: &Connection) -> Result<Vec<Chat>, String> {
     let mut statement = conn
         .prepare(&format!(
-            "SELECT {COLUMNS} FROM chats ORDER BY created_at ASC"
+            "SELECT {COLUMNS} FROM chats ORDER BY updated_at ASC, created_at ASC"
         ))
         .map_err(db_err)?;
     let chats = statement

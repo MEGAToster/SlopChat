@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatBinding } from "../lib/keymap/format";
   import { splitModelRef, shortModel } from "../lib/modelRef";
   import { profileColor } from "../lib/profileColor";
   import {
@@ -47,6 +48,10 @@
   const info = $derived(config ? reasoningInfo(config.model) : undefined);
   const reasoning = $derived(
     reasoningOverride() ?? config?.reasoning ?? info?.defaultEffort ?? "auto",
+  );
+  const reasoningKeys = $derived(formatBinding(keybinds.reasoning?.[0]));
+  const reasoningTitle = $derived(
+    `Reasoning effort: ${reasoning}${reasoningKeys ? ` (${reasoningKeys} to cycle)` : ""}`,
   );
 
   $effect(() => {
@@ -100,7 +105,7 @@
         <button
           type="button"
           class="effort"
-          title={`Reasoning effort: ${reasoning} (${keybinds.reasoning?.[0] ?? ""} to cycle)`}
+          title={reasoningTitle}
           onclick={() => config && void cycleReasoningFor(config.model)}
         >
           {reasoning}
@@ -129,6 +134,7 @@
         class="follow"
         class:on={view.tracking}
         title="Follow output / jump to present"
+        aria-label="Follow output"
         onclick={followOutput}
       >
         <Icon name="follow" size={13} />
@@ -140,6 +146,7 @@
         class="sticky"
         class:on={sticky}
         title="Sticky"
+        aria-label="Sticky"
         onclick={() => void toggleSticky()}
       >
         <Icon name="lock" size={13} />
@@ -151,6 +158,7 @@
         class="web"
         data-state={web}
         title={webTitle}
+        aria-label={webTitle}
         disabled={noTools}
         onclick={cycleWeb}
       >
@@ -172,7 +180,7 @@
     align-items: center;
     flex-wrap: nowrap;
     gap: var(--sp-2);
-    height: 36px;
+    height: var(--footer-height);
     font-size: var(--fs-sm);
   }
 
@@ -261,8 +269,12 @@
   /* color comes from the profile palette token inline */
 
   .name {
+    min-width: 0;
+    overflow: hidden;
     color: var(--text-secondary);
     font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .model {

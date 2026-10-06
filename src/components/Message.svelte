@@ -73,7 +73,10 @@
     {#if message.attachments?.length}
       <div class="attachments">
         {#each message.attachments as file (file.id)}
-          <span class="attachment"><Icon name="attach" size={12} />{basename(file.path)}</span>
+          <span class="attachment">
+            <Icon name="attach" size={12} />
+            <span class="attachment-name">{basename(file.path)}</span>
+          </span>
         {/each}
       </div>
     {/if}
@@ -100,11 +103,23 @@
       <div class="answer-bar">
         <span class="rule"></span>
         <div class="answer-actions">
-          <button type="button" class="action" title="Copy answer" onclick={() => void copyAnswer()}>
+          <button
+            type="button"
+            class="action"
+            title="Copy answer"
+            aria-label="Copy answer"
+            onclick={() => void copyAnswer()}
+          >
             <Icon name={copied ? "check" : "copy"} size={13} />
           </button>
           {#if last}
-            <button type="button" class="action" title="Retry answer" onclick={() => void retryLast()}>
+            <button
+              type="button"
+              class="action"
+              title="Retry answer"
+              aria-label="Retry answer"
+              onclick={() => void retryLast()}
+            >
               <Icon name="refresh" size={13} />
             </button>
           {/if}
@@ -204,6 +219,12 @@
     background: var(--surface-hover);
     color: var(--text-secondary);
     font-size: var(--fs-xs);
+  }
+
+  .attachment-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .source {

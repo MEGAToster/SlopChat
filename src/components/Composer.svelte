@@ -1,6 +1,9 @@
 <script lang="ts">
   import { setSuppressHide } from "../lib/ipc";
+  import { shouldPasteAsFile } from "../lib/paste";
   import { addFiles, pending, removePending } from "../lib/state/attachments.svelte";
+  import { settings } from "../lib/state/settings.svelte";
+  import { formatBytes } from "../lib/text";
   import Icon from "./Icon.svelte";
   import Kbd from "./Kbd.svelte";
 
@@ -54,11 +57,28 @@
     if (event.dataTransfer?.files.length) addFiles(event.dataTransfer.files);
   }
 
+  // Moving between the box and its textarea fires dragleave; only clear when
+  // the pointer actually leaves the box.
+  function onDragLeave(event: DragEvent) {
+    const next = event.relatedTarget as Node | null;
+    if (next && (event.currentTarget as HTMLElement).contains(next)) return;
+    dragging = false;
+  }
+
+  let pasteCounter = 0;
+
   function onPaste(event: ClipboardEvent) {
     const files = event.clipboardData?.files;
     if (files && files.length > 0) {
       event.preventDefault();
       addFiles(files);
+      return;
+    }
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    if (shouldPasteAsFile(text, settings().pasteAsFileChars)) {
+      event.preventDefault();
+      pasteCounter += 1;
+      addFiles([new File([text], `paste-${pasteCounter}.txt`, { type: "text/plain" })]);
     }
   }
 
@@ -83,7 +103,7 @@
     event.preventDefault();
     dragging = true;
   }}
-  ondragleave={() => (dragging = false)}
+  ondragleave={onDragLeave}
   ondrop={onDrop}
 >
   {#if editing}<span class="editing-label">Editing message</span>{/if}
@@ -98,6 +118,9 @@
             <Icon name="attach" size={12} />
           {/if}
           <span class="chip-name">{file.name}</span>
+          {#if !file.mime.startsWith("image/")}
+            <span class="chip-size">· {formatBytes(file.size)}</span>
+          {/if}
           <button type="button" aria-label="Remove" onclick={() => removePending(file.id)}>
             <Icon name="trash" size={12} />
           </button>
@@ -107,7 +130,7 @@
   {/if}
 
   <div class="row">
-    <button type="button" class="attach" title="Attach" onclick={() => void pick()}>
+    <button type="button" class="attach" title="Attach" aria-label="Attach" onclick={() => void pick()}>
       <Icon name="attach" size={15} />
     </button>
     <textarea
@@ -179,6 +202,11 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .chip-size {
+    flex: none;
+    color: var(--text-tertiary);
   }
 
   .chip button {

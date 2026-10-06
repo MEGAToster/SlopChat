@@ -7,6 +7,7 @@ mod generation;
 pub mod kinds;
 mod leak;
 mod prompt;
+mod routing;
 mod sse;
 mod stream;
 pub mod trace;

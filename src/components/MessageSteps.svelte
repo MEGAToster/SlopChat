@@ -80,6 +80,7 @@
   .step {
     color: var(--text-tertiary);
     font-size: var(--fs-sm);
+    overflow-wrap: anywhere;
   }
 
   .step.failed {

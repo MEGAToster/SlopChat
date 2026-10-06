@@ -1,6 +1,7 @@
 <script lang="ts">
   import Frame from "./Frame.svelte";
   import Icon from "./Icon.svelte";
+  import { clearNotice } from "../lib/state/ui.svelte";
 
   type ToastKind = "danger" | "warning" | "success" | "info";
 
@@ -23,14 +24,25 @@
     info: "spark",
   };
 
-  let { message, kind = "info" }: { message: string; kind?: ToastKind } = $props();
+  let {
+    message,
+    kind = "info",
+    pinned = false,
+  }: { message: string; kind?: ToastKind; pinned?: boolean } = $props();
 </script>
 
-<div class="toast" class:warning={kind === "warning"} class:success={kind === "success"}>
+<div
+  class="toast"
+  class:pinned
+  data-kind={kind}
+  role={kind === "danger" ? "alert" : "status"}
+  aria-live={kind === "danger" ? "assertive" : "polite"}
+  onclick={pinned ? undefined : clearNotice}
+>
   <Frame title={titles[kind]} tone={tones[kind]}>
     <span class="toast-body">
-      <span class="icon" class:info={kind === "info"}><Icon name={icons[kind]} size={14} /></span>
-      <span>{message}</span>
+      <span class="icon"><Icon name={icons[kind]} size={14} /></span>
+      <span class="text">{message}</span>
     </span>
   </Frame>
 </div>
@@ -39,7 +51,7 @@
   .toast {
     position: absolute;
     left: 50%;
-    bottom: calc(36px + var(--sp-3));
+    bottom: calc(var(--footer-height) + var(--sp-3));
     display: flex;
     align-items: center;
     gap: var(--sp-2);
@@ -52,7 +64,15 @@
     box-shadow: var(--shadow-overlay);
     color: var(--text-secondary);
     font-size: var(--fs-sm);
+    overflow-wrap: anywhere;
+    cursor: pointer;
     animation: rise-in var(--dur) var(--ease);
+  }
+
+  .toast.pinned {
+    top: var(--sp-3);
+    bottom: auto;
+    cursor: default;
   }
 
   /* A row even inside the TUI frame body, which is a column. */
@@ -64,21 +84,29 @@
     min-width: 0;
   }
 
+  .text {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+
   .icon {
     display: inline-flex;
     flex: none;
     color: var(--danger);
   }
 
-  .toast.warning .icon {
+  .toast[data-kind="warning"] .icon {
     color: var(--warning);
   }
 
-  .toast.success .icon {
+  .toast[data-kind="success"] .icon {
     color: var(--success);
   }
 
-  .icon.info {
+  .toast[data-kind="info"] .icon {
     color: var(--accent);
   }
 </style>

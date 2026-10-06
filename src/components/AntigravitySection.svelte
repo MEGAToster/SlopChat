@@ -6,13 +6,16 @@
 
   let status = $state<AntigravityStatus | null>(null);
   let loading = $state(false);
+  let error = $state(false);
 
   async function refresh(): Promise<void> {
     loading = true;
+    error = false;
     try {
       status = await antigravityStatus();
     } catch {
       status = null;
+      error = true;
     }
     loading = false;
   }
@@ -35,6 +38,8 @@
   <p class="line">
     Not installed — run `curl -fsSL https://antigravity.google/cli/install.sh | bash`
   </p>
+{:else if error}
+  <p class="muted">Could not check Antigravity.</p>
 {:else}
   <p class="muted">Checking…</p>
 {/if}
@@ -51,15 +56,6 @@
     align-items: center;
     justify-content: space-between;
     padding-right: var(--sp-2);
-  }
-
-  .section-title {
-    padding: var(--sp-1) var(--sp-2);
-    color: var(--text-secondary);
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 
   .line {

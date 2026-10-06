@@ -142,6 +142,14 @@ pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
     })
 }
 
+pub fn set_paste_as_file(app: &AppHandle, chars: u64) -> Result<(), String> {
+    patch(app, move |value| {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("pasteAsFileChars".to_string(), json!(chars));
+        }
+    })
+}
+
 pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String> {
     patch(app, move |value| set_search_flag(value, "readerFallback", enabled))
 }

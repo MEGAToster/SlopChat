@@ -3,7 +3,9 @@
   padding: var(--sp-2) var(--sp-3);
 }
 
+/* Block, not the shared flex column, so the prompt glyph stays on the text line. */
 [data-style="tui"] .message.user {
+  display: block;
   align-self: stretch;
   max-width: 100%;
   padding: 0;
@@ -119,7 +121,7 @@
 }
 
 [data-style="tui"] .footer .inner {
-  height: 22px;
+  height: var(--footer-height);
   gap: 4px;
   padding-inline: 0;
   font-size: var(--fs-xs);
@@ -206,6 +208,36 @@
 
 [data-style="tui"] .settings .frame .edge {
   display: flex;
+}
+
+/* The frame title already names the panel. */
+[data-style="tui"] .settings .head {
+  display: none;
+}
+
+/* --- Toast ------------------------------------------------------------ */
+/* The frame draws the box, so drop the toast's own box and let the tone
+   colour its edges and title. */
+[data-style="tui"] .toast {
+  max-width: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--bg-solid);
+  cursor: default;
+}
+
+[data-style="tui"] .toast .frame .edge,
+[data-style="tui"] .toast .frame .title {
+  color: var(--frame-tone);
+}
+
+[data-style="tui"] .toast .frame .body {
+  border-color: var(--frame-tone);
+}
+
+[data-style="tui"] .toast-body {
+  padding: var(--sp-1) var(--sp-2);
 }
 
 /* --- Kbd -------------------------------------------------------------- */

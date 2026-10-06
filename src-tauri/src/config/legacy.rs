@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Deserializer};
 
 use super::defaults;
-use super::settings::{ExaSettings, Limit, ModelConfig, SearchSettings, Settings};
+use super::settings::{
+    ExaSettings, Limit, ModelConfig, SearxngSettings, SearchSettings, Settings,
+};
 
 #[derive(Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -12,6 +14,7 @@ pub(super) struct RawSearchSettings {
     num_results: u32,
     limits: BTreeMap<String, Limit>,
     exa: Option<ExaSettings>,
+    searxng: Option<SearxngSettings>,
     reader_fallback: bool,
     snippet_chars: u32,
     monthly_budget: Option<f64>,
@@ -28,6 +31,7 @@ impl Default for RawSearchSettings {
             num_results: 5,
             limits: BTreeMap::new(),
             exa: None,
+            searxng: None,
             reader_fallback: true,
             snippet_chars: 1500,
             monthly_budget: None,
@@ -65,6 +69,7 @@ impl From<RawSearchSettings> for SearchSettings {
             num_results: raw.num_results,
             limits,
             exa,
+            searxng: raw.searxng.unwrap_or_default(),
             reader_fallback: raw.reader_fallback,
             snippet_chars: raw.snippet_chars,
         }
@@ -93,6 +98,7 @@ pub(crate) fn migrate_profiles(settings: &mut Settings) -> bool {
             web_search: overrides.web_search.take().unwrap_or_default(),
             reasoning: overrides.reasoning.take(),
             max_completion_tokens: ModelConfig::default().max_completion_tokens,
+            routing: None,
         });
         changed = true;
     }

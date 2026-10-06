@@ -52,6 +52,7 @@
     selectActive,
     setContext,
     uiNotice,
+    uiNoticeId,
     uiNoticeKind,
   } from "./lib/state/ui.svelte";
   import type { KeymapState } from "./lib/keymap/dispatch";
@@ -70,11 +71,12 @@
 
   $effect(() => {
     const error = chatError();
-    if (error) notify(error);
+    if (error) notify(error, "danger");
   });
 
   $effect(() => {
-    if (!uiNotice()) return;
+    // Read the id so an identical repeat also restarts the timer.
+    if (uiNoticeId() === 0 || !uiNotice()) return;
     const timer = setTimeout(clearNotice, 5000);
     return () => clearTimeout(timer);
   });
@@ -263,10 +265,11 @@
         />
       {/if}
 
-      {#if persistentError}
-        <Toast message={persistentError} kind="warning" />
-      {:else if uiNoticeText}
+      {#if uiNoticeText}
         <Toast message={uiNoticeText} kind={uiNoticeKind()} />
+      {/if}
+      {#if persistentError}
+        <Toast message={persistentError} kind="warning" pinned />
       {/if}
     </div>
   </div>

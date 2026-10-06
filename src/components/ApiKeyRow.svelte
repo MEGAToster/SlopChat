@@ -25,6 +25,8 @@
   let error = $state<string | null>(null);
   let busy = $state(false);
 
+  const inputId = $derived(`apikey-${provider}`);
+
   onMount(() => void refresh());
 
   async function refresh(): Promise<void> {
@@ -61,9 +63,10 @@
 </script>
 
 <div class="row" class:dim>
-  <span class="label">{label}</span>
+  <label class="label" for={inputId}>{label}</label>
   <span class="field">
     <input
+      id={inputId}
       class="control"
       type="password"
       placeholder={stored ? "•••••• saved" : placeholder}
@@ -73,7 +76,13 @@
       onkeydown={(event) => event.key === "Enter" && event.currentTarget.blur()}
     />
     {#if stored}
-      <button type="button" class="remove" title="Remove key" onclick={() => void remove()}>
+      <button
+        type="button"
+        class="remove"
+        title="Remove key"
+        aria-label="Remove key"
+        onclick={() => void remove()}
+      >
         <Icon name="trash" size={14} />
       </button>
     {/if}

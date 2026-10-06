@@ -28,6 +28,7 @@ const store = $state({
   modelOverride: null as string | null,
   noticeMessage: null as string | null,
   noticeKind: "info" as "danger" | "warning" | "success" | "info",
+  noticeId: 0,
 });
 
 export function notify(
@@ -36,6 +37,7 @@ export function notify(
 ): void {
   store.noticeKind = kind;
   store.noticeMessage = message;
+  store.noticeId += 1;
 }
 
 export function uiNotice(): string | null {
@@ -44,6 +46,11 @@ export function uiNotice(): string | null {
 
 export function uiNoticeKind(): "danger" | "warning" | "success" | "info" {
   return store.noticeKind;
+}
+
+// Changes on every notify so the auto-dismiss effect restarts for repeats.
+export function uiNoticeId(): number {
+  return store.noticeId;
 }
 
 export function clearNotice(): void {

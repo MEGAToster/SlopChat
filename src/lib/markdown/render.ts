@@ -87,6 +87,20 @@ const marked = new Marked(
     gfm: true,
     breaks: true,
     renderer: {
+      // Wrap tables so wide ones scroll instead of overflowing the transcript.
+      table(token: Tokens.Table): string {
+        let head = "";
+        for (const cell of token.header) head += this.tablecell(cell);
+        let rows = "";
+        for (const row of token.rows) {
+          let cells = "";
+          for (const cell of row) cells += this.tablecell(cell);
+          rows += this.tablerow({ text: cells });
+        }
+        const body = rows ? `<tbody>${rows}</tbody>` : "";
+        const table = `<table><thead>${this.tablerow({ text: head })}</thead>${body}</table>`;
+        return `<div class="table-wrap">${table}</div>`;
+      },
       code({ text, lang }): string {
         const language = (lang ?? "").split(/\s+/)[0];
         const lower = language.toLowerCase();

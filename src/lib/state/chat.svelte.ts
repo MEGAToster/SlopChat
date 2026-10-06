@@ -1,5 +1,6 @@
 import { appendMessage, getChat, readAttachment, rewindTo, saveAttachment } from "../ipc";
 import type { Attachment, ContentPart, NewAttachment, RequestMessage } from "../types";
+import { decodeBase64 } from "../bytes";
 import { basename } from "../text";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
@@ -110,7 +111,7 @@ async function messageContent(
     } else if (isText(attachment.mime)) {
       parts.push({
         type: "text",
-        text: `File: ${basename(attachment.path)}\n\n${decode(data)}`,
+        text: `File: ${basename(attachment.path)}\n\n${decodeBase64(data)}`,
       });
     }
   }
@@ -228,14 +229,6 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
 function isText(mime: string | null): boolean {
   if (!mime) return false;
   return mime.startsWith("text/") || mime === "application/json" || mime.endsWith("+json");
-}
-
-function decode(data: string): string {
-  try {
-    return atob(data);
-  } catch {
-    return "";
-  }
 }
 
 

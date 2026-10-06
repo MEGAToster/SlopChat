@@ -87,6 +87,7 @@ fn main() {
             commands::save_advanced,
             commands::set_startup,
             commands::set_resume_within,
+            commands::set_paste_as_file,
             commands::set_reader_fallback,
             commands::set_agent_log,
             commands::open_agent_log,

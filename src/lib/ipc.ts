@@ -181,6 +181,10 @@ export function setResumeWithin(minutes: number): Promise<void> {
   return invoke("set_resume_within", { minutes });
 }
 
+export function setPasteAsFile(chars: number): Promise<void> {
+  return invoke("set_paste_as_file", { chars });
+}
+
 export function setReaderFallback(enabled: boolean): Promise<void> {
   return invoke("set_reader_fallback", { enabled });
 }
