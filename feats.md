@@ -1,4 +1,1 @@
-- setting: convert pastes text to file (user specifies breaking size. 0 = never)
-- upload images from clipboard
-- deep research
-- openrouter advanced config options: max_tokens, cost range, tools, specify providers / blacklist providers, max output filter?
+- deep research: Off/Auto/Deep modes, SearXNG, deep budgets and cheap sub-agents shipped; Antigravity deep blocked (agy --sandbox denies read_url)

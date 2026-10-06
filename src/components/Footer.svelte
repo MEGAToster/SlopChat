@@ -15,7 +15,8 @@
     reasoningOverride,
   } from "../lib/state/reasoning.svelte";
   import { followOutput, view } from "../lib/state/view.svelte";
-  import { effectiveWebMode } from "../lib/webSearch";
+  import { effectiveWebMode, paidSearchWarning } from "../lib/webSearch";
+  import type { WebSearchMode } from "../lib/types";
   import { settings } from "../lib/state/settings.svelte";
   import {
     activeConfig,
@@ -23,6 +24,7 @@
     activeProfileIndex,
     editingId,
     keyContext,
+    notify,
     overrideActive,
   } from "../lib/state/ui.svelte";
   import { toggleSticky } from "../lib/ipc";
@@ -60,27 +62,31 @@
 
   const noTools = $derived(config?.toolCalling === false || antigravity);
 
-  const web = $derived.by(() => {
+  const web = $derived.by((): WebSearchMode => {
     if (antigravity) return "off";
-    const mode = effectiveWebMode(
-      config?.toolCalling !== false,
-      webOverride(),
-      config?.webSearch,
-    );
-    return mode === "off" ? "off" : mode === "always" ? "on" : "auto";
+    return effectiveWebMode(config?.toolCalling !== false, webOverride(), config?.webSearch);
   });
 
   const webTitle = $derived(
     antigravity
       ? "Antigravity uses its own tools"
       : config?.toolCalling === false
-      ? "Tool calling is off for this profile (toolCalling: false)"
-      : web === "off"
-        ? "Web search off for this chat"
-        : web === "on"
-          ? "Web search forced on for this chat"
-          : "Web search available (the model decides)",
+        ? "Tool calling is off for this profile (toolCalling: false)"
+        : web === "off"
+          ? "Web search off for this chat"
+          : web === "deep"
+            ? "Deep research on for this chat"
+            : "Web search available (the model decides)",
   );
+
+  function toggleWeb(): void {
+    cycleWeb(web);
+    // auto → deep turns deep research on; warn if it would cost money.
+    if (web === "auto") {
+      const warning = paidSearchWarning(settings().search);
+      if (warning) notify(warning, "warning");
+    }
+  }
 
   const mode = $derived.by(() => {
     if (isStreamingHere()) return { label: "STREAM", tone: "orange" };
@@ -160,7 +166,7 @@
         title={webTitle}
         aria-label={webTitle}
         disabled={noTools}
-        onclick={cycleWeb}
+        onclick={toggleWeb}
       >
         <Icon name={web === "off" ? "globe-off" : "globe"} size={13} />
         <Kbd binding={keybinds.webToggle?.[0]} />
@@ -232,12 +238,12 @@
     opacity: 1;
   }
 
-  .web[data-state="on"] {
+  .web[data-state="deep"] {
     color: var(--accent);
   }
 
-  .web[data-state="on"] :global(svg),
-  .web[data-state="on"] :global(.kbd) {
+  .web[data-state="deep"] :global(svg),
+  .web[data-state="deep"] :global(.kbd) {
     opacity: 1;
   }
 

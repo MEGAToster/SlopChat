@@ -30,6 +30,20 @@ impl Budget {
         }
     }
 
+    pub fn deep(advanced: &Advanced) -> Self {
+        Self {
+            max_rounds: advanced.deep.max_rounds.clamp(1, 30) as usize,
+            max_searches: advanced.deep.max_searches.clamp(1, 60) as usize,
+            max_fetches: advanced.deep.max_fetches.clamp(0, 100) as usize,
+            max_fetched_chars: advanced.deep.max_fetched_chars,
+            rounds: 0,
+            searches: 0,
+            fetches: 0,
+            fetched_chars: 0,
+            last_round_warned: false,
+        }
+    }
+
     // Allow-and-count: returns false (without counting) when the call exceeds a limit.
     pub fn allow(&mut self, call: &ToolCall) -> bool {
         let search = call.name == "web_search";
@@ -113,8 +127,24 @@ mod tests {
     }
 
     #[test]
-    fn allow_counts_and_refuses_past_maxima() {
-        let mut budget = budget();
+    fn deep_uses_its_own_budgets() {
+        let deep = Budget::deep(&Advanced::default());
+        assert_eq!(deep.max_rounds, 15);
+        assert_eq!(deep.max_searches, 30);
+        assert_eq!(deep.max_fetches, 40);
+        assert_eq!(deep.max_fetched_chars, 400_000);
+    }
+
+    #[test]
+    fn deep_refuses_a_search_past_its_limit() {
+        let mut deep = Budget::deep(&Advanced::default());
+        deep.searches = deep.max_searches;
+        assert!(!deep.allow(&call("web_search")));
+        assert!(deep.allow(&call("research")));
+    }
+
+    #[test]
+    fn allow_counts_and_refuses_past_maxima() {        let mut budget = budget();
         assert!(budget.allow(&call("web_search")));
         assert!(budget.allow(&call("web_search")));
         assert!(!budget.allow(&call("web_search")));

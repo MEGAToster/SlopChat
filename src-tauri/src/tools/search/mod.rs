@@ -166,6 +166,9 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
         match dispatch(name, &query, num_results, &backend).await {
             Ok(batch) => {
                 allowance::record(&context.app, name, batch.units, batch.cost_usd);
+                if context.deep && name != "searxng" {
+                    notify_paid(&context.app, name, reasons.first());
+                }
                 return Ok(format_output(batch, &context, name, &search));
             }
             Err(SearchError::Exhausted(message)) => {
@@ -282,6 +285,26 @@ fn notify_unavailable(app: &AppHandle) {
         return;
     }
     let _ = app.emit("search://unavailable", UNAVAILABLE);
+}
+
+static PAID_NOTIFIED: AtomicBool = AtomicBool::new(false);
+
+// Reset at the start of every turn so a Deep turn warns at most once.
+pub fn reset_paid_notice() {
+    PAID_NOTIFIED.store(false, Ordering::Relaxed);
+}
+
+fn notify_paid(app: &AppHandle, provider: &str, skipped: Option<&String>) {
+    if PAID_NOTIFIED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    let skipped = skipped.map(|value| format!(" ({value})")).unwrap_or_default();
+    let _ = app.emit(
+        "search://paid",
+        format!(
+            "Deep research used paid search ({provider}){skipped} — set up SearXNG in Settings → Web search."
+        ),
+    );
 }
 
 #[cfg(test)]

@@ -62,11 +62,12 @@ each reason. Results are numbered across the turn (source counter carries into c
 
 ### Providers
 
-Ordered `exa → tavily → brave → firecrawl → serper`; on load, `serper` is forced last
-(`From<RawSearchSettings>`). Default free allowances (`config/defaults.rs`):
+Ordered `searxng → exa → tavily → brave → firecrawl → serper`. SearXNG is keyless and
+skipped until a base URL is set. Default free allowances (`config/defaults.rs`):
 
 | Provider | Default limit | Kinds |
 | --- | --- | --- |
+| searxng | — | keyless, self-hosted |
 | exa | `monthlyUsd: 10` | dollar budget |
 | tavily | `monthly: 1000` | request count |
 | brave | `monthlyUsd: 5` | dollar budget |
@@ -76,6 +77,19 @@ Ordered `exa → tavily → brave → firecrawl → serper`; on load, `serper` i
 Providers are **fallbacks only**. Allowance tracking is best-effort; usage past a free
 allowance (pay-on-demand) will be charged by the provider — see the README web-search
 billing section.
+
+### SearXNG
+
+Set the instance URL in Settings → Web search (stored as `search.searxng.baseUrl`). Public
+instances usually disable the JSON API, so run your own:
+
+```sh
+docker run -d -p 8080:8080 searxng/searxng
+```
+
+Then add `json` to `search.formats` in the instance's `settings.yml`. A non-JSON or `403`
+response surfaces as `SearXNG JSON output is disabled — add json to search.formats in
+settings.yml`. SearXNG is free, so keep it first to research without paid search.
 
 ## web_fetch
 

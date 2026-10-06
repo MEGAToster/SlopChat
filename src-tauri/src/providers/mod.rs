@@ -77,8 +77,6 @@ pub struct ChatRequest {
     #[serde(default)]
     pub web_search: WebSearchMode,
     #[serde(default)]
-    pub web_toggle: bool,
-    #[serde(default)]
     pub reasoning: Option<String>,
     #[serde(default)]
     pub fallback: Option<String>,

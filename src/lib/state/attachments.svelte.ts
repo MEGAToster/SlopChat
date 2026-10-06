@@ -36,11 +36,18 @@ async function addFile(file: File): Promise<void> {
 
   state.items.push({
     id: crypto.randomUUID(),
-    name: file.name,
+    name: file.name || pastedName(mime),
     mime,
     size: file.size,
     dataUrl,
   });
+}
+
+// Clipboard images often arrive unnamed; the backend derives the saved
+// attachment's extension from the name, so give it one.
+function pastedName(mime: string): string {
+  const ext = mime.startsWith("image/") ? mime.slice("image/".length) : "bin";
+  return `pasted-${Date.now()}.${ext}`;
 }
 
 function readAsDataUrl(file: File): Promise<string> {

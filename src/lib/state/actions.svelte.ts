@@ -5,12 +5,14 @@ import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import { regenerate, stop, submit } from "./chat.svelte";
 import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
-import { chatState, cycleWeb, lastUserMessage, reportError } from "./chatStore.svelte";
+import { chatState, cycleWeb, lastUserMessage, reportError, webOverride } from "./chatStore.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
 import { openPanel } from "./settingsPanel.svelte";
+import { settings } from "./settings.svelte";
 import { followOutput } from "./view.svelte";
 import { cycleReasoningFor } from "./reasoning.svelte";
+import { effectiveWebMode, paidSearchWarning } from "../webSearch";
 import {
   activeConfig,
   beginEdit,
@@ -42,6 +44,14 @@ type TextRef = {
 export function createActions(text: TextRef) {
   const overlays = createOverlays();
 
+  // Deep research is meant to run on free SearXNG; warn once per trigger when
+  // it would actually spend paid search credits.
+  function warnPaidSearch(model: string): void {
+    if (model.startsWith("antigravity/")) return;
+    const warning = paidSearchWarning(settings().search);
+    if (warning) notify(warning, "warning");
+  }
+
   async function handleSend(): Promise<void> {
     if (chatState.sending) {
       notify("Still answering — Ctrl+Q to stop", "info");
@@ -53,6 +63,7 @@ export function createActions(text: TextRef) {
       reportError("No profile configured in settings.json");
       return;
     }
+    if (options.webSearch === "deep") warnPaidSearch(options.model);
 
     const editing = editingId();
     const value = text.get();
@@ -132,9 +143,15 @@ export function createActions(text: TextRef) {
       case "sticky":
         void toggleSticky();
         break;
-      case "webToggle":
-        if (activeConfig()?.toolCalling !== false) cycleWeb();
+      case "webToggle": {
+        const config = activeConfig();
+        if (config?.toolCalling === false) break;
+        const mode = effectiveWebMode(true, webOverride(), config?.webSearch);
+        cycleWeb(mode);
+        // auto → deep is the one step that turns deep research on.
+        if (mode === "auto") warnPaidSearch(config?.model ?? "");
         break;
+      }
       case "reasoning": {
         const config = activeConfig();
         if (config) void cycleReasoningFor(config.model);

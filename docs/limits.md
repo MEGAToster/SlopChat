@@ -27,6 +27,26 @@ can push the total over.
 For the Antigravity CLI (`agy`), `maxTurnSecs` also sets `--print-timeout`, and the process is
 hard-killed 10 s later. See [[antigravity]].
 
+### Deep research
+
+A Deep turn (`webSearch: "deep"`) uses `Advanced.deep` (`DeepSettings`) instead of the caps
+above, plus a longer turn:
+
+| Setting | Default | Clamp | Effect |
+| --- | --- | --- | --- |
+| `deep.maxRounds` | 15 | 1–30 | Model↔tool rounds |
+| `deep.maxSearches` | 30 | 1–60 | `web_search` calls |
+| `deep.maxFetches` | 40 | 0–100 | `web_fetch` calls |
+| `deep.maxFetchedChars` | 400000 | — | Total fetched characters |
+| `deep.maxTurnSecs` | 900 | 30–3600 | Whole-turn deadline |
+
+`Budget::deep` reads these and `agent::run_turn` swaps the budget, guidance and timeout by
+mode. Deep sub-agents share one such budget and one source counter (`subagentModel`); if it is
+unset the main model searches directly. Antigravity is excluded from sub-agents.
+
+When a Deep turn falls back to a paid search provider, `search://paid` fires once per turn so
+the UI can warn that SearXNG is not configured/first.
+
 ## Model limits
 
 | Setting (per model) | Default | Effect |
@@ -34,8 +54,27 @@ hard-killed 10 s later. See [[antigravity]].
 | `temperature` | `None` | Tool turns default to `0.3` when unset; ignored for reasoning models |
 | `maxCompletionTokens` | `Some(8192)` | Sent as `max_completion_tokens` to OpenRouter |
 | `toolCalling` | `true` | Master switch for tools |
-| `webSearch` | `Auto` | `Off` / `Auto` / `Always` |
+| `webSearch` | `Auto` | `Off` / `Auto` / `Deep` |
 | `tools` | `[]` | Extra tool names for the model |
+
+## OpenRouter routing
+
+A model can carry `routing` hints (OpenRouter only; other providers ignore them). They are
+sent inside the request's `provider` object and merged with `require_parameters: true`, which
+tool turns already set. Empty fields are omitted. Editable in the model editor (Routing) or by
+hand in `models.json`:
+
+| Field | Type | Effect |
+| --- | --- | --- |
+| `order` | `string[]` | Preferred providers, in order |
+| `only` | `string[]` | Allow-list; no other provider is used |
+| `ignore` | `string[]` | Deny-list of providers |
+| `allowFallbacks` | `bool` | Whether OpenRouter may fall back to other providers |
+| `sort` | `price` \| `throughput` \| `latency` | Provider ordering objective |
+| `maxPrice.prompt` / `maxPrice.completion` | `number` | Max USD per 1M tokens on each side |
+
+`providers/routing.rs` performs the merge; `providers/agent/turn.rs` reads the hints from the
+registered model config (the IPC request does not carry them).
 
 ## Time model
 

@@ -13,6 +13,7 @@
     isSticky,
     onModelFallback,
     onPanelShown,
+    onSearchPaid,
     onSearchUnavailable,
     onStickyChanged,
     setPanelExpanded,
@@ -176,6 +177,7 @@
       }),
       onStickyChanged((value) => (sticky = value)),
       onSearchUnavailable((message) => notify(message, "warning")),
+      onSearchPaid((message) => notify(message, "warning")),
       onModelFallback((message) => notify(message, "warning")),
     ];
 

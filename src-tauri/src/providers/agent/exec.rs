@@ -8,12 +8,13 @@ use super::super::StreamEvent;
 use crate::config::ConfigState;
 use crate::tools::{self, ToolContext, ToolOutput};
 
-fn tool_context(app: &AppHandle, start_index: u32) -> ToolContext {
+fn tool_context(app: &AppHandle, start_index: u32, deep: bool) -> ToolContext {
     let settings = app.state::<ConfigState>().get();
     ToolContext {
         app: app.clone(),
         search: settings.search.clone(),
         start_index,
+        deep,
     }
 }
 
@@ -23,9 +24,10 @@ async fn call_tool(
     name: &str,
     args: Value,
     start_index: u32,
+    deep: bool,
     cancel: &Cancel,
 ) -> Option<Result<ToolOutput, String>> {
-    let context = tool_context(app, start_index);
+    let context = tool_context(app, start_index, deep);
     tokio::select! {
         _ = cancel.cancelled() => None,
         result = tools::run(name, args, context) => Some(result),
@@ -36,9 +38,10 @@ pub(super) async fn execute_tool(
     app: &AppHandle,
     call: &ToolCall,
     start_index: u32,
+    deep: bool,
     cancel: &Cancel,
 ) -> ToolOutput {
-    match call_tool(app, &call.name, parse_args(&call.arguments), start_index, cancel).await {
+    match call_tool(app, &call.name, parse_args(&call.arguments), start_index, deep, cancel).await {
         Some(Ok(output)) => output,
         Some(Err(error)) => ToolOutput {
             content: format!("error: {error}"),
@@ -59,6 +62,7 @@ pub(super) async fn run_web_search(
     app: &AppHandle,
     query: &str,
     start_index: u32,
+    deep: bool,
     channel: &Channel<StreamEvent>,
     cancel: &Cancel,
 ) -> (String, f64, u32) {
@@ -70,7 +74,7 @@ pub(super) async fn run_web_search(
         args: args.clone(),
     });
 
-    match call_tool(app, "web_search", args, start_index, cancel).await {
+    match call_tool(app, "web_search", args, start_index, deep, cancel).await {
         Some(Ok(output)) => {
             let count = output.sources.len() as u32;
             let _ = channel.send(StreamEvent::ToolResult {

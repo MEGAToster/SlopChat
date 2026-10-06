@@ -89,6 +89,7 @@ fn main() {
             commands::set_resume_within,
             commands::set_paste_as_file,
             commands::set_reader_fallback,
+            commands::set_searxng_url,
             commands::set_agent_log,
             commands::open_agent_log,
             commands::save_window,

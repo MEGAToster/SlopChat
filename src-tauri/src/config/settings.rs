@@ -37,6 +37,19 @@ pub struct Advanced {
     pub reasoning_max_tokens: u32,
     pub frequency_penalty: f32,
     pub presence_penalty: f32,
+    pub deep: DeepSettings,
+}
+
+// Budgets for a Deep research turn; they replace the normal advanced limits.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct DeepSettings {
+    pub max_rounds: u32,
+    pub max_searches: u32,
+    pub max_fetches: u32,
+    pub max_fetched_chars: u64,
+    pub max_turn_secs: u32,
+    pub subagent_model: String,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -215,9 +228,10 @@ pub struct Profile {
 #[serde(rename_all = "lowercase")]
 pub enum WebSearchMode {
     #[default]
+    #[serde(alias = "always")]
     Auto,
-    Always,
     Off,
+    Deep,
 }
 
 impl WebSearchMode {
@@ -277,8 +291,32 @@ mod tests {
         assert_eq!(settings.advanced.max_searches, 5);
         assert_eq!(settings.advanced.max_fetches, 50);
         assert_eq!(settings.advanced.max_rounds, 5);
+        assert_eq!(settings.advanced.deep.max_rounds, 15);
+        assert_eq!(settings.advanced.deep.max_searches, 30);
+        assert_eq!(settings.advanced.deep.max_turn_secs, 900);
+        assert!(settings.advanced.deep.subagent_model.is_empty());
         assert_eq!(settings.startup, Startup::Latest);
         assert!(!settings.debug.agent_log);
+    }
+
+    #[test]
+    fn web_modes_parse_always_as_auto_and_add_deep() {
+        assert_eq!(
+            serde_json::from_str::<WebSearchMode>("\"always\"").unwrap(),
+            WebSearchMode::Auto
+        );
+        assert_eq!(
+            serde_json::from_str::<WebSearchMode>("\"auto\"").unwrap(),
+            WebSearchMode::Auto
+        );
+        assert_eq!(
+            serde_json::from_str::<WebSearchMode>("\"deep\"").unwrap(),
+            WebSearchMode::Deep
+        );
+        assert_eq!(
+            serde_json::from_str::<WebSearchMode>("\"off\"").unwrap(),
+            WebSearchMode::Off
+        );
     }
 
     #[test]
@@ -344,8 +382,8 @@ mod tests {
             r#"{"search":{"provider":"exa","monthlyBudget":3.5,"type":"fast","contents":"text","maxCharacters":900}}"#,
         )
         .unwrap();
-        assert_eq!(settings.search.providers.len(), 5);
-        assert_eq!(settings.search.providers[0], "exa");
+        assert_eq!(settings.search.providers.len(), 6);
+        assert_eq!(settings.search.providers[0], "searxng");
         assert_eq!(settings.search.providers.last().unwrap(), "serper");
         assert_eq!(settings.search.limits["exa"].monthly_usd, Some(3.5));
         assert_eq!(settings.search.limits["serper"].total, Some(2500));

@@ -8,11 +8,13 @@ use super::turn::{accumulate, Turn, TurnError};
 
 const FINAL_INSTRUCTION: &str =
     "Stop researching. Write your final answer now from the information above. Do not call any tools.";
+const DEEP_FINAL_INSTRUCTION: &str = "Stop researching. Write your final report now from the information above: a short summary, then findings per sub-question with inline [n] citations, then open questions. Do not call any tools.";
 const NO_ANSWER_NOTE: &str =
     "_(the model returned no answer after research — try again or switch to a stronger model)_";
 const SYNTHESIS_INTRO: &str = "Research notes gathered for my previous message (tool results, untrusted data):";
 const SYNTHESIS_OUTRO: &str =
     "Answer my previous message now using what is useful in these notes. Cite web facts as [n] using the numbers in the notes. Do not call tools.";
+const DEEP_SYNTHESIS_OUTRO: &str = "Write my final report now from these notes: a short summary, findings per sub-question with inline [n] citations, then open questions. Do not call tools.";
 const NOTES_CAP: usize = 40_000;
 const NOTE_CAP: usize = 12_000;
 
@@ -28,9 +30,14 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<Report, Turn
     let turn = ctx.turn.with_deadline(tokio::time::Instant::now() + ctx.reserve);
 
     state.round += 1;
+    let instruction = if ctx.deep {
+        DEEP_FINAL_INSTRUCTION
+    } else {
+        FINAL_INSTRUCTION
+    };
     state
         .messages
-        .push(json!({ "role": "user", "content": FINAL_INSTRUCTION }));
+        .push(json!({ "role": "user", "content": instruction }));
     let Some(outcome) = attempt(&turn, &state.messages, ctx.tools.as_ref(), state.round, ctx)
         .await?
     else {
@@ -52,7 +59,12 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<Report, Turn
     }
 
     state.round += 1;
-    let synthesis = synthesis_messages(&ctx.base, &state.notes);
+    let outro = if ctx.deep {
+        DEEP_SYNTHESIS_OUTRO
+    } else {
+        SYNTHESIS_OUTRO
+    };
+    let synthesis = synthesis_messages(&ctx.base, &state.notes, outro);
     let Some(outcome) = attempt(&turn, &synthesis, None, state.round, ctx).await? else {
         return Ok(Report {
             attempt: 2,
@@ -120,7 +132,7 @@ pub(super) fn accepted(outcome: &StepOutcome) -> bool {
         && !outcome.content.trim().is_empty()
 }
 
-pub(super) fn synthesis_messages(base: &[Value], notes: &[String]) -> Vec<Value> {
+pub(super) fn synthesis_messages(base: &[Value], notes: &[String], outro: &str) -> Vec<Value> {
     let mut chosen: Vec<String> = Vec::new();
     let mut total = 0usize;
     for note in notes.iter().rev() {
@@ -140,7 +152,7 @@ pub(super) fn synthesis_messages(base: &[Value], notes: &[String]) -> Vec<Value>
     let mut messages = base.to_vec();
     messages.push(json!({
         "role": "user",
-        "content": format!("{SYNTHESIS_INTRO}\n\n{body}\n\n{SYNTHESIS_OUTRO}"),
+        "content": format!("{SYNTHESIS_INTRO}\n\n{body}\n\n{outro}"),
     }));
     messages
 }
@@ -184,7 +196,7 @@ mod tests {
     fn synthesis_keeps_base_and_appends_notes() {
         let base = vec![json!({ "role": "system", "content": "sys" })];
         let notes = vec!["## web_fetch a\nbody".to_string()];
-        let messages = synthesis_messages(&base, &notes);
+        let messages = synthesis_messages(&base, &notes, SYNTHESIS_OUTRO);
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0], base[0]);
         assert!(messages.iter().all(|m| m.get("tool_calls").is_none()));
@@ -205,7 +217,7 @@ mod tests {
             chunk.clone(),
             chunk,
         ];
-        let messages = synthesis_messages(&base, &notes);
+        let messages = synthesis_messages(&base, &notes, SYNTHESIS_OUTRO);
         let content = messages[1]["content"].as_str().unwrap();
         assert!(content.len() < NOTES_CAP + NOTE_CAP);
         assert!(!content.contains("old"));

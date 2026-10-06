@@ -7,6 +7,7 @@ use crate::tools::ToolOutput;
 use super::budget::Budget;
 use super::events::{emit_call, is_fetch, note, send_result, trace_result};
 use super::exec::execute_tool;
+use super::subagent;
 use super::instructions::{
     stop_hint, wrap_up_message, LAST_ROUND_NOTICE, LEAK_NOTE, LENGTH_NOTE,
 };
@@ -117,6 +118,7 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<(), TurnErro
         // A round is usually one search or a batch of page fetches; fetches are
         // independent, so run them together (max 3 in flight).
         if calls.len() > 1 && calls.iter().all(is_fetch) {
+            let deep = ctx.deep;
             for chunk in calls.chunks(3) {
                 let mut handles = Vec::new();
                 for call in chunk {
@@ -136,7 +138,7 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<(), TurnErro
                     handles.push((
                         owned,
                         tauri::async_runtime::spawn(async move {
-                            execute_tool(&worker, &task_call, 0, &stop).await
+                            execute_tool(&worker, &task_call, 0, deep, &stop).await
                         }),
                     ));
                 }
@@ -170,7 +172,22 @@ pub(super) async fn run(ctx: &Ctx<'_>, state: &mut State) -> Result<(), TurnErro
                     "call": { "name": call.name, "args": parse_args(&call.arguments) },
                 }));
 
-                let result = execute_tool(ctx.app, call, state.source_counter, ctx.cancel).await;
+                let result = if call.name == "research" {
+                    match ctx.research.as_ref() {
+                        Some(research) => {
+                            let question = subagent::question(&call.arguments);
+                            subagent::research(ctx.app, research, &question, ctx.cancel).await
+                        }
+                        None => ToolOutput {
+                            content: "error: research is not available".to_string(),
+                            summary: "research unavailable".to_string(),
+                            sources: Vec::new(),
+                            cost: 0.0,
+                        },
+                    }
+                } else {
+                    execute_tool(ctx.app, call, state.source_counter, ctx.deep, ctx.cancel).await
+                };
                 if ctx.cancel.is_cancelled() {
                     return Ok(());
                 }

@@ -282,6 +282,11 @@ pub fn set_reader_fallback(app: AppHandle, enabled: bool) -> Result<(), String> 
 }
 
 #[tauri::command(async)]
+pub fn set_searxng_url(app: AppHandle, url: String) -> Result<(), String> {
+    config::set_searxng_base_url(&app, &url)
+}
+
+#[tauri::command(async)]
 pub fn set_agent_log(app: AppHandle, enabled: bool) -> Result<(), String> {
     config::set_agent_log(&app, enabled)
 }

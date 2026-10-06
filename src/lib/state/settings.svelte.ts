@@ -12,7 +12,11 @@ const DEFAULT_SETTINGS: Settings = {
   pasteAsFileChars: 0,
   theme: "default-dark",
   style: "auto",
-  search: { readerFallback: true },
+  search: {
+    providers: ["searxng", "exa", "tavily", "brave", "firecrawl", "serper"],
+    readerFallback: true,
+    searxng: { baseUrl: "" },
+  },
   advanced: {
     maxSearches: 5,
     maxFetches: 50,
@@ -23,6 +27,14 @@ const DEFAULT_SETTINGS: Settings = {
     reasoningMaxTokens: 0,
     frequencyPenalty: 0.2,
     presencePenalty: 0.2,
+    deep: {
+      maxRounds: 15,
+      maxSearches: 30,
+      maxFetches: 40,
+      maxFetchedChars: 400000,
+      maxTurnSecs: 900,
+      subagentModel: "",
+    },
   },
   debug: { agentLog: false },
   window: { compactWidth: 680, compactHeight: 480, expandedScreenRatio: 0.7 },

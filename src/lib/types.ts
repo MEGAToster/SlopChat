@@ -32,6 +32,22 @@ export type ModelConfig = {
   webSearch?: WebSearchMode;
   reasoning?: string;
   maxCompletionTokens?: number;
+  routing?: Routing;
+};
+
+// OpenRouter provider-routing hints; other providers ignore them.
+export type MaxPrice = {
+  prompt?: number;
+  completion?: number;
+};
+
+export type Routing = {
+  order?: string[];
+  only?: string[];
+  ignore?: string[];
+  allowFallbacks?: boolean;
+  sort?: string;
+  maxPrice?: MaxPrice;
 };
 
 export type ProfileOverrides = {
@@ -68,17 +84,29 @@ export type Advanced = {
   reasoningMaxTokens: number;
   frequencyPenalty: number;
   presencePenalty: number;
+  deep: DeepSettings;
 };
 
-type SearchSettings = {
+export type DeepSettings = {
+  maxRounds: number;
+  maxSearches: number;
+  maxFetches: number;
+  maxFetchedChars: number;
+  maxTurnSecs: number;
+  subagentModel: string;
+};
+
+export type SearchSettings = {
+  providers: string[];
   readerFallback: boolean;
+  searxng: { baseUrl: string };
 };
 
 type DebugSettings = {
   agentLog: boolean;
 };
 
-export type WebOverride = "on" | "off";
+export type WebOverride = "off" | "auto" | "deep";
 
 export type WindowConfig = {
   compactWidth: number;
@@ -125,7 +153,7 @@ export type ToolStep = {
   note?: string;
 };
 
-export type WebSearchMode = "auto" | "always" | "off";
+export type WebSearchMode = "auto" | "deep" | "off";
 
 export type StreamEvent =
   | { type: "delta"; content: string; round: number }

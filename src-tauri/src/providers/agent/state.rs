@@ -18,6 +18,8 @@ pub(super) struct Ctx<'a> {
     pub tools: Option<Value>,
     pub tool_names: Vec<String>,
     pub forced: bool,
+    pub deep: bool,
+    pub research: Option<super::subagent::Research>,
     pub reserve: Duration,
     pub turn_id: String,
     pub channel: &'a Channel<StreamEvent>,

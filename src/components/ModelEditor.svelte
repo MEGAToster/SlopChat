@@ -1,9 +1,11 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import type { ModelConfig, WebSearchMode } from "../lib/types";
+  import type { ModelConfig, Routing, WebSearchMode } from "../lib/types";
   import { composeModelRef, MODEL_TAGS, splitModelRef } from "../lib/modelRef";
+  import { hasRouting } from "../lib/routing";
   import { REASONING_LEVELS } from "../lib/reasoningLevels";
+  import RoutingEditor from "./RoutingEditor.svelte";
 
   let {
     providers,
@@ -22,9 +24,9 @@
   } = $props();
 
   const WEB_MODES: { value: WebSearchMode; label: string }[] = [
-    { value: "auto", label: "auto" },
-    { value: "always", label: "always" },
     { value: "off", label: "off" },
+    { value: "auto", label: "auto" },
+    { value: "deep", label: "deep" },
   ];
 
   const MODEL_PLACEHOLDERS: Record<string, string> = {
@@ -55,6 +57,7 @@
   let toolCalling = $state(start.toolCalling !== false);
   let webSearch = $state<WebSearchMode>(start.webSearch ?? "auto");
   let tools = $state(new Set(start.tools ?? []));
+  let routing = $state<Routing>(start.routing ?? {});
 
   const composed = $derived(composeModelRef(provider, modelId, tag));
   const isAntigravity = $derived(provider === "antigravity");
@@ -85,6 +88,7 @@
         webSearch: isAntigravity ? undefined : webSearch,
         reasoning: isAntigravity ? undefined : reasoning || undefined,
         maxCompletionTokens: isAntigravity ? undefined : maxTokens.trim() ? Number(maxTokens) : undefined,
+        routing: !isAntigravity && hasRouting(routing) ? routing : undefined,
       },
       previous,
     );
@@ -113,6 +117,7 @@
         {#each MODEL_TAGS as option (option)}<option value={option}>{option || "none"}</option>{/each}
       </select>
     </label>
+    <RoutingEditor value={routing} onchange={(next) => (routing = next)} />
   {/if}
 
   <div class="row">

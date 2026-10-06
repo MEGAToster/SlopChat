@@ -5,12 +5,14 @@
     saveAdvanced,
     saveWindow,
     setAgentLog,
+    setPasteAsFile,
     setReaderFallback,
     setResumeWithin,
     setStartup,
   } from "../lib/ipc";
   import type { Advanced, Startup, WindowConfig } from "../lib/types";
   import { settings } from "../lib/state/settings.svelte";
+  import DeepSection from "./DeepSection.svelte";
 
   let advancedEl = $state<HTMLDetailsElement | null>(null);
 
@@ -108,6 +110,20 @@
       title="0 = no limit (always resume)"
       value={settings().resumeWithinMinutes}
       onchange={(event) => void setResumeWithin(clamp(event, 0, 100000))}
+    />
+  </label>
+
+  <label class="adv-row">
+    <span class="adv-label">
+      Convert pastes over <span class="adv-unit">(chars)</span>
+    </span>
+    <input
+      class="control"
+      type="number"
+      min="0"
+      title="0 = never (always keep pasted text inline)"
+      value={settings().pasteAsFileChars}
+      onchange={(event) => void setPasteAsFile(clamp(event, 0, 1000000))}
     />
   </label>
 
@@ -260,6 +276,8 @@
       onchange={(event) => saveLimits({ presencePenalty: clampFloat(event, 0, 2) })}
     />
   </label>
+
+  <DeepSection />
 
   <p class="muted">“On open” applies at launch and when the window is summoned with the keybind.</p>
 </details>

@@ -144,9 +144,9 @@
     <span class="label">Web search</span>
     <select class="control" bind:value={webSearch}>
       <option value="">{INHERIT}</option>
-      <option value="auto">auto</option>
-      <option value="always">always</option>
       <option value="off">off</option>
+      <option value="auto">auto</option>
+      <option value="deep">deep</option>
     </select>
   </label>
 

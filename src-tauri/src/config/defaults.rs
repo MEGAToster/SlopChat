@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use super::{
-    Advanced, DebugSettings, ExaSettings, Keybinds, Limit, ModelConfig, Profile, ProfileOverrides,
-    Provider, SearchSettings, SearxngSettings, Settings, Startup, WebSearchMode, WindowConfig,
+    Advanced, DebugSettings, DeepSettings, ExaSettings, Keybinds, Limit, ModelConfig, Profile,
+    ProfileOverrides, Provider, SearchSettings, SearxngSettings, Settings, Startup, WebSearchMode,
+    WindowConfig,
 };
 
 impl Default for Advanced {
@@ -17,6 +18,20 @@ impl Default for Advanced {
             reasoning_max_tokens: 0,
             frequency_penalty: 0.2,
             presence_penalty: 0.2,
+            deep: DeepSettings::default(),
+        }
+    }
+}
+
+impl Default for DeepSettings {
+    fn default() -> Self {
+        Self {
+            max_rounds: 15,
+            max_searches: 30,
+            max_fetches: 40,
+            max_fetched_chars: 400_000,
+            max_turn_secs: 900,
+            subagent_model: String::new(),
         }
     }
 }
@@ -63,7 +78,7 @@ impl Default for ExaSettings {
 }
 
 pub(super) fn default_search_providers() -> Vec<String> {
-    ["exa", "tavily", "brave", "firecrawl", "serper"]
+    ["searxng", "exa", "tavily", "brave", "firecrawl", "serper"]
         .iter()
         .map(|name| name.to_string())
         .collect()

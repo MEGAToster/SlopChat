@@ -189,6 +189,10 @@ export function setReaderFallback(enabled: boolean): Promise<void> {
   return invoke("set_reader_fallback", { enabled });
 }
 
+export function setSearxngUrl(url: string): Promise<void> {
+  return invoke("set_searxng_url", { url });
+}
+
 export function setAgentLog(enabled: boolean): Promise<void> {
   return invoke("set_agent_log", { enabled });
 }
@@ -219,6 +223,10 @@ export function searchUsage(): Promise<SearchProviderUsage[]> {
 
 export function onSearchUnavailable(handler: (message: string) => void): Promise<UnlistenFn> {
   return listen<string>("search://unavailable", (event) => handler(event.payload));
+}
+
+export function onSearchPaid(handler: (message: string) => void): Promise<UnlistenFn> {
+  return listen<string>("search://paid", (event) => handler(event.payload));
 }
 
 export function onModelFallback(handler: (message: string) => void): Promise<UnlistenFn> {

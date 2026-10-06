@@ -106,7 +106,7 @@ pub fn ensure_file() -> Result<(), String> {
 pub use entries::{remove_model, remove_profile, save_model, save_profile};
 pub use write::{
     save_advanced, save_window, set_agent_log, set_paste_as_file, set_reader_fallback,
-    set_resume_within, set_startup, set_style, set_theme,
+    set_resume_within, set_searxng_base_url, set_startup, set_style, set_theme,
 };
 
 pub fn load_user_themes() -> Vec<UserTheme> {

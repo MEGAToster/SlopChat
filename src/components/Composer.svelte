@@ -1,5 +1,6 @@
 <script lang="ts">
   import { setSuppressHide } from "../lib/ipc";
+  import { pastedFiles } from "../lib/clipboard";
   import { shouldPasteAsFile } from "../lib/paste";
   import { addFiles, pending, removePending } from "../lib/state/attachments.svelte";
   import { settings } from "../lib/state/settings.svelte";
@@ -68,13 +69,14 @@
   let pasteCounter = 0;
 
   function onPaste(event: ClipboardEvent) {
-    const files = event.clipboardData?.files;
-    if (files && files.length > 0) {
+    const clipboard = event.clipboardData;
+    const files = pastedFiles(clipboard);
+    if (files.length > 0) {
       event.preventDefault();
       addFiles(files);
       return;
     }
-    const text = event.clipboardData?.getData("text/plain") ?? "";
+    const text = clipboard?.getData("text/plain") ?? "";
     if (shouldPasteAsFile(text, settings().pasteAsFileChars)) {
       event.preventDefault();
       pasteCounter += 1;

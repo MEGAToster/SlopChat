@@ -66,12 +66,11 @@ Source: [`providers/agent.rs`](../src-tauri/src/providers/agent.rs).
 | Input | Effect |
 | --- | --- |
 | `tool_calling` | Master switch. Off ⇒ no tools at all, model answers from knowledge. |
-| `web_search` mode | `Off` disables web; `Auto`/`Always` enable it when tool calling is on. |
-| `web_toggle` | Per-message toggle; with `Always` it forces a first search. |
+| `web_search` mode | `Off` disables web; `Auto` enables it when tool calling is on; `Deep` also forces the first search and uses the deep budget/guidance. |
 | `tools` list | Extra tools from the model config; `web_search` is dropped when web is off. |
 | `web_enabled` | Adds `web_search` + `web_fetch` to the tool list. |
 | `supports` | `capabilities::supports(...)` — whether the model accepts tools. If false, the tool list is cleared. |
-| `forced` | `web_enabled && (mode == Always || web_toggle)`. With `supports=false` this triggers the pre-search. |
+| `forced` | `web_enabled && mode == Deep`. With `supports=false` this triggers the pre-search. |
 
 Web tools work even when the model lists no tools, because web search follows the mode and
 toggle rather than the `tools` list.
@@ -103,6 +102,22 @@ Budget line:
 
 Guidance is attached only when `supports && !tool_names.is_empty()`, so a plain chat model
 gets no web instructions.
+
+In a **Deep** turn, `DEEP_GUIDANCE` replaces `TOOL_GUIDANCE`: the model plans 3–6
+sub-questions, researches each, tracks what is still uncovered, and stops when covered or out
+of budget. The final pass then asks for a structured report (summary, findings per
+sub-question, open questions). Deep turns use their own budgets — see [[limits]].
+
+### Cheap sub-agents
+
+When `Advanced.deep.subagentModel` names a tool-capable model, a Deep turn offers the main
+model the `research(question)` tool **instead of** `web_search`/`web_fetch`
+(`RESEARCH_GUIDANCE`). Each call runs one headless sub-agent turn (`providers/agent/subagent.rs`)
+that searches and fetches, then returns dense notes with `[n]` citations. Sub-agents share one
+deep budget and one source counter, so citation numbers stay unique across them. If the
+sub-agent model is unset, unresolvable, not tool-capable, or `antigravity/*`, Deep falls back
+to the single loop. Sub-agent token usage is not added to the message usage; its search cost
+is.
 
 ## Injected messages
 

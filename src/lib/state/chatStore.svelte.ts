@@ -1,4 +1,15 @@
-import type { Attachment, Chat, SendRequest, Source, ToolStep, Usage, WebOverride } from "../types";
+import type {
+  Attachment,
+  Chat,
+  SendRequest,
+  Source,
+  ToolStep,
+  Usage,
+  WebOverride,
+  WebSearchMode,
+} from "../types";
+
+import { nextWebOverride } from "../webSearch";
 
 export type ChatMessage = {
   id?: string;
@@ -44,17 +55,12 @@ export function webOverride(): WebOverride | null {
   return id ? (chatState.webOverrides[id] ?? null) : chatState.webDraft;
 }
 
-// Cycle forced on → off → auto (follow the model/profile default).
-export function cycleWeb(): void {
-  const current = webOverride();
-  const next: WebOverride | null = current === "on" ? "off" : current === "off" ? null : "on";
+// Cycle off → auto → deep, based on the mode currently in effect.
+export function cycleWeb(current: WebSearchMode): void {
+  const next = nextWebOverride(current);
   const id = chatState.activeChatId;
-  if (id) {
-    if (next === null) delete chatState.webOverrides[id];
-    else chatState.webOverrides[id] = next;
-  } else {
-    chatState.webDraft = next;
-  }
+  if (id) chatState.webOverrides[id] = next;
+  else chatState.webDraft = next;
 }
 
 export function adoptWebDraft(chatId: string): void {

@@ -54,7 +54,9 @@ pub(super) fn note(call: &ToolCall, result: &ToolOutput) -> Option<String> {
             .unwrap_or("")
             .to_string()
     };
-    if call.name == "web_search" {
+    if call.name == "research" {
+        Some(format!("## research \"{}\"\n{}", text("question"), result.content))
+    } else if call.name == "web_search" {
         Some(format!("## web_search \"{}\"\n{}", text("query"), result.content))
     } else {
         Some(format!("## web_fetch {}\n{}", text("url"), result.content))

@@ -154,6 +154,22 @@ pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String>
     patch(app, move |value| set_search_flag(value, "readerFallback", enabled))
 }
 
+pub fn set_searxng_base_url(app: &AppHandle, url: &str) -> Result<(), String> {
+    let url = url.trim().to_string();
+    patch(app, move |value| {
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
+        let search = object.entry("search").or_insert_with(|| json!({}));
+        if let Some(search) = search.as_object_mut() {
+            let searxng = search.entry("searxng").or_insert_with(|| json!({}));
+            if let Some(searxng) = searxng.as_object_mut() {
+                searxng.insert("baseUrl".to_string(), json!(url));
+            }
+        }
+    })
+}
+
 // Creates the section when settings.json predates it, so a toggle always lands.
 fn set_search_flag(value: &mut Value, key: &str, enabled: bool) {
     let Some(object) = value.as_object_mut() else {

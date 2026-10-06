@@ -107,7 +107,12 @@ mod tests {
     #[tokio::test]
     async fn rejects_whatwg_authority_tricks() {
         assert!(resolve_target("http://127.0.0.1\\@evil.com").await.is_err());
-        assert!(resolve_target("http://evil.com\\@127.0.0.1").await.is_err());
+        // WHATWG treats the backslash as a path separator, so the host here is
+        // the public `evil.com` and the literal must never become the target.
+        // Skip when DNS is unavailable, where resolution fails instead.
+        if let Ok(target) = resolve_target("http://evil.com\\@127.0.0.1").await {
+            assert_eq!(target.host, "evil.com");
+        }
         assert!(resolve_target("http://0.0.0.0/").await.is_err());
     }
 

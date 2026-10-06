@@ -6,6 +6,7 @@ mod finalize;
 mod instructions;
 mod rounds;
 mod state;
+mod subagent;
 mod turn;
 
 use std::time::Duration;
@@ -20,7 +21,7 @@ use super::prompt::{build_messages, last_user_text, Guidance};
 use super::stream::Cancel;
 use super::trace::Ring;
 use super::{ModelRef, StreamEvent};
-use crate::config::{ConfigState, WebSearchMode};
+use crate::config::{ConfigState, Settings, WebSearchMode};
 use crate::tools;
 
 use budget::Budget;
@@ -104,9 +105,15 @@ async fn run_turn(
 
     let kind = Kind::resolve(&model.provider).map_err(TurnError::Failed)?;
     let settings = app.state::<ConfigState>().get();
+    crate::tools::search::reset_paid_notice();
     let turn_id = format!("{}-{}", request.chat_id, finalize::now_millis());
 
-    let max_turn_secs = settings.advanced.max_turn_secs.clamp(30, 3600);
+    let deep = request.web_search == WebSearchMode::Deep;
+    let max_turn_secs = if deep {
+        settings.advanced.deep.max_turn_secs.clamp(30, 3600)
+    } else {
+        settings.advanced.max_turn_secs.clamp(30, 3600)
+    };
     let reserve = Duration::from_secs((max_turn_secs / 4).clamp(15, 45) as u64);
     let inactivity = Duration::from_secs(settings.advanced.response_timeout_secs.clamp(5, 600) as u64);
     let turn_deadline = tokio::time::Instant::now() + Duration::from_secs(max_turn_secs as u64);
@@ -121,12 +128,11 @@ async fn run_turn(
         None
     };
 
-    // Tool calling is opt-in per profile; web search follows the mode and
-    // toggle, not the tools list, so it works even when no tools are listed.
+    // Tool calling is opt-in per profile; web search follows the mode, not the
+    // tools list, so it works even when no tools are listed.
     let tool_calling = request.tool_calling;
     let web_enabled = tool_calling && !request.web_search.is_off();
-    let forced =
-        web_enabled && (request.web_search == WebSearchMode::Always || request.web_toggle);
+    let forced = web_enabled && deep;
     let supports = if request.tools.is_empty() && !web_enabled {
         false
     } else {
@@ -143,7 +149,19 @@ async fn run_turn(
     } else {
         Vec::new()
     };
-    if web_enabled {
+    // With a sub-agent model, the main model plans and delegates; it is not
+    // offered the web tools itself.
+    let research = if deep && supports {
+        build_research(&settings).await
+    } else {
+        None
+    };
+    if research.is_some() {
+        tool_names.retain(|name| name == "research");
+        if !tool_names.iter().any(|name| name == "research") {
+            tool_names.push("research".to_string());
+        }
+    } else if web_enabled {
         for tool in ["web_search", "web_fetch"] {
             if !tool_names.iter().any(|name| name == tool) {
                 tool_names.push(tool.to_string());
@@ -151,12 +169,22 @@ async fn run_turn(
         }
     }
 
-    let guidance = (supports && !tool_names.is_empty()).then(|| Guidance {
-        max_searches: settings.advanced.max_searches.clamp(1, 20) as usize,
-        max_rounds: settings.advanced.max_rounds.clamp(1, 10) as usize,
+    let budget = if deep {
+        Budget::deep(&settings.advanced)
+    } else {
+        Budget::from_settings(&settings.advanced)
+    };
+    let guidance = (supports && !tool_names.is_empty()).then_some(Guidance {
+        max_searches: budget.max_searches,
+        max_rounds: budget.max_rounds,
+        deep,
+        research: research.is_some(),
     });
-    let web_offered =
-        (supports && tool_names.iter().any(|name| name == "web_search")) || (forced && !supports);
+    let web_offered = (supports
+        && tool_names
+            .iter()
+            .any(|name| name == "web_search" || name == "research"))
+        || (forced && !supports);
     let mut messages = build_messages(request, guidance, web_offered);
 
     let mut source_counter = 0u32;
@@ -166,7 +194,7 @@ async fn run_turn(
         if pre_search.is_none() {
             let query = last_user_text(request);
             let (content, cost, next) =
-                run_web_search(app, &query, source_counter, channel, cancel).await;
+                run_web_search(app, &query, source_counter, deep, channel, cancel).await;
             *pre_search = Some(PreSearch { content, cost, next });
         }
         let search = pre_search.as_ref().expect("pre-search set above");
@@ -237,6 +265,8 @@ async fn run_turn(
         tools: tools_value,
         tool_names,
         forced,
+        deep,
+        research,
         reserve,
         turn_id: turn_id.clone(),
         channel,
@@ -248,7 +278,7 @@ async fn run_turn(
     };
     let mut state = State {
         messages,
-        budget: Budget::from_settings(&settings.advanced),
+        budget,
         totals,
         notes: Vec::new(),
         ring: Ring::new(settings.debug.agent_log),
@@ -291,6 +321,39 @@ async fn run_turn(
     )
     .await;
     Ok(())
+}
+
+// Builds the shared sub-agent config only when `advanced.deep.subagentModel` is
+// set, resolvable, and capable of tool calling. Any failure falls back to the
+// single-loop Deep research.
+async fn build_research(settings: &Settings) -> Option<subagent::Research> {
+    let reference = settings.advanced.deep.subagent_model.trim();
+    if reference.is_empty() {
+        return None;
+    }
+    let parsed = ModelRef::parse(reference).ok()?;
+    if parsed.provider == super::antigravity::PROVIDER {
+        return None;
+    }
+    let kind = Kind::resolve(&parsed.provider).ok()?;
+    let key = if kind.needs_auth() {
+        Some(super::api_key(settings, kind.name()).ok().flatten()?)
+    } else {
+        None
+    };
+    if !capabilities::supports(kind, &parsed.model, settings, key.as_deref()).await {
+        return None;
+    }
+    Some(subagent::Research {
+        kind,
+        model: parsed.model,
+        key,
+        settings: settings.clone(),
+        budget: std::sync::Arc::new(tokio::sync::Mutex::new(Budget::deep(
+            &settings.advanced,
+        ))),
+        sources: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
+    })
 }
 
 fn antigravity_error(error: super::antigravity::exec::AgyError) -> TurnError {
