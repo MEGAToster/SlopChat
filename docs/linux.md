@@ -47,7 +47,8 @@ Geometry details:
   (the surface follows the widget allocation) and positions with a top margin from the
   active monitor's work area — 18% for compact, vertically centred when expanded.
 - **Keyboard**: `KeyboardMode::Exclusive`, so the composer receives keys while the panel
-  is shown.
+  is shown. While a native dialog (the file chooser) is open the surface drops to the
+  bottom layer with keyboard mode `None` so the dialog can take focus, then restores.
 - **Fallback**: `gtk_layer_is_supported()` is false on GNOME-on-Wayland and X11, so the
   panel stays a normal toplevel there. Use a float rule (see below).
 
@@ -75,6 +76,10 @@ registration is not surfaced on Wayland (`platform::is_wayland`), since it is ex
 
 ## Input quirks
 
+- WebKitGTK does not bridge the system clipboard into the DOM `clipboardData`, so paste
+  is read through a native command (`src-tauri/src/clipboard.rs`, `arboard`) when the
+  paste event carries no text. Text is inserted at the caret; a pasted image becomes an
+  attachment.
 - WebKitGTK reports Shift+Tab as `event.key === "Unidentified"`; `keymap/parse.ts` falls
   back to `event.code`/`keyCode` so the profile keybind still matches.
 - Native `<select>` controls pick up the GTK theme; `styles/base.css` disables the native
@@ -99,6 +104,7 @@ none`; i3 `for_window [class="Slopchat"] floating enable, border none`.
 ## Code map
 
 - [`src-tauri/src/panel/linux.rs`](../src-tauri/src/panel/linux.rs) — window, layer surface, geometry.
+- [`src-tauri/src/clipboard.rs`](../src-tauri/src/clipboard.rs) — native clipboard read for paste.
 - [`src-tauri/src/platform.rs`](../src-tauri/src/platform.rs) — Wayland detection, tray probe, log filter.
 - [`src-tauri/src/cli.rs`](../src-tauri/src/cli.rs) — CLI verbs.
 - [`scripts/install.sh`](../scripts/install.sh) — Linux build/install.

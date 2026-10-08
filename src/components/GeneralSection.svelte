@@ -121,7 +121,7 @@
       class="control"
       type="number"
       min="0"
-      title="0 = never (always keep pasted text inline)"
+      title="0 = never convert manually (very large pastes still attach automatically)"
       value={settings().pasteAsFileChars}
       onchange={(event) => void setPasteAsFile(clamp(event, 0, 1000000))}
     />

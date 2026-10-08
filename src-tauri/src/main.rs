@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod cli;
+mod clipboard;
 mod commands;
 mod config;
 mod panel;
@@ -70,6 +71,7 @@ fn main() {
             commands::rewind_to,
             commands::search_chats,
             commands::set_suppress_hide,
+            commands::read_clipboard,
             commands::save_attachment,
             commands::read_attachment,
             commands::list_models,

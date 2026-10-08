@@ -300,3 +300,8 @@ export type AntigravityStatus = {
   ok: boolean;
   note: string | null;
 };
+
+export type ClipboardContent = {
+  text: string | null;
+  image: { pngBase64: string } | null;
+};

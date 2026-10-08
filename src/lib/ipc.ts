@@ -6,6 +6,7 @@ import type {
   Attachment,
   Chat,
   ChatView,
+  ClipboardContent,
   ModelConfig,
   NewMessage,
   Profile,
@@ -215,6 +216,10 @@ export function setWindowStyle(scheme: string, vibrancy: string): Promise<void> 
 
 export function setSuppressHide(value: boolean): Promise<void> {
   return invoke("set_suppress_hide", { value });
+}
+
+export function readClipboard(): Promise<ClipboardContent> {
+  return invoke("read_clipboard");
 }
 
 export function searchUsage(): Promise<SearchProviderUsage[]> {

@@ -150,4 +150,7 @@ option {
   flex: 1;
   min-height: 0;
   max-height: none;
+  /* Fill the expanded window instead of the 760px reading column. */
+  max-width: none;
+  margin-inline: 0;
 }

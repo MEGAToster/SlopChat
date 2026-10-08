@@ -26,9 +26,11 @@ serde_json = { version = "1", features = ["preserve_order"] }
 tauri-nspanel = "2.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+arboard = { version = "3", features = ["wayland-data-control"] }
 glib = "0.18"
 gtk = "0.18"
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
+png = "0.18"
 
 [lints.clippy]
 too_many_arguments = "deny"

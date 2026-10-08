@@ -37,6 +37,10 @@ pub fn set_suppressed(app: &AppHandle, value: bool) {
     app.state::<PanelState>()
         .suppressed
         .store(value, Ordering::SeqCst);
+    // macOS reads the flag itself (it only hides on focus loss there); the Linux
+    // layer surface has to move out of the way of a native dialog explicitly.
+    #[cfg(target_os = "linux")]
+    apply_suppressed(app, value);
 }
 
 // Only macOS hides on focus loss; the suppression flag is unused elsewhere.

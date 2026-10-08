@@ -49,6 +49,32 @@ fn init_layer_shell(window: &tauri::WebviewWindow) {
     gtk_window.set_anchor(Edge::Top, true);
 }
 
+// A native file chooser is a normal window the compositor cannot focus while the
+// overlay layer holds an exclusive keyboard grab, so drop the surface below it
+// for the lifetime of the dialog and restore on release.
+#[cfg(target_os = "linux")]
+pub fn apply_suppressed(app: &AppHandle, suppressed: bool) {
+    use gtk_layer_shell::{KeyboardMode, Layer, LayerShell};
+
+    let Some(window) = app.get_webview_window(LABEL) else {
+        return;
+    };
+    let Ok(gtk_window) = window.gtk_window() else {
+        return;
+    };
+    if !gtk_window.is_layer_window() {
+        return;
+    }
+
+    if suppressed {
+        gtk_window.set_keyboard_mode(KeyboardMode::None);
+        gtk_window.set_layer(Layer::Bottom);
+    } else {
+        gtk_window.set_layer(Layer::Overlay);
+        gtk_window.set_keyboard_mode(KeyboardMode::Exclusive);
+    }
+}
+
 // Layer surfaces are placed by the compositor, so position is expressed as a
 // top margin. Returns false when the window is not a layer surface.
 #[cfg(target_os = "linux")]

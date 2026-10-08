@@ -133,7 +133,7 @@ impl Default for Settings {
             models: default_models(),
             startup: Startup::default(),
             resume_within_minutes: 10,
-            paste_as_file_chars: 0,
+            paste_as_file_chars: 10_000,
             theme: "default-dark".to_string(),
             style: "auto".to_string(),
             font: None,

@@ -160,6 +160,11 @@ pub fn set_suppress_hide(app: AppHandle, value: bool) {
 }
 
 #[tauri::command(async)]
+pub fn read_clipboard() -> Result<crate::clipboard::ClipboardContent, String> {
+    crate::clipboard::read()
+}
+
+#[tauri::command(async)]
 pub fn save_attachment(name: String, mime: String, data: String) -> Result<Attachment, String> {
     crate::store::attachments::save(&name, &mime, &data)
 }

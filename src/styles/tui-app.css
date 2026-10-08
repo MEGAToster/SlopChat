@@ -60,13 +60,26 @@
   color: var(--c-green);
 }
 
-[data-style="tui"] .composer-box .attach,
+/* The attach button stays visible: drag-and-drop is not discoverable enough to
+   be the only way to add a file in a keyboard-first theme. */
 [data-style="tui"] .composer-box .enter {
   display: none;
 }
 
-/* Expanded TUI: the frame spans the panel, so let the composer and status bar
-   fill it instead of the 760px reading column. */
+[data-style="tui"] .composer-box .attach {
+  align-self: flex-start;
+  color: var(--c-green);
+  font-family: var(--font-mono);
+}
+
+[data-style="tui"] .composer-box .attach:hover {
+  background: transparent;
+  color: var(--accent);
+}
+
+/* Expanded TUI: the frame spans the panel, so let the messages, composer and
+   status bar fill it instead of the 760px reading column. */
+[data-style="tui"] .panel.expanded .messages,
 [data-style="tui"] .panel.expanded .composer-box,
 [data-style="tui"] .panel.expanded .footer .inner {
   max-width: none;

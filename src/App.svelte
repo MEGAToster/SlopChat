@@ -192,7 +192,11 @@
     const active = document.activeElement;
     const inComposer =
       active instanceof HTMLTextAreaElement && active.closest(".composer-box") !== null;
-    const empty = inComposer ? active.value.trim().length === 0 : text.trim().length === 0;
+    // Avoid trim(): it copies the whole composer value on every keydown, which
+    // stalls once the text is large. The regex skips allocation and stops at the
+    // first non-space character.
+    const raw = inComposer ? active.value : text;
+    const empty = /^\s*$/.test(raw);
     return {
       composerEmpty: empty,
       chatHasMessages: messages().length > 0,

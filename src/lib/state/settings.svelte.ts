@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS: Settings = {
   models: [],
   startup: "latest",
   resumeWithinMinutes: 10,
-  pasteAsFileChars: 0,
+  pasteAsFileChars: 10_000,
   theme: "default-dark",
   style: "auto",
   search: {
