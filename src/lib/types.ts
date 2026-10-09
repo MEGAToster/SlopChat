@@ -102,7 +102,7 @@ export type DeepSettings = {
 export type SearchSettings = {
   providers: string[];
   readerFallback: boolean;
-  searxng: { baseUrl: string };
+  searxng: { baseUrl: string; minIntervalMs: number };
 };
 
 type DebugSettings = {

@@ -28,7 +28,7 @@ describe("nextWebOverride", () => {
 
 describe("paidSearchWarning", () => {
   function search(baseUrl: string, providers: string[]) {
-    return { providers, readerFallback: true, searxng: { baseUrl } };
+    return { providers, readerFallback: true, searxng: { baseUrl, minIntervalMs: 700 } };
   }
 
   it("is null when SearXNG is configured and first", () => {

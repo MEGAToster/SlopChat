@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS: Settings = {
   search: {
     providers: ["searxng", "exa", "tavily", "brave", "firecrawl", "serper"],
     readerFallback: true,
-    searxng: { baseUrl: "" },
+    searxng: { baseUrl: "", minIntervalMs: 700 },
   },
   advanced: {
     maxSearches: 5,

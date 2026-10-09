@@ -25,21 +25,34 @@
     }
 
     #[test]
-    fn searxng_is_keyless_but_needs_a_base_url() {
-        assert!(!needs_key("searxng"));
-        assert!(needs_key("exa"));
-
+    fn searxng_needs_a_base_url() {
         let default = SearchSettings::default();
         assert_eq!(
-            keyless_skip("searxng", &default).as_deref(),
+            endpoint_skip("searxng", &default).as_deref(),
             Some("searxng: no base URL")
         );
+        assert!(endpoint_skip("exa", &default).is_none());
 
         let configured = SearchSettings {
             searxng: crate::config::SearxngSettings {
                 base_url: "http://localhost:8080".to_string(),
+                ..Default::default()
             },
             ..SearchSettings::default()
         };
-        assert!(keyless_skip("searxng", &configured).is_none());
+        assert!(endpoint_skip("searxng", &configured).is_none());
+    }
+
+    #[test]
+    fn probe_skips_until_a_base_url_is_set() {
+        assert!(!probe_configured(&SearchSettings::default()));
+
+        let configured = SearchSettings {
+            searxng: crate::config::SearxngSettings {
+                base_url: "http://localhost:8080".to_string(),
+                ..Default::default()
+            },
+            ..SearchSettings::default()
+        };
+        assert!(probe_configured(&configured));
     }

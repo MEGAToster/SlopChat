@@ -112,6 +112,16 @@ pub fn set_searxng_url(app: AppHandle, url: String) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+pub fn set_searxng_interval(app: AppHandle, ms: u64) -> Result<(), String> {
+    config::set_searxng_min_interval(&app, ms)
+}
+
+#[tauri::command]
+pub async fn probe_searxng(app: AppHandle) -> Option<String> {
+    crate::tools::search::probe_searxng(&app).await
+}
+
+#[tauri::command(async)]
 pub fn set_agent_log(app: AppHandle, enabled: bool) -> Result<(), String> {
     config::set_agent_log(&app, enabled)
 }

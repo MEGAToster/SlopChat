@@ -136,6 +136,7 @@
         assert_eq!(settings.search.exa.search_type, "fast");
         assert_eq!(settings.search.exa.contents, "text");
         assert_eq!(settings.search.exa.max_characters, 900);
+        assert_eq!(settings.search.searxng.min_interval_ms, 700);
     }
 
     #[test]

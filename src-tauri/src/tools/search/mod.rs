@@ -95,28 +95,24 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
     let mut only_exhausted = true;
 
     for name in &search.providers {
-        if let Some(reason) = keyless_skip(name, &search) {
+        if let Some(reason) = endpoint_skip(name, &search) {
             only_exhausted = false;
             reasons.push(reason);
             continue;
         }
 
-        let key = if needs_key(name) {
-            match crate::providers::search_key(&settings, name) {
-                Ok(Some(key)) => key,
-                Ok(None) => {
-                    only_exhausted = false;
-                    reasons.push(format!("{name}: no key"));
-                    continue;
-                }
-                Err(error) => {
-                    only_exhausted = false;
-                    reasons.push(format!("{name}: {error}"));
-                    continue;
-                }
+        let key = match crate::providers::search_key(&settings, name) {
+            Ok(Some(key)) => key,
+            Ok(None) => {
+                only_exhausted = false;
+                reasons.push(format!("{name}: no key"));
+                continue;
             }
-        } else {
-            String::new()
+            Err(error) => {
+                only_exhausted = false;
+                reasons.push(format!("{name}: {error}"));
+                continue;
+            }
         };
 
         let limit = search.limits.get(name).cloned().unwrap_or_default();
@@ -156,6 +152,30 @@ pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String
     Err(format!("web search unavailable: {}", reasons.join("; ")))
 }
 
+// A launch-time health check; reuses the throttled search path so it also
+// exercises the token and produces the same error messages.
+pub async fn probe_searxng(app: &AppHandle) -> Option<String> {
+    let settings = app.state::<ConfigState>().get();
+    let search = settings.search.clone();
+    if !probe_configured(&search) {
+        return None;
+    }
+    // A missing token, or a locked/unavailable keychain, just means "no probe".
+    let key = crate::providers::search_key(&settings, "searxng").ok().flatten()?;
+    let backend = BackendCtx {
+        key: &key,
+        settings: &search,
+    };
+    match searxng::search("test", 1, &backend).await {
+        Ok(_) => None,
+        Err(SearchError::Failed(message)) | Err(SearchError::Exhausted(message)) => Some(message),
+    }
+}
+
+fn probe_configured(search: &SearchSettings) -> bool {
+    !search.searxng.base_url.trim().is_empty()
+}
+
 async fn dispatch(
     name: &str,
     query: &str,
@@ -173,21 +193,14 @@ async fn dispatch(
     }
 }
 
-// Keyless providers carry their endpoint in settings instead of a key.
-fn needs_key(name: &str) -> bool {
-    name != "searxng"
-}
-
-// Returns the reason a keyless provider cannot be used, if any.
-fn keyless_skip(name: &str, search: &SearchSettings) -> Option<String> {
-    if needs_key(name) {
+// SearXNG carries its endpoint in settings instead of hardcoding one.
+fn endpoint_skip(name: &str, search: &SearchSettings) -> Option<String> {
+    if name != "searxng" {
         return None;
     }
-    let base_url = match name {
-        "searxng" => search.searxng.base_url.as_str(),
-        _ => "",
-    };
-    base_url
+    search
+        .searxng
+        .base_url
         .trim()
         .is_empty()
         .then(|| format!("{name}: no base URL"))

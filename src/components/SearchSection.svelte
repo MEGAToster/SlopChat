@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { searchUsage, setSearxngUrl } from "../lib/ipc";
+  import { searchUsage, setSearxngInterval, setSearxngUrl } from "../lib/ipc";
   import { settings } from "../lib/state/settings.svelte";
   import type { SearchProviderUsage } from "../lib/types";
   import ApiKeyRow from "./ApiKeyRow.svelte";
 
   const searchProviders = [
+    { name: "searxng", label: "SearXNG", placeholder: "…", hint: "X-API-Key token" },
     { name: "exa", label: "Exa", placeholder: "exa-…", hint: "$10 free credit / month" },
     { name: "tavily", label: "Tavily", placeholder: "tvly-…", hint: "1,000 free credits / month" },
     { name: "brave", label: "Brave", placeholder: "…", hint: "$5 free credit / month" },
@@ -43,6 +44,19 @@
     placeholder="http://localhost:8080"
     value={settings().search.searxng.baseUrl}
     onchange={(event) => void setSearxngUrl(event.currentTarget.value)}
+  />
+</label>
+
+<label class="row">
+  <span class="label">SearXNG min gap (ms)</span>
+  <input
+    class="control"
+    type="number"
+    min="0"
+    max="60000"
+    step="100"
+    value={settings().search.searxng.minIntervalMs}
+    onchange={(event) => void setSearxngInterval(Number(event.currentTarget.value))}
   />
 </label>
 

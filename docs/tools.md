@@ -62,12 +62,12 @@ each reason. Results are numbered across the turn (source counter carries into c
 
 ### Providers
 
-Ordered `searxng → exa → tavily → brave → firecrawl → serper`. SearXNG is keyless and
-skipped until a base URL is set. Default free allowances (`config/defaults.rs`):
+Ordered `searxng → exa → tavily → brave → firecrawl → serper`. SearXNG is skipped until a
+base URL and an `X-API-Key` token are set. Default free allowances (`config/defaults.rs`):
 
 | Provider | Default limit | Kinds |
 | --- | --- | --- |
-| searxng | — | keyless, self-hosted |
+| searxng | — | self-hosted, `X-API-Key` |
 | exa | `monthlyUsd: 10` | dollar budget |
 | tavily | `monthly: 1000` | request count |
 | brave | `monthlyUsd: 5` | dollar budget |
@@ -80,16 +80,28 @@ billing section.
 
 ### SearXNG
 
-Set the instance URL in Settings → Web search (stored as `search.searxng.baseUrl`). Public
-instances usually disable the JSON API, so run your own:
+Set the instance URL and its `X-API-Key` token in Settings → Web search (the URL is stored as
+`search.searxng.baseUrl`; the token lives in the OS keychain, or in `SEARXNG_API_KEY`). Every
+request carries `X-API-Key: <token>`. Public instances usually disable the JSON API, so run
+your own:
 
 ```sh
 docker run -d -p 8080:8080 searxng/searxng
 ```
 
-Then add `json` to `search.formats` in the instance's `settings.yml`. A non-JSON or `403`
-response surfaces as `SearXNG JSON output is disabled — add json to search.formats in
-settings.yml`. SearXNG is free, so keep it first to research without paid search.
+Then add `json` to `search.formats` in the instance's `settings.yml`. A non-JSON response
+surfaces as `SearXNG JSON output is disabled — add json to search.formats in settings.yml`,
+and a `401` surfaces as `SearXNG rejected the API key (X-API-Key)`.
+
+The instance's own limiter is often off, so the client spaces requests out itself: at most one
+request per `search.searxng.minIntervalMs` (default `700`, `0` disables), plus a uniform
+0–30 % jitter so the traffic does not look machine-like. This keeps bursts from getting the
+instance banned by its upstream engines. SearXNG is free, so keep it first to research without
+paid search.
+
+On launch the app runs one test query through the same throttled path when a URL and token are
+configured, and shows a warning toast if it fails. The check is skipped when there is no URL or
+no readable token (for example a locked keychain), so it never prompts or blocks startup.
 
 ## web_fetch
 

@@ -15,6 +15,7 @@
     onSearchPaid,
     onSearchUnavailable,
     onStickyChanged,
+    probeSearxng,
     setPanelExpanded,
   } from "./lib/ipc";
   import { createKeyHandler } from "./lib/keymap/handler";
@@ -134,6 +135,17 @@
       await tick();
       focusComposer();
     }
+
+    // Warn once per launch when a configured SearXNG instance is broken; the
+    // probe respects the search throttle. Detached so it never delays focus.
+    void (async () => {
+      try {
+        const problem = await probeSearxng();
+        if (problem) notify(problem, "warning");
+      } catch {
+        // A probe failure must never disturb startup.
+      }
+    })();
   }
 
   // Retried across a frame because the panel may not be key when

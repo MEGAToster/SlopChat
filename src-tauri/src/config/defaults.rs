@@ -67,6 +67,15 @@ impl Default for SearchSettings {
     }
 }
 
+impl Default for SearxngSettings {
+    fn default() -> Self {
+        Self {
+            base_url: String::new(),
+            min_interval_ms: 700,
+        }
+    }
+}
+
 impl Default for ExaSettings {
     fn default() -> Self {
         Self {

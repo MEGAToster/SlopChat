@@ -211,6 +211,14 @@ export function setSearxngUrl(url: string): Promise<void> {
   return invoke("set_searxng_url", { url });
 }
 
+export function setSearxngInterval(ms: number): Promise<void> {
+  return invoke("set_searxng_interval", { ms });
+}
+
+export function probeSearxng(): Promise<string | null> {
+  return invoke("probe_searxng");
+}
+
 export function setAgentLog(enabled: boolean): Promise<void> {
   return invoke("set_agent_log", { enabled });
 }

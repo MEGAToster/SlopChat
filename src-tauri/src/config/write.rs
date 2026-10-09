@@ -164,6 +164,22 @@ pub fn set_searxng_base_url(app: &AppHandle, url: &str) -> Result<(), String> {
     })
 }
 
+pub fn set_searxng_min_interval(app: &AppHandle, ms: u64) -> Result<(), String> {
+    let ms = ms.min(60_000);
+    patch(app, move |value| {
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
+        let search = object.entry("search").or_insert_with(|| json!({}));
+        if let Some(search) = search.as_object_mut() {
+            let searxng = search.entry("searxng").or_insert_with(|| json!({}));
+            if let Some(searxng) = searxng.as_object_mut() {
+                searxng.insert("minIntervalMs".to_string(), json!(ms));
+            }
+        }
+    })
+}
+
 // Creates the section when settings.json predates it, so a toggle always lands.
 fn set_search_flag(value: &mut Value, key: &str, enabled: bool) {
     let Some(object) = value.as_object_mut() else {

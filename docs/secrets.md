@@ -10,7 +10,7 @@ platform setup (including sessions without a Secret Service) is in [[linux]].
 1. **`settings.json` override.** If `providers.<name>.apiKey` is set, it must be an `env:VAR` reference (for example `env:OPENROUTER_API_KEY`); the value is read from the environment at use time. A raw key in `settings.json` is rejected with an error — secrets never live in the config file.
 2. **OS keychain.** Otherwise `secrets::get(provider)` reads the keychain entry.
 
-Web-search providers go through `providers/mod.rs::search_key`, which calls `api_key` first and then falls back to the conventional `<PROVIDER>_API_KEY` environment variable (for example `EXA_API_KEY`, `SERPER_API_KEY`).
+Web-search providers go through `providers/mod.rs::search_key`, which calls `api_key` first and then falls back to the conventional `<PROVIDER>_API_KEY` environment variable (for example `EXA_API_KEY`, `SERPER_API_KEY`, `SEARXNG_API_KEY`).
 
 `commands.rs::has_api_key` reports whether a key resolves; `commands.rs::store_api_key` writes to the keychain; `commands.rs::delete_api_key` removes it.
 

@@ -91,10 +91,11 @@ pub struct ExaSettings {
     pub max_characters: u32,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct SearxngSettings {
     pub base_url: String,
+    pub min_interval_ms: u64,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
