@@ -22,8 +22,10 @@ pub struct ClipboardImage {
 }
 
 // Mirrors src/lib/paste.ts so a huge paste never reaches the webview.
+#[cfg(any(target_os = "linux", test))]
 const PASTE_AS_FILE_HARD_CAP: usize = 1_000_000;
 
+#[cfg(any(target_os = "linux", test))]
 fn should_store(len: usize, limit: usize) -> bool {
     len >= PASTE_AS_FILE_HARD_CAP || (limit > 0 && len >= limit)
 }
