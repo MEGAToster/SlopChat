@@ -13,14 +13,14 @@ type StreamCallbacks = {
   onUsage: (usage: Usage) => void;
   onSteps: (steps: ToolStep[]) => void;
   onSources: (sources: Source[]) => void;
+  onModel: (model: string) => void;
 };
 
 type StreamOutcome = {
   content: string;
   usage?: Usage;
   error?: string;
-  reasoning: boolean;
-  steps: ToolStep[];
+  model?: string;
   sources: Source[];
 };
 
@@ -36,7 +36,7 @@ export async function run(
   let notePending = false;
   let usage: Usage | undefined;
   let error: string | undefined;
-  let reasoning = false;
+  let model: string | undefined;
   const steps: ToolStep[] = [];
   const sources: Source[] = [];
 
@@ -54,8 +54,11 @@ export async function run(
         callbacks.onUpdate(answer);
         break;
       case "reasoning":
-        reasoning = true;
         callbacks.onThinking(true);
+        break;
+      case "model":
+        model = event.model;
+        callbacks.onModel(event.model);
         break;
       case "toolCall": {
         callbacks.onThinking(false);
@@ -115,7 +118,7 @@ export async function run(
     callbacks.onSteps([...steps]);
   }
 
-  return { content, usage, error, reasoning, steps, sources };
+  return { content, usage, error, model, sources };
 }
 
 export async function stop(chatId: string): Promise<void> {

@@ -15,6 +15,9 @@ export type Keybinds = {
   models: string[];
   follow: string[];
   focusSidebar: string[];
+  zoomIn: string[];
+  zoomOut: string[];
+  zoomReset: string[];
 };
 
 type Provider = {
@@ -108,6 +111,8 @@ type DebugSettings = {
 
 export type WebOverride = "off" | "auto" | "deep";
 
+export type ReadingWidth = "narrow" | "wide" | "full";
+
 export type WindowConfig = {
   compactWidth: number;
   compactHeight: number;
@@ -124,6 +129,7 @@ export type Settings = {
   pasteAsFileChars: number;
   theme: string;
   style: "auto" | ThemeStyles;
+  readingWidth: ReadingWidth;
   font?: FontSettings;
   search: SearchSettings;
   advanced: Advanced;
@@ -158,6 +164,7 @@ export type WebSearchMode = "auto" | "deep" | "off";
 export type StreamEvent =
   | { type: "delta"; content: string; round: number }
   | { type: "reasoning" }
+  | { type: "model"; model: string }
   | { type: "toolCall"; id: string; name: string; args: Record<string, unknown> }
   | {
       type: "toolResult";
@@ -221,7 +228,7 @@ export type Theme = {
   font?: FontSettings;
 };
 
-type FontSettings = { ui?: string; mono?: string; size?: number };
+export type FontSettings = { ui?: string; mono?: string; size?: number };
 
 export type ThemeInfo = {
   name: string;
@@ -300,6 +307,8 @@ export type AntigravityStatus = {
   ok: boolean;
   note: string | null;
 };
+
+export type ApiKeyStatus = "ok" | "rejected" | "unreachable";
 
 export type ClipboardContent = {
   text: string | null;

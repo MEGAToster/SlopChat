@@ -37,7 +37,6 @@ function applyView(view: ChatView | null): void {
   chatState.activeChatId = view?.chat.id ?? null;
   chatState.messages = view ? view.messages.map(toChatMessage) : [];
   chatState.usage = view ? lastUsageOf(view.messages) : null;
-  chatState.error = null;
 }
 
 export async function refreshChats(): Promise<void> {
@@ -50,7 +49,6 @@ export async function openChat(chatId: string): Promise<void> {
   chatState.activeChatId = view.chat.id;
   chatState.messages = view.messages.map(toChatMessage);
   chatState.usage = lastUsageOf(view.messages);
-  chatState.error = null;
   await refreshChats();
 }
 
@@ -59,7 +57,6 @@ export async function newChat(): Promise<void> {
   chatState.activeChatId = null;
   chatState.messages = [];
   chatState.usage = null;
-  chatState.error = null;
 }
 
 export async function prevChat(): Promise<void> {

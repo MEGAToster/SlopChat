@@ -11,6 +11,7 @@ mod routing;
 mod sse;
 mod stream;
 pub mod trace;
+pub mod verify;
 
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -115,6 +116,9 @@ pub enum StreamEvent {
         round: u32,
     },
     Reasoning,
+    Model {
+        model: String,
+    },
     ToolCall {
         id: String,
         name: String,

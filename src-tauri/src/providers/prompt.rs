@@ -105,7 +105,7 @@ pub fn parse_args(raw: &str) -> Value {
     serde_json::from_str(raw).unwrap_or_else(|_| json!({}))
 }
 
-pub fn today() -> String {
+fn today() -> String {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs())

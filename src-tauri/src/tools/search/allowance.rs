@@ -57,7 +57,7 @@ pub fn record(app: &AppHandle, provider: &str, units: u32, cost: f64) {
     );
 }
 
-pub fn monthly(app: &AppHandle, provider: &str) -> (i64, i64, f64) {
+fn monthly(app: &AppHandle, provider: &str) -> (i64, i64, f64) {
     let store = app.state::<Store>();
     let conn = store.conn();
     conn.query_row(
@@ -70,7 +70,7 @@ pub fn monthly(app: &AppHandle, provider: &str) -> (i64, i64, f64) {
     .unwrap_or((0, 0, 0.0))
 }
 
-pub fn total_units(app: &AppHandle, provider: &str) -> i64 {
+fn total_units(app: &AppHandle, provider: &str) -> i64 {
     let store = app.state::<Store>();
     let conn = store.conn();
     conn.query_row(

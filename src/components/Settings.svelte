@@ -10,12 +10,14 @@
   import { settings } from "../lib/state/settings.svelte";
   import { formatKeys } from "../lib/keymap/format";
   import { moveSettingsFocus } from "../lib/settingsFocus";
+  import AdvancedSection from "./AdvancedSection.svelte";
   import AntigravitySection from "./AntigravitySection.svelte";
+  import AppearanceSection from "./AppearanceSection.svelte";
   import Frame from "./Frame.svelte";
-  import GeneralSection from "./GeneralSection.svelte";
   import ModelEditor from "./ModelEditor.svelte";
   import ProfileEditor from "./ProfileEditor.svelte";
   import SearchSection from "./SearchSection.svelte";
+  import WindowSection from "./WindowSection.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -127,6 +129,8 @@
           onremove={profilePrevious ? () => void deleteProfileEdit() : undefined}
         />
       {:else}
+        <AppearanceSection />
+
         <div class="section-head">
           <div class="section-title">Models</div>
           <button type="button" class="ghost" onclick={openNewModel}>Add model</button>
@@ -161,7 +165,9 @@
 
         <AntigravitySection />
 
-        <GeneralSection />
+        <WindowSection />
+
+        <AdvancedSection />
       {/if}
     </div>
   </Frame>

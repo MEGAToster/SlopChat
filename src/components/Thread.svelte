@@ -6,6 +6,7 @@
   import { activeConfig, activeProfile, editingId, keyContext, overrideActive } from "../lib/state/ui.svelte";
   import { view } from "../lib/state/view.svelte";
   import Composer from "./Composer.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import Footer from "./Footer.svelte";
   import Frame from "./Frame.svelte";
   import MessageList from "./MessageList.svelte";
@@ -25,14 +26,20 @@
     return `ask · ${profileName}`;
   });
   const context = $derived(keyContext());
-  const hint = $derived(
-    `↵ send · ${formatKeys(settings().keybinds.cycleProfile)} profile · ${formatKeys(settings().keybinds.follow)} ${view.tracking ? "following" : "paused"}`,
-  );
+  const hint = $derived.by(() => {
+    const parts = [`↵ send · ${formatKeys(settings().keybinds.cycleProfile)} profile`];
+    if (!view.tracking) parts.push(`↓ ${formatKeys(settings().keybinds.follow)} latest`);
+    return parts.join(" · ");
+  });
 </script>
 
 {#if messages().length > 0 || expanded}
   <Frame {title}>
-    <MessageList />
+    {#if messages().length === 0}
+      <EmptyState />
+    {:else}
+      <MessageList />
+    {/if}
   </Frame>
 {/if}
 

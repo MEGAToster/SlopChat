@@ -1,2 +1,0 @@
-- tracking issue: doesnt follow tool calls. pressing keybind again doesn turn but jump to bottom, when tool call
-- 

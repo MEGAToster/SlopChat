@@ -2,10 +2,11 @@ import { groupChats, type ChatGroup } from "../chatGroups";
 import { setChatModel, setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, ModelConfig, Profile } from "../types";
-import { effectiveWebMode } from "../webSearch";
+import { effectiveWebMode, paidSearchWarning } from "../webSearch";
 import { isModelOverride } from "../modelRef";
 import { newChat, openChat } from "./chatHistory.svelte";
 import { activeChatId, chats, isBlank, webOverride, type SendOptions } from "./chatStore.svelte";
+import { filteredChats } from "./chatFilter.svelte";
 import { reasoningOverride } from "./reasoning.svelte";
 import { settings } from "./settings.svelte";
 
@@ -20,8 +21,6 @@ const store = $state({
   context: "composer" as Context,
   profileIndex: 0,
   selectedIndex: 0,
-  filtering: false,
-  filterQuery: "",
   pendingDelete: null as string | null,
   renamingId: null as string | null,
   editingId: null as string | null,
@@ -69,14 +68,6 @@ export function selectedIndex(): number {
   return store.selectedIndex;
 }
 
-export function filtering(): boolean {
-  return store.filtering;
-}
-
-export function filterQuery(): string {
-  return store.filterQuery;
-}
-
 export function pendingDelete(): string | null {
   return store.pendingDelete;
 }
@@ -93,13 +84,20 @@ export function editingId(): string | null {
   return store.editingId;
 }
 
-export function modelOverride(): string | null {
+function modelOverride(): string | null {
   return store.modelOverride;
 }
 
 // True when a picked model differs from the active profile's own model.
 export function overrideActive(): boolean {
   return isModelOverride(modelOverride(), activeProfile()?.model);
+}
+
+// Shared by the footer and the web-cycle action: warn once per trigger when
+// turning web search on would spend paid credits.
+export function notifyPaidSearch(): void {
+  const warning = paidSearchWarning(settings().search);
+  if (warning) notify(warning, "warning");
 }
 
 // Picking the profile's own model clears the override; a blank chat keeps it as
@@ -119,20 +117,6 @@ export function adoptModelDraft(chatId: string): void {
 
 export function setContext(context: Context): void {
   store.context = context;
-}
-
-export function setFiltering(value: boolean): void {
-  store.filtering = value;
-  if (value) {
-    store.selectedIndex = 0;
-  } else {
-    store.filterQuery = "";
-  }
-}
-
-export function setFilterQuery(value: string): void {
-  store.filterQuery = value;
-  store.selectedIndex = 0;
 }
 
 export function setPendingDelete(id: string | null): void {
@@ -156,15 +140,8 @@ export async function setMode(mode: PanelMode): Promise<void> {
   await setPanelExpanded(mode === "expanded");
 }
 
-function visibleChats(): Chat[] {
-  const query = store.filterQuery.trim().toLowerCase();
-  const all = chats();
-  if (!query) return all;
-  return all.filter((chat) => chat.title.toLowerCase().includes(query));
-}
-
 export function chatGroups(): ChatGroup[] {
-  return groupChats(visibleChats());
+  return groupChats(filteredChats());
 }
 
 function orderedChats(): Chat[] {
@@ -182,9 +159,9 @@ export function selectedChatId(): string | null {
 }
 
 export function selectActive(): void {
-  const count = orderedChats().length;
-  const index = orderedChats().findIndex((chat) => chat.id === activeChatId());
-  store.selectedIndex = index === -1 ? count : index;
+  const ordered = orderedChats();
+  const index = ordered.findIndex((chat) => chat.id === activeChatId());
+  store.selectedIndex = index === -1 ? ordered.length : index;
 }
 
 export function activeProfile(): Profile | undefined {

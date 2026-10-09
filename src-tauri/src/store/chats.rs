@@ -55,7 +55,7 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<Chat>, String> {
     optional(conn, &format!("SELECT {COLUMNS} FROM chats WHERE id = ?1"), params![id])
 }
 
-pub fn most_recent(conn: &Connection) -> Result<Option<Chat>, String> {
+fn most_recent(conn: &Connection) -> Result<Option<Chat>, String> {
     optional(
         conn,
         &format!("SELECT {COLUMNS} FROM chats ORDER BY updated_at DESC LIMIT 1"),

@@ -46,7 +46,7 @@ pub fn set_override_for_tests(path: Option<PathBuf>) {
     invalidate();
 }
 
-pub fn locate() -> Option<PathBuf> {
+fn locate() -> Option<PathBuf> {
     #[cfg(test)]
     if let Some(path) = override_path().lock().expect("override lock").clone() {
         return Some(path);

@@ -19,7 +19,7 @@ pub struct Limits<'a> {
 }
 
 impl Kind {
-    pub fn from_name(name: &str) -> Option<Self> {
+    fn from_name(name: &str) -> Option<Self> {
         [Kind::OpenRouter, Kind::Ollama, Kind::Gemini]
             .into_iter()
             .find(|kind| kind.name() == name)

@@ -39,6 +39,12 @@ describe("matches", () => {
     expect(eventToBinding(key({ key: "ISO_Left_Tab", shiftKey: true }))).toBe("Shift+Tab");
   });
 
+  it("matches the Ctrl+Plus alias against a literal plus key", () => {
+    expect(parseBinding("Ctrl+Plus")).toBe("Ctrl++");
+    expect(matches("Ctrl+Plus", key({ key: "+", ctrlKey: true }))).toBe(true);
+    expect(matches('Ctrl+=', key({ key: "=", ctrlKey: true }))).toBe(true);
+  });
+
   it("falls back to code/keyCode when WebKitGTK reports key Unidentified", () => {
     const event = key({ key: "Unidentified", code: "Tab", keyCode: 9, shiftKey: true });
     expect(eventToBinding(event)).toBe("Shift+Tab");

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { storeApiKey } from "../lib/ipc";
+  import { listModels, storeApiKey, verifyApiKey } from "../lib/ipc";
+  import { notify } from "../lib/state/ui.svelte";
   import Kbd from "./Kbd.svelte";
 
-  let { onSaved, onSkip }: { onSaved: () => void; onSkip: () => void } = $props();
+  let { onSaved, onUseOllama }: { onSaved: () => void; onUseOllama: () => void } = $props();
 
   let key = $state("");
   let input = $state<HTMLInputElement | null>(null);
@@ -17,11 +18,38 @@
     if (!key.trim() || saving) return;
     saving = true;
     error = null;
+    const value = key.trim();
     try {
-      await storeApiKey("openrouter", key.trim());
+      const status = await verifyApiKey("openrouter", value);
+      if (status === "rejected") {
+        error = "OpenRouter rejected that key.";
+        return;
+      }
+      await storeApiKey("openrouter", value);
+      if (status === "unreachable") {
+        notify("Saved, but couldn't reach OpenRouter to verify it.", "warning");
+      }
       onSaved();
     } catch (cause) {
       error = String(cause);
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function useOllama() {
+    if (saving) return;
+    saving = true;
+    error = null;
+    try {
+      const models = await listModels();
+      if (!models.some((model) => model.provider === "ollama")) {
+        error = "Ollama isn't reachable or has no models.";
+        return;
+      }
+      onUseOllama();
+    } catch {
+      error = "Ollama isn't reachable or has no models.";
     } finally {
       saving = false;
     }
@@ -44,7 +72,9 @@
     <button type="button" class="primary" onclick={save} disabled={saving || !key.trim()}>
       {saving ? "Saving…" : "Save key"}
     </button>
-    <button type="button" class="ghost" onclick={onSkip}>Use Ollama instead</button>
+    <button type="button" class="ghost" onclick={() => void useOllama()} disabled={saving}>
+      Use Ollama instead
+    </button>
     <span class="hint"><Kbd binding="Enter" /> Save</span>
   </div>
 </div>

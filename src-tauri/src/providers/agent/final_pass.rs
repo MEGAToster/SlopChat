@@ -5,6 +5,7 @@ use super::super::{leak, StreamEvent};
 use super::instructions::{LEAK_NOTE, LENGTH_NOTE};
 use super::state::{Ctx, State};
 use super::turn::{accumulate, Turn, TurnError};
+use crate::text::truncate;
 
 const FINAL_INSTRUCTION: &str =
     "Stop researching. Write your final answer now from the information above. Do not call any tools.";
@@ -155,10 +156,6 @@ pub(super) fn synthesis_messages(base: &[Value], notes: &[String], outro: &str) 
         "content": format!("{SYNTHESIS_INTRO}\n\n{body}\n\n{outro}"),
     }));
     messages
-}
-
-fn truncate(text: &str, cap: usize) -> String {
-    text.chars().take(cap).collect()
 }
 
 #[cfg(test)]

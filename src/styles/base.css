@@ -2,6 +2,18 @@
   box-sizing: border-box;
 }
 
+:root {
+  --reading-width: calc(900px * var(--scale));
+}
+
+:root[data-reading-width="narrow"] {
+  --reading-width: calc(680px * var(--scale));
+}
+
+:root[data-reading-width="full"] {
+  --reading-width: 100vw;
+}
+
 html,
 body,
 #app {
@@ -107,9 +119,9 @@ body {
 
 .column {
   width: 100%;
-  max-width: 760px;
-  margin-inline: auto;
-  padding-inline: var(--sp-4);
+  /* Padding (not max-width) centers the prose while the scrollbar stays at the
+     window edge; percentage padding resolves against the containing block. */
+  padding-inline: max(var(--sp-4), calc((100% - var(--reading-width)) / 2));
 }
 
 /* Disable the native GTK rendering so selects follow the theme instead of the
@@ -153,4 +165,10 @@ option {
   /* Fill the expanded window instead of the 760px reading column. */
   max-width: none;
   margin-inline: 0;
+}
+
+/* A per-chat override is underlined so it reads differently from the profile. */
+.scoped {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }

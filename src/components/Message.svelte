@@ -5,8 +5,9 @@
   import { renderMarkdown } from "../lib/markdown/render";
   import { MarkdownStream } from "../lib/markdown/stream";
   import { basename, domain } from "../lib/text";
-  import { retryLast } from "../lib/state/chat.svelte";
+  import { duration } from "../lib/duration";
   import type { ChatMessage } from "../lib/state/chatStore.svelte";
+  import AnswerBar from "./AnswerBar.svelte";
   import Icon from "./Icon.svelte";
   import MessageSteps from "./MessageSteps.svelte";
 
@@ -16,18 +17,6 @@
     thinking = false,
     last = false,
   }: { message: ChatMessage; streaming?: boolean; thinking?: boolean; last?: boolean } = $props();
-
-  let copied = $state(false);
-
-  async function copyAnswer(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(message.content);
-    } catch {
-      return;
-    }
-    copied = true;
-    setTimeout(() => (copied = false), 1200);
-  }
 
   const stream = new MarkdownStream();
   let html = $state("");
@@ -48,12 +37,6 @@
     }, 1000);
     return () => clearInterval(timer);
   });
-
-  function duration(seconds: number): string {
-    const minutes = Math.floor(seconds / 60);
-    const rest = seconds % 60;
-    return minutes > 0 ? `${minutes}:${String(rest).padStart(2, "0")}` : `${rest}s`;
-  }
 
   // `mathState.ready` re-renders once KaTeX finishes lazy-loading.
   $effect(() => {
@@ -85,7 +68,7 @@
 {:else}
   <div class="message assistant">
     {#if message.steps?.length}
-      <MessageSteps steps={message.steps} />
+      <MessageSteps steps={message.steps} done={!streaming} />
     {/if}
 
     {#if streaming && !message.content}
@@ -99,34 +82,7 @@
       {#if streaming}<span class="caret">▍</span>{/if}
     {/if}
 
-    {#if !streaming}
-      <div class="answer-bar">
-        <span class="rule"></span>
-        <div class="answer-actions">
-          <button
-            type="button"
-            class="action"
-            title="Copy answer"
-            aria-label="Copy answer"
-            onclick={() => void copyAnswer()}
-          >
-            <Icon name={copied ? "check" : "copy"} size={13} />
-          </button>
-          {#if last}
-            <button
-              type="button"
-              class="action"
-              title="Retry answer"
-              aria-label="Retry answer"
-              onclick={() => void retryLast()}
-            >
-              <Icon name="refresh" size={13} />
-            </button>
-          {/if}
-        </div>
-        <span class="rule"></span>
-      </div>
-    {/if}
+    <AnswerBar {message} {last} {streaming} {elapsed} />
 
     {#if message.sources?.length}
       <div class="sources">
@@ -165,41 +121,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-1);
-  }
-
-  .answer-bar {
-    display: grid;
-    grid-template-columns: 7fr auto 1fr;
-    align-items: center;
-    gap: var(--sp-2);
-    margin-top: var(--sp-3);
-  }
-
-  .rule {
-    height: 1px;
-    background: var(--border);
-  }
-
-  .answer-actions {
-    display: inline-flex;
-    gap: var(--sp-1);
-  }
-
-  .action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
-  }
-
-  .action:hover {
-    background: var(--surface-hover);
-    color: var(--text);
   }
 
   .sources {

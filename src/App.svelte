@@ -11,7 +11,6 @@
   import {
     hasApiKey,
     isSticky,
-    onModelFallback,
     onPanelShown,
     onSearchPaid,
     onSearchUnavailable,
@@ -27,7 +26,7 @@
   } from "./lib/settingsFocus";
   import { createActions } from "./lib/state/actions.svelte";
   import { init as initChat, resumeOnShow } from "./lib/state/chatHistory.svelte";
-  import { chatError, isStreaming, messages } from "./lib/state/chatStore.svelte";
+  import { isStreaming, messages } from "./lib/state/chatStore.svelte";
   import {
     back as paletteBack,
     isOpen as paletteIsOpen,
@@ -36,6 +35,7 @@
     select as paletteSelect,
   } from "./lib/state/palette.svelte";
   import { configError, initSettings, setConfigError, settings } from "./lib/state/settings.svelte";
+  import { filtering } from "./lib/state/chatFilter.svelte";
   import { measurePanel } from "./lib/state/overlays.svelte";
   import {
     backFromEditor,
@@ -45,7 +45,6 @@
   import {
     clearNotice,
     editingId,
-    filtering,
     isExpanded,
     keyContext,
     notify,
@@ -71,11 +70,6 @@
   let wasStreaming = false;
 
   $effect(() => {
-    const error = chatError();
-    if (error) notify(error, "danger");
-  });
-
-  $effect(() => {
     // Read the id so an identical repeat also restarts the timer.
     if (uiNoticeId() === 0 || !uiNotice()) return;
     const timer = setTimeout(clearNotice, 5000);
@@ -84,6 +78,11 @@
 
   $effect(() => {
     applyThemeFor(settings().theme);
+  });
+
+  // Reading width lives on the root so stylesheets react without props.
+  $effect(() => {
+    document.documentElement.dataset.readingWidth = settings().readingWidth;
   });
 
   // Re-apply window sizing (width/height/ratio) when the config changes.
@@ -178,7 +177,6 @@
       onStickyChanged((value) => (sticky = value)),
       onSearchUnavailable((message) => notify(message, "warning")),
       onSearchPaid((message) => notify(message, "warning")),
-      onModelFallback((message) => notify(message, "warning")),
     ];
 
     return () => {
@@ -256,10 +254,10 @@
             await tick();
             focusComposer();
           }}
-          onSkip={async () => {
+          onUseOllama={async () => {
             needsKey = false;
             await tick();
-            focusComposer();
+            actions.openModels();
           }}
         />
       {:else}

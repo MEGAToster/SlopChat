@@ -7,9 +7,10 @@ import {
   reloadConfig,
   searchChats,
   searchUsage,
+  setReadingWidth,
   toggleSticky,
 } from "../ipc";
-import type { Chat, ProviderModel, SearchProviderUsage } from "../types";
+import type { Chat, ProviderModel, ReadingWidth, SearchProviderUsage } from "../types";
 import { pinChat } from "./chatHistory.svelte";
 import { activeChatId } from "./chatStore.svelte";
 import { addGroups, rootGroups } from "./paletteItems";
@@ -29,6 +30,13 @@ import {
 } from "./ui.svelte";
 
 export type { PaletteGroup, PaletteItem } from "./paletteTypes";
+
+const READING_WIDTHS: ReadingWidth[] = ["narrow", "wide", "full"];
+
+function nextReadingWidth(current: ReadingWidth): ReadingWidth {
+  const index = READING_WIDTHS.indexOf(current);
+  return READING_WIDTHS[(index + 1) % READING_WIDTHS.length];
+}
 
 type Mode = "root" | "add" | "models";
 
@@ -253,6 +261,9 @@ async function runAction(id: string): Promise<void> {
     }
     case "switch-style":
       await setStyle(settings().style === "tui" ? "minimal" : "tui");
+      break;
+    case "cycle-reading-width":
+      await setReadingWidth(nextReadingWidth(settings().readingWidth));
       break;
     case "search-usage": {
       const usage = await searchUsage();

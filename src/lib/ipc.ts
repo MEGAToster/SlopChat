@@ -3,14 +3,17 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   Advanced,
   AntigravityStatus,
+  ApiKeyStatus,
   Attachment,
   Chat,
   ChatView,
   ClipboardContent,
+  FontSettings,
   ModelConfig,
   NewMessage,
   Profile,
   ProviderModel,
+  ReadingWidth,
   ReasoningInfo,
   SearchProviderUsage,
   SendRequest,
@@ -56,6 +59,10 @@ export function hasApiKey(provider: string): Promise<boolean> {
 
 export function storeApiKey(provider: string, key: string): Promise<void> {
   return invoke("store_api_key", { provider, key });
+}
+
+export function verifyApiKey(provider: string, key: string): Promise<ApiKeyStatus> {
+  return invoke("verify_api_key", { provider, key });
 }
 
 export function deleteApiKey(provider: string): Promise<void> {
@@ -166,12 +173,20 @@ export function setStyle(style: string): Promise<void> {
   return invoke("set_style", { style });
 }
 
+export function setReadingWidth(width: ReadingWidth): Promise<void> {
+  return invoke("set_reading_width", { width });
+}
+
 export function saveAdvanced(advanced: Advanced): Promise<void> {
   return invoke("save_advanced", { advanced });
 }
 
 export function saveWindow(window: WindowConfig): Promise<void> {
   return invoke("save_window", { window });
+}
+
+export function saveFont(font: FontSettings): Promise<void> {
+  return invoke("save_font", { font });
 }
 
 export function setStartup(startup: Startup): Promise<void> {
@@ -232,10 +247,6 @@ export function onSearchUnavailable(handler: (message: string) => void): Promise
 
 export function onSearchPaid(handler: (message: string) => void): Promise<UnlistenFn> {
   return listen<string>("search://paid", (event) => handler(event.payload));
-}
-
-export function onModelFallback(handler: (message: string) => void): Promise<UnlistenFn> {
-  return listen<string>("model://fallback", (event) => handler(event.payload));
 }
 
 export function saveAttachment(name: string, mime: string, data: string): Promise<Attachment> {

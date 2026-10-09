@@ -4,10 +4,11 @@ import { decodeBase64 } from "../bytes";
 import { basename } from "../text";
 import { base64Of, clearPending, pending } from "./attachments.svelte";
 import { ensureChat, refreshChats } from "./chatHistory.svelte";
-import { adoptWebDraft, chatState, lastUserMessage, reportError, type SendOptions } from "./chatStore.svelte";
-import { currentSendOptions, adoptModelDraft } from "./ui.svelte";
+import { adoptWebDraft, chatState, lastUserMessage, type SendOptions } from "./chatStore.svelte";
+import { currentSendOptions, adoptModelDraft, notify } from "./ui.svelte";
 import { adoptReasoningDraft } from "./reasoning.svelte";
 import { toChatMessage } from "./messages";
+import { replyOutcome } from "./replyOutcome";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
 
 export async function submit(text: string, options: SendOptions): Promise<boolean> {
@@ -15,7 +16,7 @@ export async function submit(text: string, options: SendOptions): Promise<boolea
   const attachments = pending();
   if (chatState.streaming) {
     if (chatState.streamingChatId !== chatState.activeChatId) {
-      reportError("Another chat is still answering — wait or stop it first.");
+      notify("Another chat is still answering — wait or stop it first.", "danger");
     }
     return false;
   }
@@ -49,7 +50,7 @@ export async function regenerate(
   const content = text.trim();
   if (chatState.streaming) {
     if (chatState.streamingChatId !== chatState.activeChatId) {
-      reportError("Another chat is still answering — wait or stop it first.");
+      notify("Another chat is still answering — wait or stop it first.", "danger");
     }
     return false;
   }
@@ -80,7 +81,7 @@ export async function retryLast(): Promise<void> {
   try {
     await regenerate(last.id, last.content, options);
   } catch (cause) {
-    reportError(String(cause));
+    notify(String(cause), "danger");
   } finally {
     chatState.sending = false;
   }
@@ -120,20 +121,29 @@ async function messageContent(
 }
 
 async function streamReply(chatId: string, options: SendOptions): Promise<void> {
-  chatState.error = null;
-
   const tempId = `pending-${Date.now()}`;
-  chatState.messages.push({ id: tempId, role: "assistant", content: "", steps: [], sources: [] });
+  chatState.messages.push({
+    id: tempId,
+    role: "assistant",
+    content: "",
+    model: options.model,
+    steps: [],
+    sources: [],
+  });
   const index = chatState.messages.length - 1;
   chatState.streaming = true;
   chatState.streamingChatId = chatId;
   chatState.thinking = false;
 
   const history: RequestMessage[] = await Promise.all(
-    chatState.messages.slice(0, index).map(async (message) => ({
-      role: message.role,
-      content: await messageContent(message.content, message.attachments ?? []),
-    })),
+    chatState.messages
+      .slice(0, index)
+      // Pending placeholders never reached the DB and must not be replayed.
+      .filter((message) => !message.id?.startsWith("pending-"))
+      .map(async (message) => ({
+        role: message.role,
+        content: await messageContent(message.content, message.attachments ?? []),
+      })),
   );
 
   const find = () => chatState.messages.find((message) => message.id === tempId);
@@ -177,6 +187,11 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
         const message = find();
         if (message) message.sources = sources;
       },
+      onModel: (model) => {
+        if (chatState.activeChatId !== chatId) return;
+        const message = find();
+        if (message) message.model = model;
+      },
     },
   );
 
@@ -184,45 +199,60 @@ async function streamReply(chatId: string, options: SendOptions): Promise<void> 
   chatState.streamingChatId = null;
   chatState.thinking = false;
 
-  if (outcome.error) chatState.error = outcome.error;
+  const message = find();
+  if (outcome.error) {
+    // The error belongs to the answer when it is on screen; otherwise toast it.
+    if (message) message.error = outcome.error;
+    else notify(outcome.error, "danger");
+  }
 
-  if (outcome.content) {
-    const stored = await appendMessage({
-      chatId,
-      role: "assistant",
-      content: outcome.content,
-      model: options.model,
-      tokensIn: outcome.usage?.tokensIn,
-      tokensOut: outcome.usage?.tokensOut,
-      cost: outcome.usage?.cost ?? undefined,
-      provider: outcome.usage?.provider ?? undefined,
-      sources: outcome.sources,
-    });
-    const message = find();
-    if (message) {
-      message.id = stored.id;
-    } else if (chatState.activeChatId === chatId) {
-      // The user switched chats mid-stream, so the placeholder is gone; reload
-      // so the stored reply shows without reopening the chat.
-      const view = await getChat(chatId);
-      if (view && chatState.activeChatId === chatId) {
-        chatState.messages = view.messages.map(toChatMessage);
+  const hasDetail = (message?.steps?.length ?? 0) > 0 || (message?.sources?.length ?? 0) > 0;
+  const result = replyOutcome({
+    content: outcome.content,
+    error: outcome.error,
+    hasDetail,
+    placeholderVisible: message !== undefined,
+  });
+
+  switch (result.kind) {
+    case "store": {
+      const stored = await appendMessage({
+        chatId,
+        role: "assistant",
+        content: outcome.content,
+        model: outcome.model ?? options.model,
+        tokensIn: outcome.usage?.tokensIn,
+        tokensOut: outcome.usage?.tokensOut,
+        cost: outcome.usage?.cost ?? undefined,
+        provider: outcome.usage?.provider ?? undefined,
+        sources: outcome.sources,
+      });
+      const target = find();
+      if (target) {
+        target.id = stored.id;
+      } else if (chatState.activeChatId === chatId) {
+        // The user switched chats mid-stream, so the placeholder is gone; reload
+        // so the stored reply shows without reopening the chat.
+        const view = await getChat(chatId);
+        if (view && chatState.activeChatId === chatId) {
+          chatState.messages = view.messages.map(toChatMessage);
+        }
       }
+      if (chatState.activeChatId === chatId && outcome.usage) chatState.usage = outcome.usage;
+      await refreshChats();
+      break;
     }
-    if (chatState.activeChatId === chatId && outcome.usage) chatState.usage = outcome.usage;
-    await refreshChats();
-  } else {
-    const message = find();
-    const hasDetail =
-      (message?.steps?.length ?? 0) > 0 ||
-      (message?.sources?.length ?? 0) > 0 ||
-      outcome.error !== undefined;
-    if (message && hasDetail) {
-      message.content = outcome.error ? `⚠ ${outcome.error}` : "_No text response._";
-    } else {
+    case "keep":
+      if (message) message.content = result.content;
+      break;
+    case "remove": {
       const emptyIndex = chatState.messages.findIndex((entry) => entry.id === tempId);
       if (emptyIndex !== -1) chatState.messages.splice(emptyIndex, 1);
+      break;
     }
+    case "toast":
+      // The error was already reported through notify().
+      break;
   }
 }
 

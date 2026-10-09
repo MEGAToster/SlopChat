@@ -15,6 +15,8 @@ export type ChatMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  error?: string;
+  model?: string;
   usage?: Usage;
   attachments?: Attachment[];
   steps?: ToolStep[];
@@ -32,7 +34,6 @@ export const chatState = $state<{
   sending: boolean;
   thinking: boolean;
   usage: Usage | null;
-  error: string | null;
   webOverrides: Record<string, WebOverride>;
   webDraft: WebOverride | null;
 }>({
@@ -44,7 +45,6 @@ export const chatState = $state<{
   sending: false,
   thinking: false,
   usage: null,
-  error: null,
   webOverrides: {},
   webDraft: null,
 });
@@ -85,10 +85,6 @@ export function isStreaming(): boolean {
   return chatState.streaming;
 }
 
-export function isSending(): boolean {
-  return chatState.sending;
-}
-
 export function isStreamingHere(): boolean {
   return chatState.streaming && chatState.streamingChatId === chatState.activeChatId;
 }
@@ -103,14 +99,6 @@ export function isBlank(): boolean {
 
 export function lastUsage(): Usage | null {
   return chatState.usage;
-}
-
-export function chatError(): string | null {
-  return chatState.error;
-}
-
-export function reportError(message: string): void {
-  chatState.error = message;
 }
 
 export function lastUserMessage(): ChatMessage | undefined {

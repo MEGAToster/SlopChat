@@ -6,6 +6,9 @@ export type Context = "composer" | "sidebar" | "palette" | "filter" | "confirm";
 export type Action =
   | "hide"
   | "palette"
+  | "zoomIn"
+  | "zoomOut"
+  | "zoomReset"
   | "paletteClose"
   | "paletteUp"
   | "paletteDown"
@@ -98,6 +101,9 @@ export function resolve(
   state: KeymapState,
 ): Action | null {
   if (matchesAny(keybinds.palette, event)) return "palette";
+  if (matchesAny(keybinds.zoomIn, event)) return "zoomIn";
+  if (matchesAny(keybinds.zoomOut, event)) return "zoomOut";
+  if (matchesAny(keybinds.zoomReset, event)) return "zoomReset";
   if (matchesAny(keybinds.sticky, event)) return "sticky";
   if (matchesAny(keybinds.sidebar, event)) return "toggleSidebar";
   if (matchesAny(keybinds.webToggle, event)) return "webToggle";

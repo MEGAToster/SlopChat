@@ -16,12 +16,6 @@ pub struct Cancel {
     pub(crate) notify: Arc<Notify>,
 }
 
-impl Default for Cancel {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Cancel {
     pub fn new() -> Self {
         Self {

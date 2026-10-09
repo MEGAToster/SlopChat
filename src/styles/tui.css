@@ -1,12 +1,12 @@
 [data-style="tui"] {
   --font-ui: var(--font-mono);
   --frame-radius: 6px;
-  --footer-height: 22px;
+  --footer-height: calc(22px * var(--scale));
 }
 
 [data-style="tui"] body {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: calc(13px * var(--scale));
   line-height: 1.5;
 }
 
@@ -133,7 +133,7 @@
 
 /* --- Sidebar ---------------------------------------------------------- */
 [data-style="tui"] .sidebar {
-  width: 240px;
+  width: calc(240px * var(--scale));
   padding: 0;
   border-right: none;
   background: transparent;

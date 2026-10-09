@@ -2,12 +2,14 @@ mod brave;
 mod exa;
 mod firecrawl;
 mod hit;
+mod quota;
 mod searxng;
 mod serper;
 mod tavily;
 pub mod allowance;
 
 use hit::Batch;
+use quota::classify;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -16,6 +18,7 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::{html, ToolContext, ToolOutput};
+use crate::text::truncate;
 use crate::config::{ConfigState, SearchSettings};
 use crate::providers::Source;
 
@@ -67,42 +70,6 @@ pub(super) async fn send_json(request: reqwest::RequestBuilder) -> Result<Value,
     }
 
     serde_json::from_str(&text).map_err(|error| SearchError::Failed(error.to_string()))
-}
-
-fn classify(status: u16, body: &str) -> SearchError {
-    if matches!(status, 402 | 429 | 432 | 433) || explicit_quota(body) {
-        SearchError::Exhausted(reason(body).unwrap_or_else(|| format!("HTTP {status}")))
-    } else {
-        SearchError::Failed(format!("HTTP {status}"))
-    }
-}
-
-// Only unambiguous billing phrases; a bare "limit" or "plan" in an error body
-// must not lock a provider out for the rest of the month.
-fn explicit_quota(body: &str) -> bool {
-    let lower = body.to_ascii_lowercase();
-    [
-        "out of credits",
-        "insufficient credits",
-        "not enough credits",
-        "quota exceeded",
-        "quota has been exceeded",
-        "credit limit reached",
-        "monthly quota",
-        "free allowance",
-    ]
-    .iter()
-    .any(|needle| lower.contains(needle))
-}
-
-fn reason(body: &str) -> Option<String> {
-    let value: Value = serde_json::from_str(body).ok()?;
-    for pointer in ["/error", "/message", "/detail", "/error/message"] {
-        if let Some(text) = value.pointer(pointer).and_then(Value::as_str) {
-            return Some(text.to_string());
-        }
-    }
-    None
 }
 
 pub async fn run(args: Value, context: ToolContext) -> Result<ToolOutput, String> {
@@ -274,10 +241,6 @@ fn format_output(
     }
 }
 
-fn truncate(text: &str, cap: usize) -> String {
-    text.chars().take(cap).collect()
-}
-
 static NOTIFIED: AtomicBool = AtomicBool::new(false);
 
 fn notify_unavailable(app: &AppHandle) {
@@ -307,50 +270,6 @@ fn notify_paid(app: &AppHandle, provider: &str, skipped: Option<&String>) {
     );
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn classifies_only_explicit_quota_failures_as_exhausted() {
-        assert!(matches!(classify(402, ""), SearchError::Exhausted(_)));
-        assert!(matches!(classify(429, ""), SearchError::Exhausted(_)));
-        assert!(matches!(
-            classify(400, "quota exceeded"),
-            SearchError::Exhausted(_)
-        ));
-        // A bare "limit"/"plan" in the body must not lock the provider out.
-        assert!(matches!(
-            classify(400, "monthly plan limit reached"),
-            SearchError::Failed(_)
-        ));
-        assert!(matches!(classify(401, ""), SearchError::Failed(_)));
-        assert!(matches!(classify(500, "boom"), SearchError::Failed(_)));
-    }
-
-    #[test]
-    fn extracts_a_reason_from_json_bodies() {
-        assert_eq!(reason(r#"{"error":"plan limit reached"}"#).unwrap(), "plan limit reached");
-        assert_eq!(reason("not json"), None);
-    }
-
-    #[test]
-    fn searxng_is_keyless_but_needs_a_base_url() {
-        assert!(!needs_key("searxng"));
-        assert!(needs_key("exa"));
-
-        let default = SearchSettings::default();
-        assert_eq!(
-            keyless_skip("searxng", &default).as_deref(),
-            Some("searxng: no base URL")
-        );
-
-        let configured = SearchSettings {
-            searxng: crate::config::SearxngSettings {
-                base_url: "http://localhost:8080".to_string(),
-            },
-            ..SearchSettings::default()
-        };
-        assert!(keyless_skip("searxng", &configured).is_none());
-    }
-}
+mod tests;

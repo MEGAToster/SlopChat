@@ -5,14 +5,16 @@ import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import { regenerate, stop, submit } from "./chat.svelte";
 import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
-import { chatState, cycleWeb, lastUserMessage, reportError, webOverride } from "./chatStore.svelte";
+import { chatState, cycleWeb, lastUserMessage, webOverride } from "./chatStore.svelte";
 import { createOverlays } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
 import { openPanel } from "./settingsPanel.svelte";
-import { settings } from "./settings.svelte";
 import { followOutput } from "./view.svelte";
+import { zoom } from "./zoom";
 import { cycleReasoningFor } from "./reasoning.svelte";
-import { effectiveWebMode, paidSearchWarning } from "../webSearch";
+import { effectiveWebMode } from "../webSearch";
+import { isAntigravity } from "../status";
+import { setFiltering } from "./chatFilter.svelte";
 import {
   activeConfig,
   beginEdit,
@@ -24,15 +26,16 @@ import {
   moveSelection,
   newChatWithProfile,
   notify,
+  notifyPaidSearch,
   openChatWithProfile,
   schedulePreview,
   selectActive,
   selectedChatId,
   setContext,
-  setFiltering,
   setMode,
   setPendingDelete,
   setRenaming,
+  setSelectedIndex,
   syncProfileFromActive,
 } from "./ui.svelte";
 
@@ -47,9 +50,8 @@ export function createActions(text: TextRef) {
   // Deep research is meant to run on free SearXNG; warn once per trigger when
   // it would actually spend paid search credits.
   function warnPaidSearch(model: string): void {
-    if (model.startsWith("antigravity/")) return;
-    const warning = paidSearchWarning(settings().search);
-    if (warning) notify(warning, "warning");
+    if (isAntigravity(model)) return;
+    notifyPaidSearch();
   }
 
   async function handleSend(): Promise<void> {
@@ -60,7 +62,7 @@ export function createActions(text: TextRef) {
 
     const options = currentSendOptions();
     if (!options) {
-      reportError("No profile configured in settings.json");
+      notify("No profile configured in settings.json", "danger");
       return;
     }
     if (options.webSearch === "deep") warnPaidSearch(options.model);
@@ -79,7 +81,7 @@ export function createActions(text: TextRef) {
       else if (editing) endEdit();
     } catch (cause) {
       if (text.get().length === 0) text.set(value);
-      reportError(String(cause));
+      notify(String(cause), "danger");
     } finally {
       chatState.sending = false;
     }
@@ -130,6 +132,15 @@ export function createActions(text: TextRef) {
     switch (action) {
       case "palette":
         void overlays.openPalette();
+        break;
+      case "zoomIn":
+        zoom(1);
+        break;
+      case "zoomOut":
+        zoom(-1);
+        break;
+      case "zoomReset":
+        zoom(0);
         break;
       case "stop":
         void stop();
@@ -228,6 +239,7 @@ export function createActions(text: TextRef) {
         if (!isExpanded()) void setMode("expanded");
         setContext("sidebar");
         setFiltering(true);
+        setSelectedIndex(0);
         break;
     }
   }

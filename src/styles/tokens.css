@@ -1,13 +1,14 @@
 :root {
   --font-ui: system-ui, -apple-system, "Inter", sans-serif;
   --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-code: 12.5px;
-  --fs-ui: 13px;
-  --fs-md: 14px;
-  --fs-lg: 15px;
-  --fs-xl: 17px;
+  --scale: 1;
+  --fs-xs: calc(11px * var(--scale));
+  --fs-sm: calc(12px * var(--scale));
+  --fs-code: calc(12.5px * var(--scale));
+  --fs-ui: calc(13px * var(--scale));
+  --fs-md: calc(14px * var(--scale));
+  --fs-lg: calc(15px * var(--scale));
+  --fs-xl: calc(17px * var(--scale));
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -19,7 +20,7 @@
   --dur-fast: 100ms;
   --dur: 150ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --footer-height: 36px;
+  --footer-height: calc(36px * var(--scale));
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.3);
 }
 

@@ -15,7 +15,7 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 - **History** — SQLite + FTS5 search, pinning, edit-last-message, and configurable startup/resume behavior.
 - **Attachments** — drop or paste images and text files.
 - **Command palette** — fuzzy search over chats, actions, models, profiles, and themes.
-- **Themes & styles** — bundled + user themes, minimal and TUI styles, font options.
+- **Themes & styles** — bundled + user themes, minimal and TUI styles. The Appearance settings hold theme, style, font size, UI/mono fonts, and reading width (narrow / wide / full).
 - **Advanced limits** — cap searches, fetches, fetched size, and tool rounds per reply; response-inactivity and total-turn timeouts; reasoning and completion-token caps; mild frequency/presence penalties (skipped for reasoning models); reader fallback and agent trace log.
 
 ## Default keybinds
@@ -31,11 +31,12 @@ A keyboard-first, lightweight chat client that lives on the macOS Spotlight/Rayc
 | `Ctrl+Shift+P` | Toggle sticky |
 | `Ctrl+Q` | Stop streaming |
 | `Ctrl+U` / `Ctrl+D` | Scroll up / down |
-| `Ctrl+W` | Cycle web search: on → off → auto |
+| `Ctrl+W` | Cycle web search: off → auto → deep |
 | `Ctrl+R` | Cycle reasoning effort |
 | `Ctrl+,` | Settings |
 | `Ctrl+M` | Model picker |
-| `Ctrl+L` | Follow output (jump to bottom / track) |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
+| `Ctrl+L` | Jump to latest output |
 | `Enter` / `Shift+Enter` | Send / newline |
 | `Esc` | Close palette / settings / filter / edit; otherwise hide the panel |
 

@@ -28,6 +28,7 @@ const KEY_ALIASES: Record<string, string> = {
   return: "Enter",
   enter: "Enter",
   tab: "Tab",
+  plus: "+",
   // WebKitGTK sends this for Shift+Tab.
   iso_left_tab: "Tab",
 };

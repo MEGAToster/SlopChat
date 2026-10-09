@@ -1,9 +1,6 @@
 <script lang="ts">
-  import { tick } from "svelte";
-  import { setSuppressHide, readClipboard } from "../lib/ipc";
-  import { pastedFiles } from "../lib/clipboard";
-  import { shouldPasteAsFile } from "../lib/paste";
-  import type { ClipboardContent } from "../lib/types";
+  import { setSuppressHide } from "../lib/ipc";
+  import { createComposerPaste } from "../lib/composerPaste";
   import { addFiles, pending, removePending } from "../lib/state/attachments.svelte";
   import { settings } from "../lib/state/settings.svelte";
   import { formatBytes } from "../lib/text";
@@ -20,9 +17,6 @@
     editing?: boolean;
   } = $props();
 
-  const LINE_HEIGHT = 21;
-  const MIN_HEIGHT = LINE_HEIGHT;
-  const MAX_HEIGHT = 8 * LINE_HEIGHT;
   // Measuring a very large value forces a full textarea reflow; past this size
   // just pin to the max height instead.
   const FIT_MAX_CHARS = 20_000;
@@ -33,13 +27,17 @@
 
   function fit(element: HTMLTextAreaElement): void {
     if (element.clientWidth === 0) return;
+    // The line height scales with the font setting, so measure it instead of
+    // assuming a pixel value.
+    const lineHeight = parseFloat(getComputedStyle(element).lineHeight) || 21;
+    const maxHeight = 8 * lineHeight;
     if (element.value.length > FIT_MAX_CHARS) {
-      element.style.height = `${MAX_HEIGHT}px`;
+      element.style.height = `${maxHeight}px`;
       return;
     }
     // Collapse first so scrollHeight reflects the content, not the last height.
     element.style.height = "0px";
-    element.style.height = `${Math.max(MIN_HEIGHT, Math.min(element.scrollHeight, MAX_HEIGHT))}px`;
+    element.style.height = `${Math.max(lineHeight, Math.min(element.scrollHeight, maxHeight))}px`;
   }
 
   $effect(() => {
@@ -75,80 +73,15 @@
     dragging = false;
   }
 
-  let pasteCounter = 0;
   let dialogOpen = $state(false);
 
-  // WebKitGTK leaves clipboardData empty on Linux only; elsewhere the DOM path
-  // is authoritative and preventing the default paste would drop content.
-  const nativeClipboard = navigator.userAgent.includes("Linux");
-
-  function addPastedText(text: string) {
-    pasteCounter += 1;
-    addFiles([new File([text], `paste-${pasteCounter}.txt`, { type: "text/plain" })]);
-  }
-
-  function onPaste(event: ClipboardEvent) {
-    const clipboard = event.clipboardData;
-    const files = pastedFiles(clipboard);
-    if (files.length > 0) {
-      event.preventDefault();
-      addFiles(files);
-      return;
-    }
-    const text = clipboard?.getData("text/plain") ?? "";
-    if (text) {
-      if (shouldPasteAsFile(text, settings().pasteAsFileChars)) {
-        event.preventDefault();
-        addPastedText(text);
-      }
-      return;
-    }
-    // A non-text payload the platform can paste itself (rich text, image).
-    if (clipboard && clipboard.types.length > 0) return;
-    // WebKitGTK does not populate clipboardData on Linux, so read it natively.
-    if (!nativeClipboard) return;
-    event.preventDefault();
-    void pasteFromClipboard();
-  }
-
-  async function pasteFromClipboard() {
-    let content: ClipboardContent;
-    try {
-      content = await readClipboard();
-    } catch {
-      return;
-    }
-    if (content.text) {
-      if (shouldPasteAsFile(content.text, settings().pasteAsFileChars)) addPastedText(content.text);
-      else await insertAtCaret(content.text);
-      return;
-    }
-    if (content.image) {
-      const file = await pngFile(content.image.pngBase64);
-      if (file) addFiles([file]);
-    }
-  }
-
-  async function insertAtCaret(text: string) {
-    const target = element;
-    if (!target) return;
-    const start = target.selectionStart ?? value.length;
-    const end = target.selectionEnd ?? start;
-    value = value.slice(0, start) + text + value.slice(end);
-    await tick();
-    const caret = start + text.length;
-    target.setSelectionRange(caret, caret);
-    fit(target);
-  }
-
-  async function pngFile(pngBase64: string): Promise<File | null> {
-    try {
-      const blob = await (await fetch(`data:image/png;base64,${pngBase64}`)).blob();
-      return new File([blob], `pasted-${Date.now()}.png`, { type: "image/png" });
-    } catch {
-      return null;
-    }
-  }
+  const paste = createComposerPaste({
+    element: () => element,
+    getValue: () => value,
+    setValue: (next) => (value = next),
+    fit,
+    pasteAsFileChars: () => settings().pasteAsFileChars,
+  });
 
   async function pick() {
     dialogOpen = true;
@@ -222,7 +155,7 @@
       placeholder="Ask anything"
       rows="1"
       spellcheck="false"
-      onpaste={onPaste}
+      onpaste={paste.onPaste}
       onfocus={() => onfocus?.()}
     ></textarea>
     <span class="enter" class:dim={!value.trim()}><Kbd binding="Enter" /></span>
@@ -330,7 +263,6 @@
 
   .input {
     flex: 1;
-    max-height: 168px;
     resize: none;
     border: none;
     outline: none;

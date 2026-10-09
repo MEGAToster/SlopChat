@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use super::{
     Advanced, DebugSettings, DeepSettings, ExaSettings, Keybinds, Limit, ModelConfig, Profile,
-    ProfileOverrides, Provider, SearchSettings, SearxngSettings, Settings, Startup, WebSearchMode,
-    WindowConfig,
+    ProfileOverrides, Provider, ReadingWidth, SearchSettings, SearxngSettings, Settings, Startup,
+    WebSearchMode, WindowConfig,
 };
 
 impl Default for Advanced {
@@ -136,6 +136,7 @@ impl Default for Settings {
             paste_as_file_chars: 10_000,
             theme: "default-dark".to_string(),
             style: "auto".to_string(),
+            reading_width: ReadingWidth::Wide,
             font: None,
             search: SearchSettings::default(),
             advanced: Advanced::default(),
@@ -164,6 +165,9 @@ impl Default for Keybinds {
             models: vec!["Ctrl+M".to_string()],
             follow: vec!["Ctrl+L".to_string()],
             focus_sidebar: vec!["Ctrl+S".to_string()],
+            zoom_in: vec!["Ctrl+=".to_string(), "Ctrl+Plus".to_string()],
+            zoom_out: vec!["Ctrl+-".to_string()],
+            zoom_reset: vec!["Ctrl+0".to_string()],
         }
     }
 }

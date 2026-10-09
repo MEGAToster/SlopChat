@@ -1,4 +1,5 @@
 import type { Theme, ThemeStyles } from "../types";
+import { scaleForSize } from "../fontSize";
 
 type ResolvedTheme = {
   name: string;
@@ -56,22 +57,18 @@ function mergeTheme(target: Theme, source: Theme): void {
 
 const applied = new Set<string>();
 
-export function applyTheme(resolved: ResolvedTheme): string[] {
+export function applyTheme(resolved: ResolvedTheme): void {
   const root = document.documentElement;
-  const invalid: string[] = [];
   const next: [string, string][] = [];
 
   for (const [key, value] of Object.entries(resolved.colors)) {
     if (isValue(value)) next.push([key, value]);
-    else invalid.push(`colors.${key}`);
   }
   for (const [key, value] of Object.entries(resolved.syntax)) {
     if (isValue(value)) next.push([`syn-${key}`, value]);
-    else invalid.push(`syntax.${key}`);
   }
   for (const [key, value] of Object.entries(resolved.palette)) {
     if (isValue(value)) next.push([`c-${key}`, value]);
-    else invalid.push(`palette.${key}`);
   }
 
   const rgb = resolved.colors.bg ? hexToRgb(resolved.colors.bg) : null;
@@ -79,7 +76,7 @@ export function applyTheme(resolved: ResolvedTheme): string[] {
 
   if (resolved.font.ui) next.push(["font-ui", resolved.font.ui]);
   if (resolved.font.mono) next.push(["font-mono", resolved.font.mono]);
-  if (resolved.font.size) next.push(["fs-md", `${resolved.font.size}px`]);
+  if (resolved.font.size) next.push(["scale", String(scaleForSize(resolved.font.size))]);
   next.push(["bg-opacity", String(resolved.opacity)]);
 
   for (const key of applied) root.style.removeProperty(`--${key}`);
@@ -92,8 +89,6 @@ export function applyTheme(resolved: ResolvedTheme): string[] {
 
   root.dataset.style = resolved.style ?? "minimal";
   root.style.colorScheme = resolved.scheme;
-
-  return invalid;
 }
 
 function isValue(value: unknown): value is string {

@@ -16,21 +16,20 @@ export async function loadUser(): Promise<void> {
   state.user = await loadUserThemes();
 }
 
-export function applyThemeFor(name: string): string[] {
+export function applyThemeFor(name: string): void {
   const map = new Map(themes().map((entry) => [entry.name, entry.theme]));
   const resolved = resolveTheme(map, name);
   const current = settings();
   const style = current.style === "auto" ? resolved.style ?? "minimal" : current.style;
   const font = { ...resolved.font, ...(current.font ?? {}) };
 
-  const invalid = applyTheme({ ...resolved, style, font });
+  applyTheme({ ...resolved, style, font });
   setMermaidScheme(resolved.scheme);
   // Chain so rapid previews apply in order; otherwise the last IPC to resolve
   // can win with a stale window style.
   styleChain = styleChain
     .then(() => setWindowStyle(resolved.scheme, resolved.vibrancy))
     .catch(() => {});
-  return invalid;
 }
 
 export async function setTheme(name: string): Promise<void> {

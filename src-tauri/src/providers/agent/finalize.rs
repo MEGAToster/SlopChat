@@ -82,15 +82,7 @@ fn final_provider(stream: Option<String>, lookup: Option<String>, kind: Kind) ->
     }
 }
 
-pub(super) fn now_millis() -> u128 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_millis())
-        .unwrap_or(0)
-}
-
-#[cfg(test)]
-mod tests {
+#[cfg(test)]mod tests {
     use super::*;
 
     #[test]

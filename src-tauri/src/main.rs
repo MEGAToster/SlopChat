@@ -10,6 +10,7 @@ mod platform;
 mod providers;
 mod secrets;
 mod store;
+mod text;
 mod tools;
 
 use crate::providers::client::Streams;
@@ -55,6 +56,7 @@ fn main() {
             commands::set_window_style,
             commands::has_api_key,
             commands::store_api_key,
+            commands::verify_api_key,
             commands::delete_api_key,
             commands::send,
             commands::stop,
@@ -86,6 +88,7 @@ fn main() {
             commands::model_reasoning,
             commands::set_theme,
             commands::set_style,
+            commands::set_reading_width,
             commands::save_advanced,
             commands::set_startup,
             commands::set_resume_within,
@@ -95,6 +98,7 @@ fn main() {
             commands::set_agent_log,
             commands::open_agent_log,
             commands::save_window,
+            commands::save_font,
             commands::load_user_themes,
             commands::open_url,
             commands::search_usage,

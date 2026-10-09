@@ -77,13 +77,10 @@
   color: var(--accent);
 }
 
-/* Expanded TUI: the frame spans the panel, so let the messages, composer and
-   status bar fill it instead of the 760px reading column. */
-[data-style="tui"] .panel.expanded .messages,
-[data-style="tui"] .panel.expanded .composer-box,
-[data-style="tui"] .panel.expanded .footer .inner {
-  max-width: none;
-  margin-inline: 0;
+/* Expanded TUI: the messages rule below sets its own horizontal padding, so
+   re-apply the reading-width gutter here instead of the compact value. */
+[data-style="tui"] .panel.expanded .messages {
+  padding-inline: max(var(--sp-4), calc((100% - var(--reading-width)) / 2));
 }
 
 /* --- Palette ---------------------------------------------------------- */

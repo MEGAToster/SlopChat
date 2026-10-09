@@ -21,10 +21,10 @@ import {
   renamingId,
   selectActive,
   setContext,
-  setFiltering,
   setMode,
   setPendingDelete,
 } from "./ui.svelte";
+import { setFiltering } from "./chatFilter.svelte";
 
 // Overlays are absolutely positioned inside the panel, so while one is open the
 // compact height must not follow the (hidden) thread underneath it.
@@ -105,20 +105,21 @@ export function createOverlays() {
     void hidePanel();
   }
 
-  // Expand and focus the sidebar.
-  function openSidebar(): void {
+  function setSidebar(focusComposer: boolean): void {
     void setMode("expanded");
     setFiltering(false);
     selectActive();
-    setContext("sidebar");
+    setContext(focusComposer ? "composer" : "sidebar");
+  }
+
+  // Expand and focus the sidebar.
+  function openSidebar(): void {
+    setSidebar(false);
   }
 
   // Expand the sidebar but keep focus in the composer.
   function expandSidebar(): void {
-    void setMode("expanded");
-    setFiltering(false);
-    selectActive();
-    setContext("composer");
+    setSidebar(true);
   }
 
   return {

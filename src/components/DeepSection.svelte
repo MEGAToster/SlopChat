@@ -1,12 +1,8 @@
 <script lang="ts">
+  import { clampInt } from "../lib/input";
   import { saveAdvanced } from "../lib/ipc";
   import { settings } from "../lib/state/settings.svelte";
   import type { DeepSettings } from "../lib/types";
-
-  function clamp(event: Event, min: number, max: number): number {
-    const value = Number((event.currentTarget as HTMLInputElement).value);
-    return Math.min(max, Math.max(min, Math.round(value)));
-  }
 
   function saveDeep(patch: Partial<DeepSettings>): void {
     void saveAdvanced({
@@ -39,7 +35,7 @@
     min="1"
     max="30"
     value={settings().advanced.deep.maxRounds}
-    onchange={(event) => saveDeep({ maxRounds: clamp(event, 1, 30) })}
+    onchange={(event) => saveDeep({ maxRounds: clampInt(event, 1, 30) })}
   />
 </label>
 
@@ -51,7 +47,7 @@
     min="1"
     max="60"
     value={settings().advanced.deep.maxSearches}
-    onchange={(event) => saveDeep({ maxSearches: clamp(event, 1, 60) })}
+    onchange={(event) => saveDeep({ maxSearches: clampInt(event, 1, 60) })}
   />
 </label>
 
@@ -63,7 +59,7 @@
     min="0"
     max="100"
     value={settings().advanced.deep.maxFetches}
-    onchange={(event) => saveDeep({ maxFetches: clamp(event, 0, 100) })}
+    onchange={(event) => saveDeep({ maxFetches: clampInt(event, 0, 100) })}
   />
 </label>
 
@@ -77,7 +73,7 @@
     min="0"
     max="2000000"
     value={settings().advanced.deep.maxFetchedChars}
-    onchange={(event) => saveDeep({ maxFetchedChars: clamp(event, 0, 2000000) })}
+    onchange={(event) => saveDeep({ maxFetchedChars: clampInt(event, 0, 2000000) })}
   />
 </label>
 
@@ -91,47 +87,7 @@
     min="30"
     max="3600"
     value={settings().advanced.deep.maxTurnSecs}
-    onchange={(event) => saveDeep({ maxTurnSecs: clamp(event, 30, 3600) })}
+    onchange={(event) => saveDeep({ maxTurnSecs: clampInt(event, 30, 3600) })}
   />
 </label>
 
-<style>
-  .adv-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    min-height: 36px;
-    padding: 0 var(--sp-2);
-  }
-
-  .adv-label {
-    flex: 1;
-    color: var(--text-secondary);
-    font-size: var(--fs-sm);
-  }
-
-  .adv-unit {
-    color: var(--text-tertiary);
-    font-size: var(--fs-sm);
-  }
-
-  .control {
-    flex: none;
-    width: 72px;
-    padding: 4px var(--sp-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background-color: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--fs-sm);
-  }
-
-  .control:focus {
-    outline: 1px solid var(--accent);
-  }
-
-  .control.wide {
-    width: 168px;
-  }
-</style>

@@ -17,4 +17,7 @@ export const DEFAULT_KEYBINDS: Keybinds = {
   models: ["Ctrl+M"],
   follow: ["Ctrl+L"],
   focusSidebar: ["Ctrl+S"],
+  zoomIn: ["Ctrl+=", "Ctrl+Plus"],
+  zoomOut: ["Ctrl+-"],
+  zoomReset: ["Ctrl+0"],
 };

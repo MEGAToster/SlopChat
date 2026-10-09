@@ -2,11 +2,12 @@ use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
 
+use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
 use super::models_file::{self, ModelsFile};
-use super::{Advanced, Settings, Startup, WindowConfig};
+use super::{Advanced, Font, Settings, Startup, WindowConfig};
 use crate::paths;
 
 // Read-modify-write on a single file must not interleave between async commands.
@@ -100,54 +101,47 @@ pub(super) fn patch_file(
     Ok(())
 }
 
-pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
-    patch(app, |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("theme".to_string(), json!(theme));
+// Most writers just drop one serialized value under a settings key.
+fn set_entry(app: &AppHandle, key: &str, entry: Value) -> Result<(), String> {
+    let key = key.to_string();
+    patch(app, move |root| {
+        if let Some(object) = root.as_object_mut() {
+            object.insert(key, entry);
         }
     })
+}
+
+fn set_scalar(app: &AppHandle, key: &str, value: impl Serialize) -> Result<(), String> {
+    let entry = serde_json::to_value(value).map_err(|error| error.to_string())?;
+    set_entry(app, key, entry)
+}
+
+pub fn set_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
+    set_scalar(app, "theme", theme)
 }
 
 pub fn set_style(app: &AppHandle, style: &str) -> Result<(), String> {
-    patch(app, |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("style".to_string(), json!(style));
-        }
-    })
+    set_scalar(app, "style", style)
+}
+
+pub fn set_reading_width(app: &AppHandle, width: &str) -> Result<(), String> {
+    set_scalar(app, "readingWidth", width)
 }
 
 pub fn save_advanced(app: &AppHandle, advanced: &Advanced) -> Result<(), String> {
-    let entry = serde_json::to_value(advanced).map_err(|error| error.to_string())?;
-    patch(app, move |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("advanced".to_string(), entry);
-        }
-    })
+    set_scalar(app, "advanced", advanced)
 }
 
 pub fn set_startup(app: &AppHandle, startup: Startup) -> Result<(), String> {
-    let entry = serde_json::to_value(startup).map_err(|error| error.to_string())?;
-    patch(app, move |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("startup".to_string(), entry);
-        }
-    })
+    set_scalar(app, "startup", startup)
 }
 
 pub fn set_resume_within(app: &AppHandle, minutes: u64) -> Result<(), String> {
-    patch(app, move |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("resumeWithinMinutes".to_string(), json!(minutes));
-        }
-    })
+    set_scalar(app, "resumeWithinMinutes", minutes)
 }
 
 pub fn set_paste_as_file(app: &AppHandle, chars: u64) -> Result<(), String> {
-    patch(app, move |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("pasteAsFileChars".to_string(), json!(chars));
-        }
-    })
+    set_scalar(app, "pasteAsFileChars", chars)
 }
 
 pub fn set_reader_fallback(app: &AppHandle, enabled: bool) -> Result<(), String> {
@@ -182,12 +176,20 @@ fn set_search_flag(value: &mut Value, key: &str, enabled: bool) {
 }
 
 pub fn save_window(app: &AppHandle, window: &WindowConfig) -> Result<(), String> {
-    let entry = serde_json::to_value(window).map_err(|error| error.to_string())?;
-    patch(app, move |value| {
-        if let Some(object) = value.as_object_mut() {
-            object.insert("window".to_string(), entry);
-        }
-    })
+    set_scalar(app, "window", window)
+}
+
+pub fn save_font(app: &AppHandle, font: &Font) -> Result<(), String> {
+    let empty = font.ui.is_none() && font.mono.is_none() && font.size.is_none();
+    if empty {
+        patch(app, |value| {
+            if let Some(object) = value.as_object_mut() {
+                object.remove("font");
+            }
+        })
+    } else {
+        set_scalar(app, "font", font)
+    }
 }
 
 pub fn set_agent_log(app: &AppHandle, enabled: bool) -> Result<(), String> {
@@ -219,83 +221,6 @@ pub(super) fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
     Ok(())
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("slopchat-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    #[test]
-    fn migrates_models_out_of_settings() {
-        let dir = temp_dir("migrate");
-        let settings_path = dir.join("settings.json");
-        let models_path = dir.join("models.json");
-        fs::write(
-            &settings_path,
-            r#"{"theme":"default-dark","models":[{"model":"openrouter/a"}],"profiles":[{"name":"x","model":"openrouter/a"}]}"#,
-        )
-        .unwrap();
-
-        let settings = load_from(&settings_path, &models_path).unwrap();
-
-        let file: ModelsFile =
-            serde_json::from_str(&fs::read_to_string(&models_path).unwrap()).unwrap();
-        assert_eq!(file.models[0].model, "openrouter/a");
-        assert_eq!(file.profiles[0].name, "x");
-
-        let stored: Value =
-            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
-        assert!(stored.get("models").is_none());
-        assert!(stored.get("profiles").is_none());
-        assert_eq!(settings.models[0].model, "openrouter/a");
-    }
-
-    #[test]
-    fn models_file_overrides_settings() {
-        let dir = temp_dir("override");
-        let settings_path = dir.join("settings.json");
-        let models_path = dir.join("models.json");
-        fs::write(&settings_path, r#"{"models":[{"model":"openrouter/old"}]}"#).unwrap();
-        fs::write(
-            &models_path,
-            r#"{"models":[{"model":"openrouter/new"}],"profiles":[]}"#,
-        )
-        .unwrap();
-
-        let settings = load_from(&settings_path, &models_path).unwrap();
-
-        assert_eq!(settings.models.len(), 1);
-        assert_eq!(settings.models[0].model, "openrouter/new");
-        // settings.json is left untouched when models.json is the source of truth.
-        let stored: Value =
-            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
-        assert!(stored.get("models").is_some());
-    }
-
-    #[test]
-    fn malformed_models_file_errors() {
-        let dir = temp_dir("malformed");
-        let settings_path = dir.join("settings.json");
-        let models_path = dir.join("models.json");
-        fs::write(&settings_path, "{}").unwrap();
-        fs::write(&models_path, "{not json").unwrap();
-
-        assert!(load_from(&settings_path, &models_path).is_err());
-    }
-
-    #[test]
-    fn toggles_create_missing_sections() {
-        let mut value = json!({});
-        set_search_flag(&mut value, "readerFallback", true);
-        assert_eq!(value["search"]["readerFallback"], json!(true));
-
-        let mut value = json!({});
-        set_debug_flag(&mut value, "agentLog", true);
-        assert_eq!(value["debug"]["agentLog"], json!(true));
-    }
-}
+mod tests;

@@ -7,12 +7,11 @@ use serde_json::Value;
 use super::super::prompt::system_text;
 use super::super::{ChatMessage, ChatRequest};
 
-// The resume pointer persisted per chat: which `agy` conversation, which SlopChat
-// model, and a fingerprint of the user turns already inside it.
+// The resume pointer persisted per chat: which `agy` conversation and a
+// fingerprint of the user turns already inside it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stored {
     pub id: String,
-    pub model: String,
     pub users: usize,
     pub hash: String,
 }
@@ -165,7 +164,6 @@ mod tests {
     fn stored(users: usize, hash: String) -> Stored {
         Stored {
             id: "11111111-1111-1111-1111-111111111111".to_string(),
-            model: "gemini-3.8-flash-medium".to_string(),
             users,
             hash,
         }
@@ -217,17 +215,6 @@ mod tests {
             .concat(),
         );
         assert!(matches!(plan(&request, Some(&stored)), Plan::Fresh { .. }));
-    }
-
-    #[test]
-    fn a_switched_model_still_resumes() {
-        // Phase 0: `agy` accepts a different --model on the same conversation.
-        let mut stored = stored(1, fingerprint(&["hi".to_string()]));
-        stored.model = "gemini-3.1-pro-low".to_string();
-        let request = request(
-            [turn("hi", "hello"), vec![json!({"role":"user","content":"again"})]].concat(),
-        );
-        assert!(matches!(plan(&request, Some(&stored)), Plan::Resume { .. }));
     }
 
     #[test]

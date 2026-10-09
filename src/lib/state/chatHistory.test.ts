@@ -30,7 +30,6 @@ beforeEach(() => {
   chatState.activeChatId = null;
   chatState.messages = [];
   chatState.usage = null;
-  chatState.error = null;
 });
 
 describe("resumeOnShow", () => {

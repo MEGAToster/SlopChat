@@ -50,7 +50,7 @@ pub async fn run(
     let users = session::user_texts(&request.messages);
     let timeout = Duration::from_secs(settings.advanced.max_turn_secs.clamp(30, 3600) as u64);
 
-    let mut mapper = Mapper::new();
+    let mut mapper = Mapper::default();
     let mut ring = Ring::new(settings.debug.agent_log);
 
     let first = match session::plan(&request, stored.as_ref()) {
@@ -96,7 +96,6 @@ pub async fn run(
             }
             let stored = Stored {
                 id: result.conversation_id.clone(),
-                model,
                 users: users.len(),
                 hash: session::fingerprint(&users),
             };

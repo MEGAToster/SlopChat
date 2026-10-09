@@ -2,16 +2,9 @@ import DOMPurify from "dompurify";
 import { Marked, type MarkedExtension, type Tokens } from "marked";
 
 import { stripControlTokens } from "./clean";
+import { escapeHtml } from "./escape";
 import { hljs } from "./highlight";
 import { renderMath } from "./math.svelte";
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function mathHtml(source: string, display: boolean): string {
   const html = renderMath(source, display);

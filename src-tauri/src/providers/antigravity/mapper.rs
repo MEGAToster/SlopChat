@@ -15,10 +15,6 @@ pub struct Mapper {
 }
 
 impl Mapper {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn round(&self) -> u32 {
         self.round
     }
@@ -104,7 +100,7 @@ mod tests {
     use serde_json::Value;
 
     fn run(fixture: &str) -> (Mapper, Vec<StreamEvent>) {
-        let mut mapper = Mapper::new();
+        let mut mapper = Mapper::default();
         let mut events = Vec::new();
         for line in fixture.lines() {
             if let Some(event) = parse_line(line) {

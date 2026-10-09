@@ -2,21 +2,13 @@
   import { formatBinding } from "../lib/keymap/format";
   import { splitModelRef, shortModel } from "../lib/modelRef";
   import { profileColor } from "../lib/profileColor";
-  import {
-    isStreamingHere,
-    lastUsage,
-    cycleWeb,
-    webOverride,
-  } from "../lib/state/chatStore.svelte";
+  import { isStreamingHere, lastUsage } from "../lib/state/chatStore.svelte";
   import {
     cycleReasoningFor,
     loadReasoning,
-    reasoningInfo,
     reasoningOverride,
   } from "../lib/state/reasoning.svelte";
-  import { followOutput, view } from "../lib/state/view.svelte";
-  import { effectiveWebMode, paidSearchWarning } from "../lib/webSearch";
-  import type { WebSearchMode } from "../lib/types";
+  import { reasoningEffort } from "../lib/status";
   import { settings } from "../lib/state/settings.svelte";
   import {
     activeConfig,
@@ -24,11 +16,9 @@
     activeProfileIndex,
     editingId,
     keyContext,
-    notify,
     overrideActive,
   } from "../lib/state/ui.svelte";
-  import { toggleSticky } from "../lib/ipc";
-  import Icon from "./Icon.svelte";
+  import FooterControls from "./FooterControls.svelte";
   import Kbd from "./Kbd.svelte";
   import UsageInfo from "./UsageInfo.svelte";
 
@@ -47,46 +37,18 @@
   const sidebar = $derived(keyContext() === "sidebar");
   const editing = $derived(editingId() !== null);
 
-  const info = $derived(config ? reasoningInfo(config.model) : undefined);
-  const reasoning = $derived(
-    reasoningOverride() ?? config?.reasoning ?? info?.defaultEffort ?? "auto",
-  );
+  const reasoning = $derived(reasoningEffort(config));
+  const reasoningScoped = $derived(reasoningOverride() !== null);
   const reasoningKeys = $derived(formatBinding(keybinds.reasoning?.[0]));
   const reasoningTitle = $derived(
-    `Reasoning effort: ${reasoning}${reasoningKeys ? ` (${reasoningKeys} to cycle)` : ""}`,
+    `Reasoning effort: ${reasoning}${reasoningKeys ? ` (${reasoningKeys} to cycle)` : ""}${
+      reasoningScoped ? " (this chat)" : ""
+    }`,
   );
 
   $effect(() => {
     if (config?.model) void loadReasoning(config.model);
   });
-
-  const noTools = $derived(config?.toolCalling === false || antigravity);
-
-  const web = $derived.by((): WebSearchMode => {
-    if (antigravity) return "off";
-    return effectiveWebMode(config?.toolCalling !== false, webOverride(), config?.webSearch);
-  });
-
-  const webTitle = $derived(
-    antigravity
-      ? "Antigravity uses its own tools"
-      : config?.toolCalling === false
-        ? "Tool calling is off for this profile (toolCalling: false)"
-        : web === "off"
-          ? "Web search off for this chat"
-          : web === "deep"
-            ? "Deep research on for this chat"
-            : "Web search available (the model decides)",
-  );
-
-  function toggleWeb(): void {
-    cycleWeb(web);
-    // auto → deep turns deep research on; warn if it would cost money.
-    if (web === "auto") {
-      const warning = paidSearchWarning(settings().search);
-      if (warning) notify(warning, "warning");
-    }
-  }
 
   const mode = $derived.by(() => {
     if (isStreamingHere()) return { label: "STREAM", tone: "orange" };
@@ -94,7 +56,6 @@
     if (sidebar) return { label: "NORMAL", tone: "blue" };
     return { label: "INSERT", tone: "green" };
   });
-
 </script>
 
 <footer class="footer">
@@ -106,11 +67,16 @@
         <span class="dot" style={`background: var(--c-${color})`}></span>
         <span class="name">{profile?.name ?? "no profile"}</span>
       {/if}
-      {#if model}<span class="model">{model}</span>{/if}
+      {#if model}
+        <span class="model" class:scoped={overriding} title={overriding ? `${model} (this chat)` : model}>
+          {model}
+        </span>
+      {/if}
       {#if model && !antigravity}
         <button
           type="button"
           class="effort"
+          class:scoped={reasoningScoped}
           title={reasoningTitle}
           onclick={() => config && void cycleReasoningFor(config.model)}
         >
@@ -134,44 +100,7 @@
       {/if}
     </div>
 
-    <div class="controls" class:managing={sidebar}>
-      <button
-        type="button"
-        class="follow"
-        class:on={view.tracking}
-        title="Follow output / jump to present"
-        aria-label="Follow output"
-        onclick={followOutput}
-      >
-        <Icon name="follow" size={13} />
-        <Kbd binding={keybinds.follow?.[0]} />
-      </button>
-
-      <button
-        type="button"
-        class="sticky"
-        class:on={sticky}
-        title="Sticky"
-        aria-label="Sticky"
-        onclick={() => void toggleSticky()}
-      >
-        <Icon name="lock" size={13} />
-        <Kbd binding={keybinds.sticky?.[0]} />
-      </button>
-
-      <button
-        type="button"
-        class="web"
-        data-state={web}
-        title={webTitle}
-        aria-label={webTitle}
-        disabled={noTools}
-        onclick={toggleWeb}
-      >
-        <Icon name={web === "off" ? "globe-off" : "globe"} size={13} />
-        <Kbd binding={keybinds.webToggle?.[0]} />
-      </button>
-    </div>
+    <FooterControls {sticky} managing={sidebar} />
   </div>
 </footer>
 
@@ -191,68 +120,6 @@
   }
 
   .mode {
-    display: none;
-  }
-
-  .controls {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-    gap: var(--sp-2);
-    margin-left: auto;
-  }
-
-  .follow,
-  .sticky,
-  .web {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-    gap: 4px;
-    border: none;
-    background: transparent;
-    color: var(--text-tertiary);
-    font: inherit;
-    font-size: var(--fs-sm);
-    cursor: default;
-  }
-
-  .follow,
-  .sticky {
-    opacity: 0.55;
-  }
-
-  .follow.on,
-  .sticky.on {
-    color: var(--accent);
-    opacity: 1;
-  }
-
-  /* Web: the globe keeps its three stages; the keybind only lights up when on. */
-  .web :global(svg),
-  .web :global(.kbd) {
-    opacity: 0.55;
-  }
-
-  .web[data-state="auto"] :global(svg) {
-    opacity: 1;
-  }
-
-  .web[data-state="deep"] {
-    color: var(--accent);
-  }
-
-  .web[data-state="deep"] :global(svg),
-  .web[data-state="deep"] :global(.kbd) {
-    opacity: 1;
-  }
-
-  .web:disabled :global(svg),
-  .web:disabled :global(.kbd) {
-    opacity: 0.35;
-  }
-
-  .controls.managing .web {
     display: none;
   }
 
@@ -318,5 +185,4 @@
     align-items: center;
     gap: 4px;
   }
-
 </style>

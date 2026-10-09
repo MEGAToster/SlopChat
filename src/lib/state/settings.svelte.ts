@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: Settings = {
   pasteAsFileChars: 10_000,
   theme: "default-dark",
   style: "auto",
+  readingWidth: "wide",
   search: {
     providers: ["searxng", "exa", "tavily", "brave", "firecrawl", "serper"],
     readerFallback: true,
