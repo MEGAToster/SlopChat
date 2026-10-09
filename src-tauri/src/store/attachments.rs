@@ -1,11 +1,14 @@
-use std::collections::HashSet;
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 use base64::Engine;
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 use super::db_err;
+
+// Imports larger than this are rejected before being read into memory.
+const MAX_IMPORT_BYTES: u64 = 100 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +16,18 @@ pub struct Attachment {
     pub id: String,
     pub path: String,
     pub mime: Option<String>,
+}
+
+// A file already copied into the attachments directory. Returned instead of the
+// bytes so large pastes and imports never cross the IPC boundary.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedFile {
+    pub id: String,
+    pub path: String,
+    pub mime: String,
+    pub name: String,
+    pub size: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,9 +43,17 @@ pub fn save(name: &str, mime: &str, data: &str) -> Result<Attachment, String> {
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data)
         .map_err(|error| format!("decoding attachment: {error}"))?;
+    let file = save_bytes(name, mime, &bytes)?;
+    Ok(Attachment {
+        id: file.id,
+        path: file.path,
+        mime: Some(file.mime),
+    })
+}
 
+pub fn save_bytes(name: &str, mime: &str, bytes: &[u8]) -> Result<SavedFile, String> {
     let id = super::new_id("a");
-    let extension = std::path::Path::new(name)
+    let extension = Path::new(name)
         .extension()
         .and_then(|value| value.to_str())
         .map(|value| format!(".{value}"))
@@ -41,11 +64,52 @@ pub fn save(name: &str, mime: &str, data: &str) -> Result<Attachment, String> {
     let path = dir.join(format!("{id}{extension}"));
     std::fs::write(&path, bytes).map_err(db_err)?;
 
-    Ok(Attachment {
+    Ok(SavedFile {
         id,
         path: path.to_string_lossy().to_string(),
-        mime: Some(mime.to_string()),
+        mime: mime.to_string(),
+        name: name.to_string(),
+        size: bytes.len() as u64,
     })
+}
+
+// Copies a user-picked file into the attachments directory. Reading and writing
+// happen here so the bytes never have to round-trip through the webview.
+pub fn import(path: &Path) -> Result<SavedFile, String> {
+    let metadata = std::fs::metadata(path).map_err(db_err)?;
+    if metadata.len() > MAX_IMPORT_BYTES {
+        return Err(format!("{} is too large to attach", path.display()));
+    }
+    let bytes = std::fs::read(path).map_err(db_err)?;
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("file");
+    let mime = mime_for(path);
+    save_bytes(name, mime, &bytes)
+}
+
+fn mime_for(path: &Path) -> &'static str {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "svg" => "image/svg+xml",
+        "txt" | "md" | "log" | "text" => "text/plain",
+        "json" => "application/json",
+        "csv" => "text/csv",
+        "html" | "htm" => "text/html",
+        "xml" => "text/xml",
+        "pdf" => "application/pdf",
+        _ => "application/octet-stream",
+    }
 }
 
 pub fn read(path: &str) -> Result<String, String> {
@@ -58,14 +122,6 @@ pub fn read(path: &str) -> Result<String, String> {
 
     let bytes = std::fs::read(&canonical).map_err(db_err)?;
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
-}
-
-fn row_to_attachment(row: &Row<'_>) -> rusqlite::Result<Attachment> {
-    Ok(Attachment {
-        id: row.get(0)?,
-        path: row.get(1)?,
-        mime: row.get(2)?,
-    })
 }
 
 pub fn insert(conn: &Connection, message_id: &str, attachment: &NewAttachment) -> Result<(), String> {
@@ -82,16 +138,38 @@ pub fn insert(conn: &Connection, message_id: &str, attachment: &NewAttachment) -
     Ok(())
 }
 
-pub fn list_for_message(conn: &Connection, message_id: &str) -> Result<Vec<Attachment>, String> {
+// One query for the whole chat; joining avoids the per-message N+1 that made
+// rapid history navigation expensive.
+pub fn list_for_chat(
+    conn: &Connection,
+    chat_id: &str,
+) -> Result<HashMap<String, Vec<Attachment>>, String> {
     let mut statement = conn
-        .prepare("SELECT id, path, mime FROM attachments WHERE message_id = ?1")
+        .prepare(
+            "SELECT a.message_id, a.id, a.path, a.mime FROM attachments a
+             JOIN messages m ON m.id = a.message_id
+             WHERE m.chat_id = ?1",
+        )
         .map_err(db_err)?;
-    let attachments = statement
-        .query_map(params![message_id], row_to_attachment)
-        .map_err(db_err)?
-        .collect::<rusqlite::Result<Vec<_>>>()
+    let rows = statement
+        .query_map(params![chat_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                Attachment {
+                    id: row.get(1)?,
+                    path: row.get(2)?,
+                    mime: row.get(3)?,
+                },
+            ))
+        })
         .map_err(db_err)?;
-    Ok(attachments)
+
+    let mut grouped: HashMap<String, Vec<Attachment>> = HashMap::new();
+    for row in rows {
+        let (message_id, attachment) = row.map_err(db_err)?;
+        grouped.entry(message_id).or_default().push(attachment);
+    }
+    Ok(grouped)
 }
 
 // Collect file paths before their rows cascade away, so the files can be
@@ -284,5 +362,48 @@ mod tests {
 
         assert!(!file.exists());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn infers_mime_from_the_extension() {
+        assert_eq!(mime_for(std::path::Path::new("a.png")), "image/png");
+        assert_eq!(mime_for(std::path::Path::new("a.JPG")), "image/jpeg");
+        assert_eq!(mime_for(std::path::Path::new("notes.md")), "text/plain");
+        assert_eq!(mime_for(std::path::Path::new("noext")), "application/octet-stream");
+    }
+
+    #[test]
+    fn list_for_chat_groups_attachments_by_message() {
+        let store = Store::in_memory().unwrap();
+        let conn = store.conn();
+        let chat = crate::store::chats::create(&conn, "default").unwrap();
+        let other = crate::store::chats::create(&conn, "default").unwrap();
+
+        let first = messages::append(&conn, &new_message(&chat.id, "user", "one", vec![])).unwrap();
+        let second = messages::append(
+            &conn,
+            &new_message(
+                &chat.id,
+                "user",
+                "two",
+                vec![file_attachment("a1", std::path::Path::new("/tmp/a1")), file_attachment("a2", std::path::Path::new("/tmp/a2"))],
+            ),
+        )
+        .unwrap();
+        messages::append(
+            &conn,
+            &new_message(
+                &other.id,
+                "user",
+                "elsewhere",
+                vec![file_attachment("a3", std::path::Path::new("/tmp/a3"))],
+            ),
+        )
+        .unwrap();
+
+        let grouped = list_for_chat(&conn, &chat.id).unwrap();
+        assert!(!grouped.contains_key(&first.id));
+        assert_eq!(grouped.get(&second.id).unwrap().len(), 2);
+        assert!(!grouped.values().flatten().any(|a| a.id == "a3"));
     }
 }

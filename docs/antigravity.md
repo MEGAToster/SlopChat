@@ -107,6 +107,9 @@ and silently starts a new conversation, so the provider detects the changed
 - Requests SlopChat sends that `agy` ignores: `temperature`, `tools`, `toolCalling`,
   `webSearch`/`webToggle`, `maxCompletionTokens`, the frequency/presence penalties, and the
   search/fetch budgets. `agy` uses its own tools and limits.
+- Deep research is unavailable for Antigravity: under `--sandbox` the permission-gated
+  `read_url_content` (and `search_web`/`invoke_subagent`) is auto-denied headless, so the
+  Deep mode is a no-op rather than something SlopChat can drive.
 - `cost` is always `None` (the sign-in plan is not billed per token).
 
 ## Known `agy` quirks and defenses

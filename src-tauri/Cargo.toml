@@ -13,6 +13,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
+# The portal backend keeps the chooser off the Wayland layer surface.
+tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 notify = "8"
 keyring = "4"
 base64 = "0.22"

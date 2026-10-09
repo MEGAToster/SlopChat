@@ -1,9 +1,13 @@
+import type { Attachment, SavedFile } from "../types";
+
 type PendingAttachment = {
   id: string;
   name: string;
   mime: string;
   size: number;
-  dataUrl: string;
+  // Absent for files the backend already stored (large pastes, picked files).
+  dataUrl?: string;
+  stored?: Attachment;
 };
 
 const state = $state({ items: [] as PendingAttachment[] });
@@ -14,6 +18,20 @@ export function pending(): PendingAttachment[] {
 
 export function addFiles(files: FileList | File[]): void {
   for (const file of Array.from(files)) void addFile(file);
+}
+
+// Files already written to the attachments directory by the backend; they skip
+// the base64 upload on submit.
+export function addStoredFiles(files: SavedFile[]): void {
+  for (const file of files) {
+    state.items.push({
+      id: file.id,
+      name: file.name,
+      mime: file.mime,
+      size: file.size,
+      stored: { id: file.id, path: file.path, mime: file.mime },
+    });
+  }
 }
 
 export function removePending(id: string): void {

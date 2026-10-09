@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { setSuppressHide } from "../lib/ipc";
-  import { createComposerPaste } from "../lib/composerPaste";
-  import { addFiles, pending, removePending } from "../lib/state/attachments.svelte";
+  import { tick } from "svelte";
+  import { open } from "@tauri-apps/plugin-dialog";
+  import { setSuppressHide, readClipboard, importPaths, platformInfo } from "../lib/ipc";
+  import { pastedFiles } from "../lib/clipboard";
+  import { shouldPasteAsFile } from "../lib/paste";
+  import type { ClipboardContent } from "../lib/types";
+  import { addFiles, addStoredFiles, pending, removePending } from "../lib/state/attachments.svelte";
   import { settings } from "../lib/state/settings.svelte";
+  import { notify } from "../lib/state/ui.svelte";
   import { formatBytes } from "../lib/text";
   import Icon from "./Icon.svelte";
   import Kbd from "./Kbd.svelte";
@@ -22,7 +27,6 @@
   const FIT_MAX_CHARS = 20_000;
 
   let element = $state<HTMLTextAreaElement | null>(null);
-  let fileInput = $state<HTMLInputElement | null>(null);
   let dragging = $state(false);
 
   function fit(element: HTMLTextAreaElement): void {
@@ -73,40 +77,100 @@
     dragging = false;
   }
 
-  let dialogOpen = $state(false);
+  let pasteCounter = 0;
 
-  const paste = createComposerPaste({
-    element: () => element,
-    getValue: () => value,
-    setValue: (next) => (value = next),
-    fit,
-    pasteAsFileChars: () => settings().pasteAsFileChars,
-  });
+  // WebKitGTK does not bridge the clipboard into clipboardData on Linux; the
+  // user-agent is a safe initial guess until the backend probe resolves.
+  let nativeClipboard = $state(navigator.userAgent.includes("Linux"));
+  void platformInfo()
+    .then((info) => (nativeClipboard = info.linux))
+    .catch(() => {});
 
+  function addPastedText(text: string) {
+    pasteCounter += 1;
+    addFiles([new File([text], `paste-${pasteCounter}.txt`, { type: "text/plain" })]);
+  }
+
+  function onPaste(event: ClipboardEvent) {
+    const clipboard = event.clipboardData;
+    const files = pastedFiles(clipboard);
+    if (files.length > 0) {
+      event.preventDefault();
+      addFiles(files);
+      return;
+    }
+    const text = clipboard?.getData("text/plain") ?? "";
+    if (text) {
+      if (shouldPasteAsFile(text, settings().pasteAsFileChars)) {
+        event.preventDefault();
+        addPastedText(text);
+      }
+      return;
+    }
+    // On Linux WebKitGTK may expose clipboard types but no plain text, so read
+    // it natively instead of trusting `types` (which would drop the paste).
+    if (!nativeClipboard) return;
+    event.preventDefault();
+    void pasteFromClipboard();
+  }
+
+  async function pasteFromClipboard() {
+    let content: ClipboardContent;
+    try {
+      content = await readClipboard(settings().pasteAsFileChars);
+    } catch {
+      notify("Couldn't read the clipboard", "warning");
+      return;
+    }
+    if (content.file) {
+      addStoredFiles([content.file]);
+      return;
+    }
+    if (content.text) {
+      await insertAtCaret(content.text);
+      return;
+    }
+    if (content.image) {
+      const file = await pngFile(content.image.pngBase64);
+      if (file) addFiles([file]);
+    }
+  }
+
+  async function insertAtCaret(text: string) {
+    const target = element;
+    if (!target) return;
+    const start = target.selectionStart ?? value.length;
+    const end = target.selectionEnd ?? start;
+    value = value.slice(0, start) + text + value.slice(end);
+    await tick();
+    const caret = start + text.length;
+    target.setSelectionRange(caret, caret);
+    fit(target);
+  }
+
+  async function pngFile(pngBase64: string): Promise<File | null> {
+    try {
+      const blob = await (await fetch(`data:image/png;base64,${pngBase64}`)).blob();
+      return new File([blob], `pasted-${Date.now()}.png`, { type: "image/png" });
+    } catch {
+      return null;
+    }
+  }
+
+  // The layer surface can't parent the chooser on Wayland, so the portal-backed
+  // picker is used instead of an <input type=file>.
   async function pick() {
-    dialogOpen = true;
     await setSuppressHide(true);
-    fileInput?.click();
-  }
-
-  function onPicked() {
-    dialogOpen = false;
-    void setSuppressHide(false);
-    if (fileInput?.files?.length) addFiles(fileInput.files);
-    if (fileInput) fileInput.value = "";
-  }
-
-  // WebKitGTK may not fire `cancel`; the panel regains focus once the chooser
-  // closes, so restore the layer then too.
-  $effect(() => {
-    const restore = () => {
-      if (!dialogOpen) return;
-      dialogOpen = false;
+    try {
+      const selected = await open({ multiple: true, title: "Attach files" });
+      const paths = !selected ? [] : Array.isArray(selected) ? selected : [selected];
+      if (paths.length > 0) addStoredFiles(await importPaths(paths));
+    } catch {
+      notify("Couldn't open the file picker", "warning");
+    } finally {
       void setSuppressHide(false);
-    };
-    window.addEventListener("focus", restore);
-    return () => window.removeEventListener("focus", restore);
-  });
+    }
+  }
 </script>
 
 <div
@@ -127,7 +191,7 @@
     <div class="chips">
       {#each pending() as file (file.id)}
         <span class="chip">
-          {#if file.mime.startsWith("image/")}
+          {#if file.mime.startsWith("image/") && file.dataUrl}
             <img src={file.dataUrl} alt="" />
           {:else}
             <Icon name="attach" size={12} />
@@ -160,8 +224,6 @@
     ></textarea>
     <span class="enter" class:dim={!value.trim()}><Kbd binding="Enter" /></span>
   </div>
-
-  <input bind:this={fileInput} class="hidden" type="file" multiple onchange={onPicked} oncancel={onPicked} />
 </div>
 
 <style>
@@ -283,9 +345,5 @@
 
   .enter.dim {
     opacity: 0.4;
-  }
-
-  .hidden {
-    display: none;
   }
 </style>

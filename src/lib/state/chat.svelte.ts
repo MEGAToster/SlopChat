@@ -29,7 +29,15 @@ export async function submit(text: string, options: SendOptions): Promise<boolea
 
   const saved: NewAttachment[] = [];
   for (const item of attachments) {
-    const stored = await saveAttachment(item.name, item.mime, base64Of(item.dataUrl));
+    if (item.stored) {
+      saved.push({
+        id: item.stored.id,
+        path: item.stored.path,
+        mime: item.stored.mime ?? item.mime,
+      });
+      continue;
+    }
+    const stored = await saveAttachment(item.name, item.mime, base64Of(item.dataUrl ?? ""));
     saved.push({ id: stored.id, path: stored.path, mime: stored.mime ?? item.mime });
   }
 

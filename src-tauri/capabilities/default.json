@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Core permissions for the SlopChat panel",
   "windows": ["main-panel"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

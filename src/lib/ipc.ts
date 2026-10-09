@@ -11,10 +11,12 @@ import type {
   FontSettings,
   ModelConfig,
   NewMessage,
+  PlatformInfo,
   Profile,
   ProviderModel,
   ReadingWidth,
   ReasoningInfo,
+  SavedFile,
   SearchProviderUsage,
   SendRequest,
   Settings,
@@ -233,8 +235,16 @@ export function setSuppressHide(value: boolean): Promise<void> {
   return invoke("set_suppress_hide", { value });
 }
 
-export function readClipboard(): Promise<ClipboardContent> {
-  return invoke("read_clipboard");
+export function readClipboard(limit: number): Promise<ClipboardContent> {
+  return invoke("read_clipboard", { limit });
+}
+
+export function importPaths(paths: string[]): Promise<SavedFile[]> {
+  return invoke("import_paths", { paths });
+}
+
+export function platformInfo(): Promise<PlatformInfo> {
+  return invoke("platform_info");
 }
 
 export function searchUsage(): Promise<SearchProviderUsage[]> {

@@ -79,8 +79,11 @@ pub fn list(conn: &Connection, chat_id: &str) -> Result<Vec<Message>, String> {
             .map_err(db_err)?
     };
 
+    let mut grouped = super::attachments::list_for_chat(conn, chat_id)?;
     for message in &mut messages {
-        message.attachments = super::attachments::list_for_message(conn, &message.id)?;
+        if let Some(attachments) = grouped.remove(&message.id) {
+            message.attachments = attachments;
+        }
     }
 
     Ok(messages)

@@ -76,10 +76,15 @@ registration is not surfaced on Wayland (`platform::is_wayland`), since it is ex
 
 ## Input quirks
 
-- WebKitGTK does not bridge the system clipboard into the DOM `clipboardData`, so paste
-  is read through a native command (`src-tauri/src/clipboard.rs`, `arboard`) when the
-  paste event carries no text. Text is inserted at the caret; a pasted image becomes an
-  attachment.
+- WebKitGTK does not bridge the system clipboard into the DOM `clipboardData`, so the
+  composer always reads it through a native command (`src-tauri/src/clipboard.rs`,
+  `arboard`) when the paste event carries no plain text. Text is inserted at the caret; a
+  pasted image becomes an attachment. A paste that reaches the `paste_as_file_chars`
+  threshold is written straight to the attachments directory in Rust and only its metadata
+  crosses IPC, so a very large clipboard never stalls or crashes the webview.
+- File attachments use the native portal-backed picker (`tauri-plugin-dialog`) rather than
+  an `<input type=file>`, because a GTK chooser parented to the layer surface cannot take
+  focus on Wayland. The panel still drops its layer/keyboard grab while the picker is open.
 - WebKitGTK reports Shift+Tab as `event.key === "Unidentified"`; `keymap/parse.ts` falls
   back to `event.code`/`keyCode` so the profile keybind still matches.
 - Native `<select>` controls pick up the GTK theme; `styles/base.css` disables the native
@@ -90,7 +95,9 @@ registration is not surfaced on Wayland (`platform::is_wayland`), since it is ex
 `scripts/install.sh` builds from source and installs `~/.local/bin/slopchat` plus a desktop
 entry. Fedora dependencies: `webkit2gtk4.1-devel`, `libsoup3-devel`, `librsvg2-devel`,
 `libayatana-appindicator-gtk3-devel`, `gtk-layer-shell-devel`, `patchelf`. Runtime:
-`libayatana-appindicator-gtk3` (tray) and `gtk-layer-shell` (overlay layer).
+`libayatana-appindicator-gtk3` (tray), `gtk-layer-shell` (overlay layer) and
+`xdg-desktop-portal` (the file picker uses the portal so it is not parented to the layer
+surface).
 
 [`.github/workflows/linux.yml`](../.github/workflows/linux.yml) runs clippy, tests and a
 build on `ubuntu-latest`.

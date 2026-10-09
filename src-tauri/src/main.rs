@@ -27,6 +27,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             cli::run(app, &argv);
         }))
+        .plugin(tauri_plugin_dialog::init())
         .manage(panel::Sticky::default())
         .manage(panel::PanelState::default())
         .manage(Streams::default())
@@ -73,7 +74,9 @@ fn main() {
             commands::rewind_to,
             commands::search_chats,
             commands::set_suppress_hide,
+            commands::platform_info,
             commands::read_clipboard,
+            commands::import_paths,
             commands::save_attachment,
             commands::read_attachment,
             commands::list_models,

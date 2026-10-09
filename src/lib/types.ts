@@ -208,6 +208,15 @@ export type Attachment = {
   mime: string | null;
 };
 
+// A file already written to the attachments directory by the backend.
+export type SavedFile = {
+  id: string;
+  path: string;
+  mime: string;
+  name: string;
+  size: number;
+};
+
 export type NewAttachment = {
   id: string;
   path: string;
@@ -313,4 +322,10 @@ export type ApiKeyStatus = "ok" | "rejected" | "unreachable";
 export type ClipboardContent = {
   text: string | null;
   image: { pngBase64: string } | null;
+  file: SavedFile | null;
+};
+
+export type PlatformInfo = {
+  linux: boolean;
+  wayland: boolean;
 };

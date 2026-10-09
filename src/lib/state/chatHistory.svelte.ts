@@ -49,7 +49,7 @@ export async function openChat(chatId: string): Promise<void> {
   chatState.activeChatId = view.chat.id;
   chatState.messages = view.messages.map(toChatMessage);
   chatState.usage = lastUsageOf(view.messages);
-  await refreshChats();
+  chatState.error = null;
 }
 
 export async function newChat(): Promise<void> {
@@ -59,12 +59,62 @@ export async function newChat(): Promise<void> {
   chatState.usage = null;
 }
 
-export async function prevChat(): Promise<void> {
-  await step(-1);
+// Rapid Up/Down (key repeat) used to launch overlapping loads, each rebuilding
+// the thread and resizing the native layer surface. Coalesce the direction and
+// run one step at a time so bursts become a calm, serial walk.
+let queued = 0;
+let running = false;
+let idle: Promise<void> | null = null;
+let settle: (() => void) | null = null;
+let navigating = false;
+
+// Lets the panel defer native resizes while a burst is in flight (the resize
+// storm is what froze the GTK main loop).
+export function isNavigating(): boolean {
+  return navigating;
 }
 
-export async function nextChat(): Promise<void> {
-  await step(1);
+export function prevChat(): Promise<void> {
+  return request(-1);
+}
+
+export function nextChat(): Promise<void> {
+  return request(1);
+}
+
+function request(direction: number): Promise<void> {
+  queued += direction;
+  if (!idle) {
+    idle = new Promise((resolve) => (settle = resolve));
+  }
+  if (!running) void drain().catch(() => {});
+  return idle;
+}
+
+// A frame between steps gives WebKit a chance to paint each chat and keeps the
+// event loop breathing, so a held key can't build a render backlog.
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+async function drain(): Promise<void> {
+  running = true;
+  navigating = true;
+  try {
+    while (queued !== 0) {
+      const direction = queued;
+      queued = 0;
+      await step(direction > 0 ? 1 : -1);
+      await nextFrame();
+    }
+  } finally {
+    navigating = false;
+    running = false;
+    const done = settle;
+    idle = null;
+    settle = null;
+    done?.();
+  }
 }
 
 export async function pinChat(chatId: string): Promise<void> {

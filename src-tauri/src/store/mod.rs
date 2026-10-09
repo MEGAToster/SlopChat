@@ -54,7 +54,10 @@ impl Store {
     }
 
     pub(crate) fn conn(&self) -> MutexGuard<'_, Connection> {
-        self.conn.lock().expect("store lock poisoned")
+        // Recover from a poisoned lock rather than panicking every later call.
+        self.conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
