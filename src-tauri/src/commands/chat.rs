@@ -1,6 +1,7 @@
 use tauri::{AppHandle, Manager, State};
 
 use crate::config::ConfigState;
+use crate::store::attachments::{self, SavedFile};
 use crate::store::{chats, messages, search, Attachment, Chat, ChatView, Message, NewMessage, Store};
 
 #[tauri::command(async)]
@@ -85,4 +86,22 @@ pub fn save_attachment(name: String, mime: String, data: String) -> Result<Attac
 #[tauri::command(async)]
 pub fn read_attachment(path: String) -> Result<String, String> {
     crate::store::attachments::read(&path)
+}
+
+#[tauri::command(async)]
+pub fn import_paths(paths: Vec<String>) -> Result<Vec<SavedFile>, String> {
+    let mut files = Vec::new();
+    let mut last_error = None;
+    for path in paths {
+        match attachments::import(std::path::Path::new(&path)) {
+            Ok(file) => files.push(file),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    if files.is_empty() {
+        if let Some(error) = last_error {
+            return Err(error);
+        }
+    }
+    Ok(files)
 }

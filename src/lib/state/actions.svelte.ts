@@ -5,7 +5,7 @@ import { toggleSticky } from "../ipc";
 import type { Action } from "../keymap/dispatch";
 import { regenerate, stop, submit } from "./chat.svelte";
 import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
-import { chatState, cycleWeb, lastUserMessage, reportError, webOverride } from "./chatStore.svelte";
+import { chatState, cycleWeb, lastUserMessage, webOverride } from "./chatStore.svelte";
 import { createOverlays, measurePanel } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
 import { openPanel } from "./settingsPanel.svelte";

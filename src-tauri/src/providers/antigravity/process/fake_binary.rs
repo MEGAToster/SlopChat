@@ -2,8 +2,18 @@
     use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
 
+    use tokio::sync::{Mutex, MutexGuard};
+
     use super::*;
     use crate::providers::antigravity::{binary, exec};
+
+    // Every test here writes and then execs a script. A fork in one test can
+    // inherit another test's half-written script while a write is in flight, and
+    // the subsequent exec then fails with ETXTBSY. Serialize the whole module.
+    async fn serial() -> MutexGuard<'static, ()> {
+        static LOCK: Mutex<()> = Mutex::const_new(());
+        LOCK.lock().await
+    }
 
     fn write_script(name: &str, body: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("slopchat-agy-{}-{name}", std::process::id()));
@@ -34,6 +44,7 @@
 
     #[tokio::test]
     async fn reads_a_full_fixture_into_events_and_a_result() {
+        let _serial = serial().await;
         let script = write_script("cat", &format!("#!/bin/sh\ncat '{}'\n", fixture("tool.ndjson")));
         let mut events = Vec::new();
         let result = run(&script, &options("list"), &Cancel::new(), |event| {
@@ -50,6 +61,7 @@
 
     #[tokio::test]
     async fn cancel_kills_the_child() {
+        let _serial = serial().await;
         let pidfile = std::env::temp_dir().join(format!("slopchat-agy-pid-{}", std::process::id()));
         let _ = fs::remove_file(&pidfile);
         let script = write_script(
@@ -86,6 +98,7 @@
 
     #[tokio::test]
     async fn a_stalled_child_times_out() {
+        let _serial = serial().await;
         let script = write_script("stall", "#!/bin/sh\nexec sleep 30\n");
         let mut opts = options("hi");
         opts.timeout = Duration::from_secs(1);
@@ -95,6 +108,7 @@
 
     #[tokio::test]
     async fn authentication_failure_is_reported() {
+        let _serial = serial().await;
         let script = write_script("auth", "#!/bin/sh\necho 'authentication required' >&2\nexit 1\n");
         let result = run(&script, &options("hi"), &Cancel::new(), |_| {}).await;
         assert!(matches!(result, Err(AgyError::NotSignedIn)));
@@ -102,6 +116,7 @@
 
     #[tokio::test]
     async fn writes_one_json_line_and_closes_stdin() {
+        let _serial = serial().await;
         let outfile = std::env::temp_dir().join(format!("slopchat-agy-in-{}", std::process::id()));
         let _ = fs::remove_file(&outfile);
         let script = write_script("stdin", &format!("#!/bin/sh\ncat > '{}'\n", outfile.display()));
@@ -118,6 +133,7 @@
 
     #[tokio::test]
     async fn exec_uses_the_binary_override_and_its_version() {
+        let _serial = serial().await;
         let script = write_script(
             "exec",
             &format!(

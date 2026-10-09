@@ -49,7 +49,6 @@ export async function openChat(chatId: string): Promise<void> {
   chatState.activeChatId = view.chat.id;
   chatState.messages = view.messages.map(toChatMessage);
   chatState.usage = lastUsageOf(view.messages);
-  chatState.error = null;
 }
 
 export async function newChat(): Promise<void> {

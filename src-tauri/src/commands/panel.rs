@@ -43,8 +43,23 @@ pub fn set_suppress_hide(app: AppHandle, value: bool) {
 }
 
 #[tauri::command(async)]
-pub fn read_clipboard() -> Result<crate::clipboard::ClipboardContent, String> {
-    crate::clipboard::read()
+pub fn read_clipboard(limit: usize) -> Result<crate::clipboard::ClipboardContent, String> {
+    crate::clipboard::read(limit)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformInfo {
+    pub linux: bool,
+    pub wayland: bool,
+}
+
+#[tauri::command]
+pub fn platform_info() -> PlatformInfo {
+    PlatformInfo {
+        linux: cfg!(target_os = "linux"),
+        wayland: crate::platform::is_wayland(),
+    }
 }
 
 #[tauri::command(async)]

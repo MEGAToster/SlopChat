@@ -90,6 +90,18 @@ registration is not surfaced on Wayland (`platform::is_wayland`), since it is ex
 - Native `<select>` controls pick up the GTK theme; `styles/base.css` disables the native
   rendering for `select.control` so they follow the app theme.
 
+## Clipboard managers
+
+The panel is an `overlay` layer surface, so a clipboard manager's picker must also use the
+`overlay` layer or it is drawn behind the panel when the two overlap. Most launchers default to
+the `top` layer. Vicinae, for example, needs
+`launcher_window.layer_shell.layer = "overlay"` in its config.
+
+The panel's `Exclusive` keyboard grab does not block the picker: a picker that opens with its
+own keyboard interactivity takes focus and receives keys regardless. Focus does not return to
+the panel automatically when the picker closes (this is the same under `KeyboardMode::OnDemand`),
+so click the panel or re-summon it.
+
 ## Build and install
 
 `scripts/install.sh` builds from source and installs `~/.local/bin/slopchat` plus a desktop

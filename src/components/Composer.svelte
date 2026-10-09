@@ -219,7 +219,7 @@
       placeholder="Ask anything"
       rows="1"
       spellcheck="false"
-      onpaste={paste.onPaste}
+      onpaste={onPaste}
       onfocus={() => onfocus?.()}
     ></textarea>
     <span class="enter" class:dim={!value.trim()}><Kbd binding="Enter" /></span>
