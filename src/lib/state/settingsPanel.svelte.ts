@@ -16,13 +16,20 @@ export function modelId(): string {
 }
 
 // The overlay height resize belongs to overlays (it owns the resize gate), so
-// opening settings routes through overlays.openSettings() to keep the compact
-// height shrinkable on close.
+// opening settings asks the registered handler to grow the panel first — keeping
+// every caller (hotkey, palette, model picker) in sync.
+let requestOverlay: (() => void) | null = null;
+
+export function registerOverlayRequest(handler: (() => void) | null): void {
+  requestOverlay = handler;
+}
+
 export function openPanel(prefill?: { provider?: string; modelId?: string; tag?: string }): void {
   state.provider = prefill?.provider ?? "openrouter";
   state.modelId = prefill?.modelId ?? "";
   state.tag = prefill?.tag ?? "";
   state.open = true;
+  requestOverlay?.();
 }
 
 export function openFromProvider(provider: string, modelRef: string): void {

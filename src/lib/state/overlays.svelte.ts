@@ -14,6 +14,7 @@ import {
   closePanel as settingsPanelClose,
   isOpen as settingsPanelIsOpen,
   openPanel as settingsOpen,
+  registerOverlayRequest,
 } from "./settingsPanel.svelte";
 import {
   compactCap,
@@ -95,6 +96,9 @@ export function measurePanel(): void {
     navGrown = false;
     clearTimeout(navGrowTimer);
     navGrowTimer = undefined;
+    // The walk's growth is content-driven, so its echo history must not suppress
+    // the settle back to the real height.
+    resizeGate.reset();
   }
 
   if (paletteIsOpen() || settingsPanelIsOpen()) {
@@ -106,6 +110,10 @@ export function measurePanel(): void {
 }
 
 export function createOverlays() {
+  registerOverlayRequest(() => {
+    if (!isExpanded()) scheduleResize("overlay", OVERLAY_HEIGHT);
+  });
+
   async function openPalette(): Promise<void> {
     if (!isExpanded()) scheduleResize("overlay", OVERLAY_HEIGHT);
     setContext("palette");
@@ -194,11 +202,9 @@ export function createOverlays() {
     setSidebar(true);
   }
 
-  // Open settings, routing the overlay resize through the gate so the compact
-  // panel can shrink back on close (a raw resizeOverlay would leave the gate
-  // believing the panel is still at its pre-settings height).
+  // The overlay resize happens inside settingsPanel.openPanel via the registered
+  // request, so opening from any caller grows the panel the same way.
   function openSettings(prefill?: { provider?: string; modelId?: string; tag?: string }): void {
-    if (!isExpanded()) scheduleResize("overlay", OVERLAY_HEIGHT);
     settingsOpen(prefill);
   }
 
