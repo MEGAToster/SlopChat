@@ -27,7 +27,7 @@
   } from "./lib/settingsFocus";
   import { createActions } from "./lib/state/actions.svelte";
   import { init as initChat, resumeOnShow } from "./lib/state/chatHistory.svelte";
-  import { isStreaming, messages } from "./lib/state/chatStore.svelte";
+  import { isSending, isStreaming, messages } from "./lib/state/chatStore.svelte";
   import {
     back as paletteBack,
     isOpen as paletteIsOpen,
@@ -211,6 +211,7 @@
       composerEmpty: empty,
       chatHasMessages: messages().length > 0,
       streaming: isStreaming(),
+      sending: isSending(),
       editing: editingId() !== null,
     };
   }

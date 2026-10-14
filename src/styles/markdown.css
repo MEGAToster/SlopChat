@@ -5,6 +5,20 @@
   overflow-wrap: anywhere;
 }
 
+.markdown-plain {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  contain: content;
+}
+
+.markdown-truncated {
+  display: block;
+  margin-top: var(--sp-2);
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+}
+
 .markdown p {
   margin: 0 0 0.6em;
 }

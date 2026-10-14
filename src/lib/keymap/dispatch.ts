@@ -91,6 +91,7 @@ export type KeymapState = {
   composerEmpty: boolean;
   chatHasMessages: boolean;
   streaming: boolean;
+  sending: boolean;
   editing: boolean;
 };
 
@@ -113,6 +114,7 @@ export function resolve(
   if (matchesAny(keybinds.follow, event)) return "follow";
   if (matchesAny(keybinds.focusSidebar, event)) return "focusSidebar";
   if (state.streaming && matchesAny(keybinds.stop, event)) return "stop";
+  if (state.sending && matchesAny(keybinds.stop, event)) return "stop";
   if (matchesAny(keybinds.cycleProfile, event)) return "cycleProfile";
 
   if (context === "composer" || context === "sidebar") {

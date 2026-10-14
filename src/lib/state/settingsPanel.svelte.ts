@@ -1,6 +1,4 @@
-import { resizeOverlay } from "../ipc";
 import { composeModelRef, splitModelRef } from "../modelRef";
-import { isExpanded, OVERLAY_HEIGHT } from "./ui.svelte";
 
 const state = $state({
   open: false,
@@ -17,12 +15,14 @@ export function modelId(): string {
   return state.modelId;
 }
 
+// The overlay height resize belongs to overlays (it owns the resize gate), so
+// opening settings routes through overlays.openSettings() to keep the compact
+// height shrinkable on close.
 export function openPanel(prefill?: { provider?: string; modelId?: string; tag?: string }): void {
   state.provider = prefill?.provider ?? "openrouter";
   state.modelId = prefill?.modelId ?? "";
   state.tag = prefill?.tag ?? "";
   state.open = true;
-  if (!isExpanded()) void resizeOverlay(OVERLAY_HEIGHT);
 }
 
 export function openFromProvider(provider: string, modelRef: string): void {

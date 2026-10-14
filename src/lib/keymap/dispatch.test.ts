@@ -19,6 +19,7 @@ function state(overrides: Partial<KeymapState> = {}): KeymapState {
     composerEmpty: true,
     chatHasMessages: false,
     streaming: false,
+    sending: false,
     editing: false,
     ...overrides,
   };

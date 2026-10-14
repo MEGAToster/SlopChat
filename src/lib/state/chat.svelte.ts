@@ -11,6 +11,15 @@ import { toChatMessage } from "./messages";
 import { replyOutcome } from "./replyOutcome";
 import { run as runStream, stop as stopStream } from "./stream.svelte";
 
+// Set by Stop before the turn owns a stream id, so the setup awaits (chat
+// creation, attachments, history) abort instead of racing ahead to the request.
+let cancelSend = false;
+
+export async function stop(): Promise<void> {
+  cancelSend = true;
+  if (chatState.streamingChatId) await stopStream(chatState.streamingChatId);
+}
+
 export async function submit(text: string, options: SendOptions): Promise<boolean> {
   const content = text.trim();
   const attachments = pending();
@@ -22,7 +31,9 @@ export async function submit(text: string, options: SendOptions): Promise<boolea
   }
   if (!content && attachments.length === 0) return false;
 
+  cancelSend = false;
   const chatId = await ensureChat(options.profileName);
+  if (cancelSend) return false;
   adoptWebDraft(chatId);
   adoptReasoningDraft(chatId);
   adoptModelDraft(chatId);
@@ -38,9 +49,11 @@ export async function submit(text: string, options: SendOptions): Promise<boolea
       continue;
     }
     const stored = await saveAttachment(item.name, item.mime, base64Of(item.dataUrl ?? ""));
+    if (cancelSend) return false;
     saved.push({ id: stored.id, path: stored.path, mime: stored.mime ?? item.mime });
   }
 
+  if (cancelSend) return false;
   const stored = await appendMessage({ chatId, role: "user", content, attachments: saved });
   chatState.messages.push(toChatMessage(stored));
   clearPending();
@@ -64,18 +77,18 @@ export async function regenerate(
   }
   if (!chatState.activeChatId || !content) return false;
 
+  cancelSend = false;
   const chatId = chatState.activeChatId;
   await rewindTo(chatId, messageId, content);
+  if (cancelSend) return false;
   const view = await getChat(chatId);
+  if (cancelSend) return false;
   chatState.messages = view ? view.messages.map(toChatMessage) : [];
   await refreshChats();
+  if (cancelSend) return false;
 
   await streamReply(chatId, options);
   return true;
-}
-
-export async function stop(): Promise<void> {
-  if (chatState.streamingChatId) await stopStream(chatState.streamingChatId);
 }
 
 // Re-answer the last user message with the current profile/model.
@@ -129,6 +142,7 @@ async function messageContent(
 }
 
 async function streamReply(chatId: string, options: SendOptions): Promise<void> {
+  if (cancelSend) return;
   const tempId = `pending-${Date.now()}`;
   chatState.messages.push({
     id: tempId,

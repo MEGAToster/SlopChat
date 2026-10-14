@@ -7,8 +7,7 @@
     messages,
   } from "../lib/state/chatStore.svelte";
   import { settings } from "../lib/state/settings.svelte";
-  import { isExpanded } from "../lib/state/ui.svelte";
-  import { WINDOW_MAX, WINDOW_MIN } from "../lib/window";
+  import { compactCap, isExpanded } from "../lib/state/ui.svelte";
   import { followOutput, view } from "../lib/state/view.svelte";
   import Message from "./Message.svelte";
   import Kbd from "./Kbd.svelte";
@@ -69,7 +68,7 @@
     // Chrome is everything but the transcript, and stays fixed whether or not
     // the transcript is capped, so the cap avoids an uncap-measure reflow.
     const chrome = content.getBoundingClientRect().height - element.getBoundingClientRect().height;
-    const cap = Math.min(WINDOW_MAX, Math.max(WINDOW_MIN, settings().window.compactHeight));
+    const cap = compactCap();
     const budget = cap - chrome;
     element.style.maxHeight =
       element.scrollHeight > budget ? `${Math.max(MIN_TRANSCRIPT, budget)}px` : "";

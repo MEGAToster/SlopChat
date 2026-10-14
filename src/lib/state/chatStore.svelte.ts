@@ -85,6 +85,10 @@ export function isStreaming(): boolean {
   return chatState.streaming;
 }
 
+export function isSending(): boolean {
+  return chatState.sending;
+}
+
 export function isStreamingHere(): boolean {
   return chatState.streaming && chatState.streamingChatId === chatState.activeChatId;
 }

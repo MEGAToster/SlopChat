@@ -29,11 +29,27 @@
 
   onMount(() => void refresh());
 
-  async function refresh(): Promise<void> {
-    stored = await hasApiKey(provider).catch(() => false);
+async function refresh(): Promise<void> {
+  try {
+    stored = await hasApiKey(provider);
+  } catch (cause) {
+    stored = false;
+    error = String(cause);
+  }
+}
+
+  // Persist as the user types: a key must never depend on a blur or a clean
+  // unmount that a settings close, remount, or focus change can skip.
+  const SAVE_DEBOUNCE_MS = 500;
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function scheduleSave(): void {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => void save(), SAVE_DEBOUNCE_MS);
   }
 
   async function save(): Promise<void> {
+    clearTimeout(saveTimer);
     if (!key.trim() || busy) return;
     busy = true;
     error = null;
@@ -71,7 +87,10 @@
       type="password"
       placeholder={stored ? "•••••• saved" : placeholder}
       bind:value={key}
-      oninput={() => (error = null)}
+      oninput={() => {
+        error = null;
+        scheduleSave();
+      }}
       onblur={() => void save()}
       onkeydown={(event) => event.key === "Enter" && event.currentTarget.blur()}
     />

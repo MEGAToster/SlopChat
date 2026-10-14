@@ -8,7 +8,6 @@ import { nextChat, pinChat, prevChat } from "./chatHistory.svelte";
 import { chatState, cycleWeb, lastUserMessage, webOverride } from "./chatStore.svelte";
 import { createOverlays, measurePanel } from "./overlays.svelte";
 import { activate as paletteActivate } from "./palette.svelte";
-import { openPanel } from "./settingsPanel.svelte";
 import { followOutput } from "./view.svelte";
 import { zoom } from "./zoom";
 import { cycleReasoningFor } from "./reasoning.svelte";
@@ -169,7 +168,7 @@ export function createActions(text: TextRef) {
         break;
       }
       case "settings":
-        openPanel();
+        overlays.openSettings();
         break;
       case "models":
         void overlays.openModels();

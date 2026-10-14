@@ -45,6 +45,14 @@ function isDocument(text: string): boolean {
   return /\\(documentclass|usepackage|begin\{document\}|end\{document\})/.test(text);
 }
 
+// Markdown parsing degrades sharply above a few hundred KB (the math tokenizers
+// especially), blocking the main thread long enough for WebKit's hang watchdog to
+// abort the whole web process. Show oversized content as plain text instead.
+const MAX_MARKDOWN_CHARS = 100_000;
+// A multi-megabyte text node is unusable and re-lays-out on every panel resize,
+// so only the head is rendered.
+const MAX_PLAIN_CHARS = 50_000;
+
 // A fence that mixes prose with \(...\)/\[...\]/$...$ math isn't one expression.
 function hasMathDelimiters(text: string): boolean {
   return /\\[(\[]|\${1,2}/.test(text);
@@ -71,11 +79,13 @@ function stripMathDelimiters(text: string): string {
     .trim();
 }
 
+// Bounded so a huge or unterminated delimiter can't make the lexer scan the whole
+// document at every position (the source of the superlinear blow-up).
 const marked = new Marked(
-  mathExtension("blockMath", true, /^\$\$([\s\S]+?)\$\$/, "$$"),
-  mathExtension("inlineMath", false, /^\$(?!\s)((?:\\.|[^$\\])+?)(?<!\s)\$/, "$"),
-  mathExtension("blockBracket", true, /^\\\[([\s\S]+?)\\\]/, "\\["),
-  mathExtension("inlineParen", false, /^\\\(([\s\S]+?)\\\)/, "\\("),
+  mathExtension("blockMath", true, /^\$\$([\s\S]{1,5000}?)\$\$/, "$$"),
+  mathExtension("inlineMath", false, /^\$(?!\s)((?:\\.|[^$\\\n])+?)(?<!\s)\$/, "$"),
+  mathExtension("blockBracket", true, /^\\\[([\s\S]{1,5000}?)\\\]/, "\\["),
+  mathExtension("inlineParen", false, /^\\\(([^\n]+?)\\\)/, "\\("),
   {
     gfm: true,
     breaks: true,
@@ -136,6 +146,12 @@ const marked = new Marked(
 );
 
 export function renderMarkdown(source: string): string {
+  if (source.length > MAX_MARKDOWN_CHARS) {
+    const shown = escapeHtml(source.slice(0, MAX_PLAIN_CHARS));
+    const hidden = source.length - MAX_PLAIN_CHARS;
+    const note = `<span class="markdown-truncated">… ${hidden.toLocaleString()} more characters</span>`;
+    return `<div class="markdown-plain">${shown}${note}</div>`;
+  }
   const html = marked.parse(stripControlTokens(source), { async: false }) as string;
   return DOMPurify.sanitize(html);
 }

@@ -1,4 +1,5 @@
 import { groupChats, type ChatGroup } from "../chatGroups";
+import { WINDOW_MAX, WINDOW_MIN } from "../window";
 import { setChatModel, setChatProfile, setPanelExpanded } from "../ipc";
 import type { Context } from "../keymap/dispatch";
 import type { Chat, ModelConfig, Profile } from "../types";
@@ -15,6 +16,11 @@ export type { ChatGroup };
 type PanelMode = "compact" | "expanded";
 
 export const OVERLAY_HEIGHT = 480;
+
+// Ceiling a compact thread grows to before the transcript scrolls.
+export function compactCap(): number {
+  return Math.min(WINDOW_MAX, Math.max(WINDOW_MIN, settings().window.compactHeight));
+}
 
 const store = $state({
   mode: "compact" as PanelMode,

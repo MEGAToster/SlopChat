@@ -13,8 +13,10 @@ import {
 import {
   closePanel as settingsPanelClose,
   isOpen as settingsPanelIsOpen,
+  openPanel as settingsOpen,
 } from "./settingsPanel.svelte";
 import {
+  compactCap,
   endEdit,
   isExpanded,
   OVERLAY_HEIGHT,
@@ -61,9 +63,40 @@ function flushResize(): void {
   });
 }
 
+// Mid-walk the panel used to stay frozen at the pre-walk height, so a taller chat
+// clipped the composer. A sustained walk instead grows once to the compact ceiling
+// (which any chat fits) and settles back to the real height when it ends.
+const NAV_GROW_DELAY_MS = 120;
+let navGrown = false;
+let navGrowTimer: ReturnType<typeof setTimeout> | undefined;
+
+function resizeNow(mode: ResizeMode, height: number): void {
+  if (!resizeGate.accept(mode, height)) return;
+  pending = { mode, height };
+  clearTimeout(flushTimer);
+  flushResize();
+}
+
 export function measurePanel(): void {
-  // Defer while a history walk is in flight; the settled call re-measures once.
-  if (isNavigating() || isExpanded()) return;
+  if (isExpanded()) return;
+
+  if (isNavigating()) {
+    if (!navGrown) {
+      navGrown = true;
+      navGrowTimer = setTimeout(() => {
+        navGrowTimer = undefined;
+        resizeNow("panel", compactCap());
+      }, NAV_GROW_DELAY_MS);
+    }
+    return;
+  }
+
+  if (navGrown) {
+    navGrown = false;
+    clearTimeout(navGrowTimer);
+    navGrowTimer = undefined;
+  }
+
   if (paletteIsOpen() || settingsPanelIsOpen()) {
     scheduleResize("overlay", OVERLAY_HEIGHT);
     return;
@@ -109,6 +142,11 @@ export function createOverlays() {
   }
 
   function closeSettings(): void {
+    // API-key and SearXNG URL fields persist on blur; a keyboard close (Escape)
+    // unmounts the panel without a blur, silently dropping the edit. Commit the
+    // focused field first.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest(".settings") !== null) active.blur();
     settingsPanelClose();
     restoreComposerFocus();
   }
@@ -156,9 +194,18 @@ export function createOverlays() {
     setSidebar(true);
   }
 
+  // Open settings, routing the overlay resize through the gate so the compact
+  // panel can shrink back on close (a raw resizeOverlay would leave the gate
+  // believing the panel is still at its pre-settings height).
+  function openSettings(prefill?: { provider?: string; modelId?: string; tag?: string }): void {
+    if (!isExpanded()) scheduleResize("overlay", OVERLAY_HEIGHT);
+    settingsOpen(prefill);
+  }
+
   return {
     openPalette,
     openModels,
+    openSettings,
     closePalette,
     closeSettings,
     closeFilter,
